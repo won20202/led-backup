@@ -26,7 +26,7 @@ function setupLogin() {
   $('adm-close').addEventListener('click', refreshLoginUI); // 관리자에서 바꾸고 닫으면 즉시 반영
 
   try {
-    const last = localStorage.getItem('lps_last_sid');
+    const last = localStorage.getItem('lpsb_last_sid');
     if (last) $('login-sid').value = last;
   } catch (e) { /* ignore */ }
 
@@ -77,7 +77,7 @@ function setupLogin() {
       $('login-err').textContent = `학번을 다시 확인해 보세요. (기본 명단: ${config.grade}학년 1~${config.banCount}반, 1~${config.numCount}번)`;
       return;
     }
-    localStorage.setItem('lps_last_sid', sid);
+    localStorage.setItem('lpsb_last_sid', sid);
     await login(ban, num, p.grade); // 서버 작업을 받아온 뒤 화면을 연다
     sheetLog('접속', '');
     $('student-badge').textContent = `${p.grade}학년 ${ban}반 ${num}번`;

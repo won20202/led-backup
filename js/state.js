@@ -125,8 +125,9 @@ export const DEFAULT_CONFIG = {
   faq: DEFAULT_FAQ,
 };
 
-const CONFIG_KEY = 'lps_config3'; // v3: 현실 물리 모델로 교체하며 키 갱신
-const MISS_KEY = 'lps_faq_miss';
+// 백업 사이트 전용 접두사(lpsb_) — 본 사이트(lps_)와 브라우저 저장소를 공유하지 않게 분리
+const CONFIG_KEY = 'lpsb_config3';
+const MISS_KEY = 'lpsb_faq_miss';
 
 export let config = loadConfig();
 
@@ -352,7 +353,7 @@ export let student = null;   // {ban, num}
 export let work = blankWork();
 export let readOnly = false; // 관리자가 학생 작업을 열람할 때
 
-export function studentKey(s) { return `lps_work_${s.grade || config.grade}-${s.ban}-${s.num}`; }
+export function studentKey(s) { return `lpsb_work_${s.grade || config.grade}-${s.ban}-${s.num}`; }
 export function studentId(s) { return `${s.grade || config.grade}-${s.ban}-${s.num}`; }
 
 // work 객체는 교체하지 않고 내용만 바꾼다 (모듈들이 참조를 캡처하고 있음)
@@ -363,8 +364,7 @@ function replaceWork(w) {
 
 export async function login(ban, num, grade) {
   student = { grade: grade || config.grade, ban, num };
-  const raw = localStorage.getItem(studentKey(student)) ||
-    (student.grade === config.grade ? localStorage.getItem(`lps_work_${ban}-${num}`) : null); // 옛 키 호환
+  const raw = localStorage.getItem(studentKey(student));
   let saved = null;
   if (raw) { try { saved = JSON.parse(raw); } catch (e) { /* ignore */ } }
   replaceWork(saved);

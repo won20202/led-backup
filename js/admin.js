@@ -490,12 +490,12 @@ function localWorks() {
   const out = [];
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
-    // 현재 키: lps_work_학년-반-번호, 옛 키: lps_work_반-번호
-    const m = k && k.match(/^lps_work_(?:(\d+)-)?(\d+)-(\d+)$/);
+    // 백업 사이트 전용 키: lpsb_work_학년-반-번호
+    const m = k && k.match(/^lpsb_work_(?:(\d+)-)?(\d+)-(\d+)$/);
     if (m) {
       try {
         const w = JSON.parse(localStorage.getItem(k));
-        out.push({ grade: m[1] ? +m[1] : null, ban: +m[2], num: +m[3], id: k.slice('lps_work_'.length), updated: w.updatedAt, w });
+        out.push({ grade: m[1] ? +m[1] : null, ban: +m[2], num: +m[3], id: k.slice('lpsb_work_'.length), updated: w.updatedAt, w });
       } catch (e) { /* ignore */ }
     }
   }
@@ -731,7 +731,7 @@ function activityBadge(updatedAt) {
 }
 
 // 오늘의 출결 표시 (이 기기 저장 + 구글 시트 기록)
-function attKey() { return 'lps_att_' + new Date().toISOString().slice(0, 10); }
+function attKey() { return 'lpsb_att_' + new Date().toISOString().slice(0, 10); }
 function getAtt() { try { return JSON.parse(localStorage.getItem(attKey()) || '{}'); } catch (e) { return {}; } }
 
 async function loadBanBoard(ban) {
@@ -838,7 +838,7 @@ function bindOpenButtons(scope) {
     const id = b.dataset.id.split(':').slice(1).join(':');
     let w = null;
     if (kind === 'local') {
-      try { w = JSON.parse(localStorage.getItem('lps_work_' + id)); } catch (e) { /* ignore */ }
+      try { w = JSON.parse(localStorage.getItem('lpsb_work_' + id)); } catch (e) { /* ignore */ }
     } else {
       b.textContent = '…';
       try { w = await cloudGet(id); } catch (e) { alert('불러오기 실패: ' + e.message); }
@@ -867,7 +867,7 @@ function bindDelButtons(scope) {
     const kind = b.dataset.id.split(':')[0];
     const id = b.dataset.id.split(':').slice(1).join(':');
     if (!confirm(`${id} 작업을 삭제(초기화)할까요? 되돌릴 수 없습니다.`)) return;
-    if (kind === 'local') localStorage.removeItem('lps_work_' + id);
+    if (kind === 'local') localStorage.removeItem('lpsb_work_' + id);
     else {
       try { await cloudDelete(id); } catch (e) { alert('삭제 실패: ' + e.message); return; }
     }
@@ -1058,7 +1058,7 @@ export function initAdmin() {
     const keys = [];
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
-      if (k && k.startsWith('lps_work_')) keys.push(k);
+      if (k && k.startsWith('lpsb_work_')) keys.push(k);
     }
     if (!keys.length) { alert('이 기기에 저장된 학생 작업이 없습니다.'); return; }
     if (!confirm(`이 기기에 저장된 학생 작업 ${keys.length}건을 모두 지울까요?\n(서버에 저장된 작업은 지워지지 않습니다. 학기 말·기기 정리용)`)) return;
