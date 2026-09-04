@@ -117,9 +117,10 @@ export const DEFAULT_CONFIG = {
     { start: '15:10', end: '15:55' },
   ],
   adminPin: '2026',
-  // 학교 공용 Supabase (publishable key — 브라우저 공개용으로 설계된 키라 코드에 넣어도 안전)
-  supabaseUrl: 'https://gakrtbuicpruxjaqalec.supabase.co',
-  supabaseKey: 'sb_publishable_Y6T-PsFY5WPq-w7dZ2IQMA_COG6dOYI',
+  // 백업 사이트 전용 Supabase (유료 계정) — 본 사이트(led)와 별도 서버.
+  // publishable key는 브라우저 공개용으로 설계된 키라 코드에 넣어도 안전
+  supabaseUrl: 'https://ojppryqhzphgpsrutncf.supabase.co',
+  supabaseKey: 'sb_publishable_0kQnMhE0qJLzsdnMOJhcOg_HojpKmbz',
   sheetUrl: '',             // Google Apps Script 웹 앱 URL — 설정하면 학생 활동·피드백이 시트에 기록됨
   faq: DEFAULT_FAQ,
 };
