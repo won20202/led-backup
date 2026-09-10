@@ -89,6 +89,7 @@ function collectSettings() {
     else if (el.type === 'number') config[k] = parseFloat(el.value) || DEFAULT_CONFIG[k];
     else config[k] = el.value;
   });
+  // 관리자 모드에서 직접 수정한 Apps Script 코드를 설정에 반영
   if ($('adm-gas')) {
     config.customGasScript = $('adm-gas').value;
   }
@@ -111,6 +112,7 @@ function collectPeriods() {
       end: r.querySelector('.ec-pe').value || '09:45',
     }));
 }
+// 시간표 편집 대상: 'base'(기본) 또는 주 시작(월요일) 날짜 키
 let entrySel = { kind: 'week', off: 0 };
 function entryWeekKey() {
   const d = new Date();
@@ -441,6 +443,7 @@ function collectMats() {
   saveConfig();
 }
 
+// ---- 조립 순서 팁·안전 문구 편집 (기본 문구 위에 덮어쓰기) ----
 const ORDER_LABELS = {
   cut: '우드락 재단', dryfit: '가조립', front: '앞면 가공', wire: '회로 연결(테이프·LED)',
   lightcheck: '점등 확인', glue5: '5면 조립', battery: '홀더 — 전선 피복 벗기기',
@@ -1101,16 +1104,9 @@ export function initAdmin() {
     renderSettings(); renderEntry(); renderRubric(); renderFaqEditor(); renderMatEditor(); renderOrderTextEditor(); renderMisses(); renderWorks();
     renderRosterSummary(); renderGroups();
     
-    // Apps Script 코드 상자 초기화 및 버튼 제어 연결
-    const gasArea = $('adm-gas');
-    const editBtn = $('adm-gas-edit');
-    const saveBtn = $('adm-gas-save');
-    
-    if (gasArea) {
-      gasArea.value = config.customGasScript || DEFAULT_APPS_SCRIPT;
-      gasArea.readOnly = true;
-      if (editBtn) editBtn.style.display = '';
-      if (saveBtn) saveBtn.style.display = 'none';
+    // Apps Script 코드 상자 채우기 (이제 readonly가 아니므로 상자를 누르면 바로 수정 가능)
+    if ($('adm-gas')) {
+      $('adm-gas').value = config.customGasScript || DEFAULT_APPS_SCRIPT;
     }
 
     $('adm-roster-template').addEventListener('click', rosterTemplate);
@@ -1145,31 +1141,6 @@ export function initAdmin() {
     }, 20000);
   });
   $('adm-pin').addEventListener('keydown', e => { if (e.key === 'Enter') $('adm-pin-btn').click(); });
-
-  // [수정하기] 버튼 이벤트 리스너 추가
-  const editBtn = $('adm-gas-edit');
-  const saveBtn = $('adm-gas-save');
-  const gasArea = $('adm-gas');
-
-  if (editBtn && gasArea && saveBtn) {
-    editBtn.onclick = () => {
-      gasArea.readOnly = false;
-      gasArea.style.background = '#ffffff';
-      gasArea.focus();
-      editBtn.style.display = 'none';
-      saveBtn.style.display = '';
-    };
-
-    saveBtn.onclick = () => {
-      gasArea.readOnly = true;
-      gasArea.style.background = '#f8f9fa';
-      config.customGasScript = gasArea.value;
-      saveConfig();
-      saveBtn.style.display = 'none';
-      editBtn.style.display = '';
-      alert('스위치 및 스크립트 수정 내용이 저장되었습니다. [설정 저장]을 눌러 완전히 반영하세요.');
-    };
-  }
 
   $('adm-save').addEventListener('click', async () => {
     collectSettings(); collectRubric(); collectFaq(); collectMats(); collectOrderTexts();
