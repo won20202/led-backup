@@ -20,7 +20,6 @@ export const DEFAULT_FAQ = [
   { q: 'AI를 써도 되나요?', k: 'AI 인공지능 챗봇 사용', a: '본 수행평가에서는 생성형 인공지능(AI) 도구를 사용하지 않습니다. 이 시뮬레이터는 계산이나 정답을 대신해 주지 않으며, 여러분이 정한 값의 결과만 보여줍니다.', tab: 'all' },
 ];
 
-// 평가 기준: 영역 수·조건 수·배점 간격 모두 해마다 바뀔 수 있으므로 전부 편집 가능한 데이터로 둔다.
 export const DEFAULT_RUBRIC = [
   {
     name: '제조 기술 내용 이해도', note: '',
@@ -63,9 +62,6 @@ export const DEFAULT_CONFIG = {
   showTarget: false,        // 완성 목표 치수 화면 표시 (기본 숨김)
   boardW: 45, boardH: 30,   // 우드락 판 (600×900 판을 4등분 = 450×300mm)
   ledCount: 8, voltage: 3.0, imax: 200,
-  // 회로 모델: 백색 LED를 문턱 전압 + 동저항으로 근사 — 현실과 같은 결론이 나온다.
-  // 1.5V→안 켜짐 / 3V 1개→정상(약 20mA) / 3V 직렬2→소등 / 4.5V 직렬2→희미 / 6V 직렬2→정상
-  // 저항 없이 4.5V 이상 직결→과전류(수명 급감)→타버림. I = (Vs − k·Vth) / (Rint + k·Rd + R외부)
   vf: 2.2,      // LED 문턱 전압 Vth (V)
   ledRd: 30,    // LED 동저항 (Ω)
   rint: 10,     // 전지·테이프 내부저항 (Ω)
@@ -80,7 +76,6 @@ export const DEFAULT_CONFIG = {
   dLetters: 2,      // 도안 글자 수 (한 글자씩 배치)
   dDrawing: true,   // 그림 포함 여부
   dFree: false,     // 자유 모드: 글자 수·크기 조건 없음, 글자 추가 자유
-  // 도움말의 재료·도구 카드 — 관리자에서 문구 수정 가능
   materials: [
     { n: '우드락', c: '#f0e3c0', f: ['스티로폼을 얇게 눌러 만든 판 — 가볍고 부드러워요', '커터칼로 쉽게 잘리지만, 열과 힘에는 약해요'], t: '자를 꽉 대고 한 번에 집중해서 그어야 단면이 깔끔!' },
     { n: 'LED (발광 다이오드)', c: '#fff3b0', f: ['전기를 빛으로 바꾸는 부품', '한쪽 방향으로만 전류가 흘러요 — 긴 다리가 (+), 짧은 다리가 (−)'], t: '긴 다리에 매직으로 표시한 뒤 180도로 펼쳐 눕혀요.' },
@@ -103,13 +98,9 @@ export const DEFAULT_CONFIG = {
   extraSids: '',      // 전입생 등 추가 학번 — 번호 범위 밖이어도 입장 허용
   roster: {},         // 명단(학적): { "20321": "재학" } — CSV 일괄 등록. 비어 있으면 검사 안 함
   groups: {},         // 섞인 반(그룹 수업) 명단: { "메이커반": ["10821","20321"] }
-  // 입장 방식: none(코드 없음) | fixed(고정 코드) | daily(매일 바뀜) | session(수업 코드: 반·교시 지정)
   entryMode: 'none',
   classCode: '',            // fixed 모드에서 쓰는 고정 코드
-  // 주간 시간표: 요일(1=월~5=금)별 교시 칸에 수업명. "7", "2-7"(학년-반)뿐 아니라
-  // "메이커반", "동아리A"처럼 학년·반이 섞인 그룹 수업명도 된다.
   timetable: { 1: [], 2: [], 3: [], 4: [], 5: [] },
-  // 특정 주만 시간표가 다를 때: { '2026-09-21'(그 주 월요일): {1:[..],..} }. 다음 주엔 자동으로 기본으로.
   weekOverrides: {},
   periods: [                // 교시 시간표 (session 모드용, 관리자가 수정)
     { start: '09:00', end: '09:45' }, { start: '09:55', end: '10:40' },
@@ -118,14 +109,13 @@ export const DEFAULT_CONFIG = {
     { start: '15:10', end: '15:55' },
   ],
   adminPin: '2026',
-  // 학교 공용 Supabase (publishable key — 브라우저 공개용으로 설계된 키라 코드에 넣어도 안전)
   supabaseUrl: 'https://gakrtbuicpruxjaqalec.supabase.co',
   supabaseKey: 'sb_publishable_Y6T-PsFY5WPq-w7dZ2IQMA_COG6dOYI',
-  sheetUrl: '',             // Google Apps Script 웹 앱 URL — 설정하면 학생 활동·피드백이 시트에 기록됨
+  sheetUrl: '',             // Google Apps Script 웹 앱 URL
   faq: DEFAULT_FAQ,
 };
 
-const CONFIG_KEY = 'lps_config3'; // v3: 현실 물리 모델로 교체하며 키 갱신
+const CONFIG_KEY = 'lps_config3';
 const MISS_KEY = 'lps_faq_miss';
 
 export let config = loadConfig();
@@ -135,9 +125,7 @@ function loadConfig() {
     const raw = localStorage.getItem(CONFIG_KEY);
     if (raw) {
       const c = { ...DEFAULT_CONFIG, ...JSON.parse(raw) };
-      // 옛 설정 이관: dailyCode/classCode → entryMode
       if (!c.entryMode) c.entryMode = c.dailyCode ? 'daily' : (c.classCode ? 'fixed' : 'none');
-      // 옛 설정에 서버 주소가 비어 있으면 내장 기본 서버로 연결
       if (!c.supabaseUrl || !c.supabaseKey) {
         c.supabaseUrl = DEFAULT_CONFIG.supabaseUrl;
         c.supabaseKey = DEFAULT_CONFIG.supabaseKey;
@@ -148,30 +136,24 @@ function loadConfig() {
   return { ...DEFAULT_CONFIG };
 }
 export function saveConfig() {
-  config._cfgAt = Date.now(); // 어느 설정이 더 최신인지 비교용 (파일·서버 배포와 충돌 방지)
+  config._cfgAt = Date.now();
   localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
 }
 
-// ---- 수업 설정 파일 배포 (GitHub 저장소의 class-config.json) ----
-// 서버 없이도 동작: 관리자가 내려받은 설정 파일을 저장소에 올려 두면
-// 학생 앱이 시작할 때 읽어 적용한다. 로컬 설정이 더 최신이면 덮지 않는다.
 export async function fileConfigPull() {
   try {
     const res = await fetch('class-config.json', { cache: 'no-store' });
     if (!res.ok) return false;
     const pub = await res.json();
     if (!pub || typeof pub !== 'object' || !Object.keys(pub).length) return false;
-    delete pub.adminPin; // 공개 저장소에 PIN이 실렸어도 받지 않는다
-    if ((pub._cfgAt || 0) <= (config._cfgAt || 0)) return false; // 내 설정이 더 최신
+    delete pub.adminPin;
+    if ((pub._cfgAt || 0) <= (config._cfgAt || 0)) return false;
     Object.assign(config, pub);
     localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
     return true;
   } catch (e) { return false; }
 }
 
-// ---- 수업 설정 자동 배포 (Supabase 연결 시) ----
-// 관리자가 [설정 저장]하면 설정이 서버에 올라가고, 학생 앱은 시작할 때 자동으로 받아온다.
-// PIN과 서버 접속 정보는 배포에서 제외 (접속 정보는 기기별, PIN은 교사만).
 const CONFIG_SYNC_EXCLUDE = ['supabaseUrl', 'supabaseKey', 'adminPin'];
 export async function cloudPushConfig() {
   const c = sb();
@@ -197,13 +179,13 @@ export async function cloudPullConfig() {
     if (!rows.length || !rows[0].payload) return false;
     const pub = { ...rows[0].payload };
     CONFIG_SYNC_EXCLUDE.forEach(k => delete pub[k]);
-    if ((pub._cfgAt || 0) <= (config._cfgAt || 0)) return false; // 내 설정이 더 최신이면 유지
+    if ((pub._cfgAt || 0) <= (config._cfgAt || 0)) return false;
     Object.assign(config, pub);
     localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
     return true;
   } catch (e) { return false; }
 }
-// ---- 입장 코드: PIN+날짜(+반·교시)에서 모든 기기가 똑같이 계산 — 서버·재배포 없이 유효 ----
+
 function dateStr() {
   const d = new Date();
   return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
@@ -214,22 +196,18 @@ function codeOf(...parts) {
   for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   return String(1000 + h % 9000);
 }
-// 일일 코드 (전체 공용, 그날 하루)
 export function todayCode() { return codeOf('day', dateStr()); }
 
-// ---- 주차별 시간표 ----
 export function weekKeyOf(d = new Date()) {
   const m = new Date(d);
-  m.setDate(m.getDate() - ((m.getDay() + 6) % 7)); // 그 주 월요일
+  m.setDate(m.getDate() - ((m.getDay() + 6) % 7));
   return `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, '0')}-${String(m.getDate()).padStart(2, '0')}`;
 }
 export function timetableForWeek(wk) {
   const ov = config.weekOverrides && config.weekOverrides[wk];
-  // 내용이 전부 빈 수정본(과거 버그로 생김)은 무시하고 기본 시간표를 쓴다
   const hasContent = ov && Object.values(ov).some(col => (col || []).some(t => t && String(t).trim()));
   return (hasContent ? ov : null) || config.timetable || { 1: [], 2: [], 3: [], 4: [], 5: [] };
 }
-// 어떤 요일 열에서 연속된 같은 수업명을 묶는다 → [{token, p1, p2}]
 export function runsOf(col) {
   const runs = [];
   for (let p = 0; p < (config.periods || []).length; p++) {
@@ -246,12 +224,12 @@ export function todayRuns() {
   if (dow < 1 || dow > 5) return [];
   return runsOf(timetableForWeek(weekKeyOf())[dow]);
 }
-// "20627, 20315" 같은 학번 목록에 포함되는지
+
 export function sidInList(listStr, sid) {
   return String(listStr || '').split(',').map(s => s.trim()).filter(Boolean).includes(sid);
 }
 
-// 복수 학년 허용 목록 파싱
+// 복수 학년 허용 목록 파싱 (예: [1, 2, 3])
 export function allowedGrades() {
   const g = config.grade;
   if (typeof g === 'number') return [g];
@@ -276,7 +254,7 @@ export function parseSid(sid) {
   const nd = config.numDigits || 2;
   const expectedLen = 1 + bd + nd;
 
-  // 1. 관리자가 지정한 설정 자릿수와 정확히 일치할 때
+  // 1. 관리자가 지정한 설정 자릿수와 일치할 때
   if (str.length === expectedLen) {
     return {
       grade: +str[0],
@@ -306,6 +284,7 @@ export function parseSid(sid) {
   return null;
 }
 
+// 관리자 설정 자릿수에 맞춘 순수 숫자 학번 생성 (4자리: 2204 / 5자리: 20204)
 export function makeSid(ban, num, grade) {
   const g = grade || allowedGrades()[0] || 2;
   const bd = config.banDigits || 2;
@@ -313,9 +292,7 @@ export function makeSid(ban, num, grade) {
   return `${g}${String(ban).padStart(bd, '0')}${String(num).padStart(nd, '0')}`;
 }
 
-// 수업 코드: 수업명(반 번호·"학년-반"·그룹명) + 교시 범위 (p1, p2는 0부터)
 export function classSessionCode(token, p1, p2) { return codeOf('ban', dateStr(), String(token).trim(), p1, p2); }
-// 미실시자 개인 코드: 학번 그대로, 그날 하루
 export function studentDayCode(sid) { return codeOf('stu', dateStr(), String(sid).trim()); }
 const toMin = t => { const [h, m] = String(t).split(':').map(Number); return h * 60 + m; };
 function inWindow(p1, p2) {
@@ -325,19 +302,18 @@ function inWindow(p1, p2) {
   return mins >= toMin(per[p1].start) - 10 && mins <= toMin(per[p2].end) + 10;
 }
 
-// 수업명이 이 학생의 수업인지: "학년-반"/"반" 은 학번과 대조,
-// 그룹 수업명은 등록된 그룹 명단과 대조 (명단이 없으면 코드만 맞으면 입장)
+// 수업명 매칭: "1-3", "2-2", "3-10", "동아리", "주제선택" 완벽 대조
 function tokenMatches(token, p, sid) {
   const t = String(token).trim();
   if (!t) return false;
 
-  // 1. "1-3", "2-2", "3-10" 형태 (학년-반 대조)
+  // 1. "1-3", "2-2", "3-10" 형태
   const m = t.match(/^(\d+)-(\d+)$/);
   if (m) {
     return +m[1] === p.grade && +m[2] === p.ban;
   }
 
-  // 2. 단일 숫자 (예: "2", "7" - 반 번호 일치 대조)
+  // 2. 단일 숫자 ("2", "7")
   if (/^\d+$/.test(t)) {
     return +t === p.ban;
   }
@@ -348,30 +324,32 @@ function tokenMatches(token, p, sid) {
     return members.map(s => String(s).trim()).includes(sid);
   }
 
-  // 4. 명단이 등록되지 않은 특별 수업명: 해당 시간표 수업 코드를 입력한 학생 통과
+  // 4. 명단 없는 특별 수업명은 해당 시간표 수업 코드를 입력한 학생 통과
   return true;
 }
 
-// 학생 기기에서 수업 코드 검증 (p = 학번 해석 결과, sid = 학번 문자열)
-// 1) 오늘 시간표의 수업들과 대조 — 그룹 수업까지 처리
-// 2) 시간표에 없어도 자기 반 코드는 통과 (수동 발급 대비)
+// 세션 코드 검증 (단일 교시 및 블록 교시 양방향 호환)
 export function sessionCodeValid(code, p, sid) {
   if (!/^\d{4}$/.test(code)) return { ok: false };
   for (const r of todayRuns()) {
-    if (classSessionCode(r.token, r.p1, r.p2) === code && inWindow(r.p1, r.p2))
+    if (classSessionCode(r.token, r.p1, r.p2) === code && inWindow(r.p1, r.p2)) {
       if (tokenMatches(r.token, p, sid)) return { ok: true, token: r.token };
+    }
   }
   const per = config.periods || [];
   const own = [`${p.grade}-${p.ban}`, String(p.ban)];
-  for (const token of own)
-    for (let p1 = 0; p1 < per.length; p1++)
-      for (let p2 = p1; p2 < per.length; p2++)
-        if (classSessionCode(token, p1, p2) === code && inWindow(p1, p2))
+  for (const token of own) {
+    for (let p1 = 0; p1 < per.length; p1++) {
+      for (let p2 = p1; p2 < per.length; p2++) {
+        if (classSessionCode(token, p1, p2) === code && inWindow(p1, p2)) {
           return { ok: true, token };
+        }
+      }
+    }
+  }
   return { ok: false };
 }
 
-// ---- 명단(학적) : { "20321": "재학" } — 비어 있으면 명단 검사 안 함 ----
 export const BLOCKED_STATUS = ['전출', '유예', '휴학', '면제', '제적'];
 export function rosterStatus(sid) {
   const r = config.roster || {};
@@ -388,7 +366,6 @@ export function importConfigCode(code) {
   saveConfig();
 }
 
-// ---- 학생 작업 상태 ----
 export function blankWork() {
   return {
     caseTab: {
@@ -401,7 +378,7 @@ export function blankWork() {
       holders: [],
       predictCount: '', tested: false,
     },
-    lab: { leds: [], resistors: [], tapes: [], holders: [], tested: false }, // 회로 실험실 (자유 실험)
+    lab: { leds: [], resistors: [], tapes: [], holders: [], tested: false },
     design: {
       letters: [
         { text: '', x: 5.5, y: 5, size: 6, stroke: 0.7 },
@@ -410,22 +387,26 @@ export function blankWork() {
       drawing: { strokes: [] },
     },
     order: [],
-    assembly: { holderPos: null }, // 조립 순서 탭에서 정하는 건전지 홀더 부착 위치
-    activeTab: 'case',            // 지금 보고 있는 탭 — 교사 실시간 보드가 이 장면을 보여준다
-    circuitMode: 'lab',           // 회로 탭 안에서 실험실/플래카드 중 어디인지
+    assembly: { holderPos: null },
+    activeTab: 'case',
+    circuitMode: 'lab',
     log: [],
     updatedAt: 0,
   };
 }
 
-export let student = null;   // {grade, ban, num}
+export let student = null;
 export let work = blankWork();
-export let readOnly = false; // 관리자가 학생 작업을 열람할 때
+export let readOnly = false;
 
-export function studentKey(s) { return `lps_work_${s.grade || 2}-${s.ban}-${s.num}`; }
-export function studentId(s) { return `${s.grade || 2}-${s.ban}-${s.num}`; }
+// 고유 키: 4자리(2204) 또는 5자리(20204) 설정 연동 순수 숫자
+export function studentKey(s) { 
+  return `lps_work_${makeSid(s.ban, s.num, s.grade)}`; 
+}
+export function studentId(s) { 
+  return makeSid(s.ban, s.num, s.grade); 
+}
 
-// work 객체는 교체하지 않고 내용만 바꾼다 (모듈들이 참조를 캡처하고 있음)
 function replaceWork(w) {
   Object.keys(work).forEach(k => delete work[k]);
   Object.assign(work, blankWork(), w || {});
@@ -434,19 +415,19 @@ function replaceWork(w) {
 export async function login(ban, num, grade) {
   const g = grade || allowedGrades()[0] || 2;
   student = { grade: g, ban, num };
-  const raw = localStorage.getItem(studentKey(student)) || localStorage.getItem(`lps_work_${ban}-${num}`); // 옛 키 호환
+  const raw = localStorage.getItem(studentKey(student)) || 
+              localStorage.getItem(`lps_work_${g}-${ban}-${num}`) || 
+              localStorage.getItem(`lps_work_${ban}-${num}`);
   let saved = null;
   if (raw) { try { saved = JSON.parse(raw); } catch (e) { /* ignore */ } }
   replaceWork(saved);
-  // 서버 작업을 먼저 받아 합친 뒤에 화면이 열리게 한다.
-  // (기다리지 않으면 새 기기의 빈 작업이 서버의 진짜 작업을 덮어쓸 수 있다)
   await cloudPull();
 }
 
 export function setReadOnlyWork(w, label) {
   readOnly = true;
   replaceWork(w);
-  student = { ban: 0, num: 0, label };
+  student = { grade: 0, ban: 0, num: 0, label };
 }
 
 let saveTimer = null;
@@ -468,26 +449,28 @@ export function addLog(line) {
   touch();
 }
 
-// ---- Google Sheet 기록 (교사 분석용, 설정된 경우에만) ----
-// Apps Script 웹 앱으로 12초 간격 묶음 전송. 실패해도 조용히 무시.
+// 과세특용 독립 열 분리 전송
 let sheetQueue = [], flushTimer = null;
 export function sheetLog(event, detail) {
   if (readOnly || !student) return;
-  // 다른 학년 학생은 반 탭이 겹치지 않게 "학년-반"으로 구분
-  const banLabel = `${student.grade}-${student.ban}`;
-  sheetLogFor(banLabel, student.num, event, detail, studentId(student));
+  sheetLogFor(student.grade, student.ban, student.num, event, detail, studentId(student));
 }
-// 관리자(교사 메모 등)용: 로그인 여부와 무관하게 기록
-export function sheetLogFor(ban, num, event, detail, id) {
+
+export function sheetLogFor(grade, ban, num, event, detail, id) {
   if (!config.sheetUrl) return;
+  const sid = id || makeSid(ban, num, grade);
   sheetQueue.push({
     ts: new Date().toISOString(),
-    ban, num,
-    id: id || `${ban}-${num}`,
-    event, detail: String(detail || '').slice(0, 500),
+    grade: grade || (parseSid(sid) ? parseSid(sid).grade : ''),
+    ban: ban,
+    num: num,
+    sid: String(sid),
+    event: event,
+    detail: String(detail || '').slice(0, 500),
   });
-  if (!flushTimer) flushTimer = setTimeout(flushSheet, 12000);
+  if (!flushTimer) flushTimer = setTimeout(flushSheet, 8000);
 }
+
 export function sheetFlushNow() { clearTimeout(flushTimer); flushSheet(); }
 function flushSheet() {
   flushTimer = null;
@@ -495,21 +478,20 @@ function flushSheet() {
   const body = JSON.stringify(sheetQueue.splice(0));
   try {
     fetch(config.sheetUrl, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body })
-      .catch(() => { /* 네트워크 실패는 조용히 무시 */ });
-  } catch (e) { /* ignore */ }
+      .catch(() => {});
+  } catch (e) {}
 }
 window.addEventListener('beforeunload', () => {
   if (sheetQueue.length && config.sheetUrl && navigator.sendBeacon)
     navigator.sendBeacon(config.sheetUrl, JSON.stringify(sheetQueue.splice(0)));
 });
 
-// ---- FAQ 못 찾은 검색어 ----
 export function recordMiss(q) {
   try {
     const arr = JSON.parse(localStorage.getItem(MISS_KEY) || '[]');
     arr.push({ q, t: Date.now() });
     localStorage.setItem(MISS_KEY, JSON.stringify(arr.slice(-200)));
-  } catch (e) { /* ignore */ }
+  } catch (e) {}
   sheetLog('도움말 검색(답 없음)', q);
 }
 export function getMisses() {
@@ -517,7 +499,6 @@ export function getMisses() {
 }
 export function clearMisses() { localStorage.removeItem(MISS_KEY); }
 
-// ---- Supabase 동기화 (설정된 경우에만, 실패해도 조용히 localStorage로 계속) ----
 function sb() {
   if (!config.supabaseUrl || !config.supabaseKey) return null;
   return {
@@ -529,7 +510,7 @@ function sb() {
     },
   };
 }
-export let cloudStatus = 'off'; // off | ok | error
+export let cloudStatus = 'off';
 const statusListeners = [];
 export function onCloudStatus(fn) { statusListeners.push(fn); }
 function setCloud(s) { cloudStatus = s; statusListeners.forEach(fn => fn(s)); }
@@ -539,7 +520,7 @@ export function cloudPush() {
   const c = sb();
   if (!c || !student || readOnly) return;
   const now = Date.now();
-  const delay = Math.max(0, 5000 - (now - lastPush)); // 최소 5초 간격 — 교사 관찰이 준실시간이 되도록
+  const delay = Math.max(0, 5000 - (now - lastPush));
   clearTimeout(pushTimer);
   pushTimer = setTimeout(async () => {
     lastPush = Date.now();
@@ -579,7 +560,6 @@ export async function cloudList() {
   if (!res.ok) throw new Error('불러오기 실패 ' + res.status);
   return res.json();
 }
-// 한 반의 작업을 내용(payload)까지 — 실시간 보드용
 export async function cloudListBan(ban) {
   const c = sb();
   if (!c) return [];
@@ -601,7 +581,6 @@ export async function cloudDelete(id) {
   if (!res.ok) throw new Error('삭제 실패 ' + res.status);
 }
 
-// 페이지를 떠날 때 마지막 저장
 window.addEventListener('beforeunload', () => {
   if (student && !readOnly) localStorage.setItem(studentKey(student), JSON.stringify(work));
 });
