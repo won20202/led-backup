@@ -60,7 +60,7 @@ function renderSettings() {
     config.entryMode === 'daily'
       ? `<p class="measure">오늘의 입장 코드: <b style="font-size:20px">${todayCode()}</b> — 자정에 자동으로 바뀝니다. (모든 기기에서 같은 코드가 계산되므로 재배포 불필요)</p>`
       : config.entryMode === 'session'
-        ? `<p class="measure">입장 방식이 "수업 코드"입니다 — 아래 [입장 코드] 섹션에서 반·교시를 골라 코드를 마드세요.</p>`
+        ? `<p class="measure">입장 방식이 "수업 코드"입니다 — 아래 [입장 코드] 섹션에서 반·교시를 골라 코드를 만드세요.</p>`
         : '';
   $('adm-settings').innerHTML = codeBanner +
   `<label class="adm-row"><span>입장 방식</span>
@@ -89,7 +89,6 @@ function collectSettings() {
     else if (el.type === 'number') config[k] = parseFloat(el.value) || DEFAULT_CONFIG[k];
     else config[k] = el.value;
   });
-  // 관리자 모드에서 수정한 Apps Script 커스텀 코드도 함께 저장
   if ($('adm-gas')) {
     config.customGasScript = $('adm-gas').value;
   }
@@ -112,7 +111,6 @@ function collectPeriods() {
       end: r.querySelector('.ec-pe').value || '09:45',
     }));
 }
-// 시간표 편집 대상: 'base'(기본) 또는 주 시작(월요일) 날짜 키
 let entrySel = { kind: 'week', off: 0 };
 function entryWeekKey() {
   const d = new Date();
@@ -130,7 +128,6 @@ function collectTimetable() {
   if (target === 'base') config.timetable = tt;
   else {
     config.weekOverrides = config.weekOverrides || {};
-    // 기본과 같으면 수정본을 만들지 않는다 (빈 칸/누락 표현 차이는 무시하고 내용만 비교)
     const norm = t => JSON.stringify([1, 2, 3, 4, 5].map(d =>
       Array.from({ length: 7 }, (_, p) => (((t || {})[d] || [])[p] || '').trim())));
     if (norm(tt) === norm(config.timetable)) delete config.weekOverrides[target];
@@ -154,7 +151,6 @@ function renderEntry() {
   const dow = new Date().getDay();
   const perOpts = per.map((p, i) => `<option value="${i}">${i + 1}교시 (${p.start}~${p.end})</option>`).join('');
 
-  // 오늘의 수업 코드 (이번 주 적용 시간표 기준 — 수업마다 코드가 다 다르다)
   const runs = todayRuns();
   const todayHtml = runs.length
     ? `<div class="measure">오늘(${days[dow] || '주말'})의 수업별 코드 — 수업마다 코드가 다릅니다. 해당 수업 칠판에 적어 주세요<br>` +
@@ -164,12 +160,11 @@ function renderEntry() {
          <button class="ec-log small-btn" data-i="${i}">시트에 수업 기록</button></div>`).join('') + '</div>'
     : `<p class="muted small">시간표를 채우면 요일에 맞춰 오늘의 수업 코드가 자동으로 나옵니다.</p>`;
 
-  // 시간표(기본 / 주차별) — 주차를 고쳐도 다음 주엔 자동으로 기본으로 돌아간다
   const isBase = entrySel.kind === 'base';
   const wk = entryWeekKey();
   const tt = isBase ? (config.timetable || {}) : timetableForWeek(wk);
   const hasOverride = !isBase && !!(config.weekOverrides || {})[wk];
-  const wkEnd = (() => { const d = new Date(wk); d.setDate(d.getDate() + 4); return `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })(); // 월~금
+  const wkEnd = (() => { const d = new Date(wk); d.setDate(d.getDate() + 4); return `${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
   const wkLabel = `${wk.slice(5)}~${wkEnd}` + (entrySel.off === 0 ? ' (이번 주)' : entrySel.off === 1 ? ' (다음 주)' : '');
 
   $('adm-entry').innerHTML = `
@@ -208,7 +203,6 @@ function renderEntry() {
     <button id="ec-p-add" class="small-btn">+ 교시 추가</button>
     <p class="muted small">바꿨으면 [수업 설정] 탭의 [설정 저장]을 누르고, 설정 코드로 다른 기기에도 배포하세요.</p>`;
 
-  // [코드 생성]을 눌러야 코드가 나온다 — 누르면 칠판에 적기 좋게 크게 표시
   const makeManual = () => {
     let p1 = +$('ec-p1').value, p2 = +$('ec-p2').value;
     if (p2 < p1) { p2 = p1; $('ec-p2').value = String(p1); }
@@ -225,7 +219,6 @@ function renderEntry() {
   $('ec-make').addEventListener('click', makeManual);
   $('ec-token').addEventListener('keydown', e => { if (e.key === 'Enter') makeManual(); });
 
-  // 주차 이동
   const goto = (kind, off) => { collectTimetable(); entrySel = { kind, off }; renderEntry(); };
   $('ec-w-base').addEventListener('click', () => goto('base', 0));
   $('ec-w-cur').addEventListener('click', () => goto('week', isBase ? 0 : entrySel.off));
@@ -238,7 +231,6 @@ function renderEntry() {
     renderEntry();
   });
 
-  // 수업 실시 기록 → 시트에 날짜·수업·교시가 남아 "그날 어떤 수업을 했는지" 확인용
   const logLesson = (token, p1, p2) => {
     if (!config.sheetUrl) { alert('먼저 수업 설정에 Google Sheet 기록 URL을 넣어 주세요.'); return; }
     const ban = /^\d+$/.test(token) ? +token : token;
@@ -273,7 +265,6 @@ function renderEntry() {
 // ---- 명단(학적)·그룹 관리 ----
 function downloadText(name, text) {
   const a = document.createElement('a');
-  // JSON에는 BOM을 붙이면 파싱이 깨진다 — 엑셀용 CSV에만 붙인다
   const bom = name.endsWith('.json') ? '' : '﻿';
   a.href = URL.createObjectURL(new Blob([bom + text], { type: name.endsWith('.json') ? 'application/json' : 'text/csv' }));
   a.download = name;
@@ -293,11 +284,10 @@ function importRoster(text) {
   for (const line of lines) {
     const cols = line.split(/[,\t]/).map(c => c.trim().replace(/^"|"$/g, ''));
     const p = parseSid(cols[0]);
-    if (!p) continue; // 헤더·빈 줄
+    if (!p) continue;
     entries.push({ sid: cols[0], status: cols[1] || '재학', key: `${p.grade}-${p.ban}` });
   }
   if (!entries.length) { alert('학번을 읽을 수 없습니다. 양식(학번,학적)을 확인해 주세요.'); return; }
-  // 파일에 들어 있는 학년-반만 교체하고 나머지 반의 명단은 유지 (반별 부분 등록)
   const touched = new Set(entries.map(e => e.key));
   const next = {};
   Object.entries(config.roster || {}).forEach(([sid, st]) => {
@@ -451,7 +441,6 @@ function collectMats() {
   saveConfig();
 }
 
-// ---- 조립 순서 팁·안전 문구 편집 (기본 문구 위에 덮어쓰기) ----
 const ORDER_LABELS = {
   cut: '우드락 재단', dryfit: '가조립', front: '앞면 가공', wire: '회로 연결(테이프·LED)',
   lightcheck: '점등 확인', glue5: '5면 조립', battery: '홀더 — 전선 피복 벗기기',
@@ -494,7 +483,6 @@ function localWorks() {
   const out = [];
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
-    // 현재 키: lps_work_학년-반-번호, 옛 키: lps_work_반-번호
     const m = k && k.match(/^lps_work_(?:(\d+)-)?(\d+)-(\d+)$/);
     if (m) {
       try {
@@ -528,7 +516,6 @@ async function renderWorks() {
     const openBans = new Set([...document.querySelectorAll('.adm-ban[open]')].map(d => d.dataset.ban));
     const byBan = {};
     cloudRows.forEach(r => { (byBan[r.ban] = byBan[r.ban] || []).push(r); });
-    // 지금 작업 중 — 수업시간 외 보충·미실시 학생처럼 흩어져 들어온 학생을 반 상관없이 모아 본다
     const liveCut = Date.now() - 10 * 60 * 1000;
     const liveRows = cloudRows.filter(r => new Date(r.updated_at).getTime() > liveCut);
     const liveOpen = document.querySelector('#live-sec[open]') !== null;
@@ -549,7 +536,6 @@ async function renderWorks() {
   }
   el.innerHTML = html;
   bindWorkButtons();
-  // 펼친 반의 보드를 채운다 (payload는 펼쳤을 때만 받아옴 — 300명 규모 대비)
   el.querySelectorAll('.adm-ban').forEach(det => {
     const load = () => {
       if (!det.open) return;
@@ -561,7 +547,6 @@ async function renderWorks() {
   });
 }
 
-// "지금 작업 중" 보드 — 최근 10분 안에 저장한 학생을 반-번호순으로 모아 썸네일로 보여준다
 async function loadLiveBoard() {
   const grid = $('live-grid');
   if (!grid) return;
@@ -571,7 +556,7 @@ async function loadLiveBoard() {
   if (!act.length) { grid.innerHTML = '<p class="muted">최근 10분 안에 작업한 학생이 없습니다.</p>'; return; }
   const rowsByKey = {};
   for (const ban of [...new Set(act.map(r => r.ban))]) {
-    try { (await cloudListBan(ban)).forEach(r => { rowsByKey[`${r.ban}-${r.num}`] = r; }); } catch (e) { /* 다음 갱신에 재시도 */ }
+    try { (await cloudListBan(ban)).forEach(r => { rowsByKey[`${r.ban}-${r.num}`] = r; }); } catch (e) { /* ignore */ }
   }
   grid.innerHTML = act.map(r0 => {
     const r = rowsByKey[`${r0.ban}-${r0.num}`] || r0;
@@ -587,13 +572,12 @@ async function loadLiveBoard() {
   }).join('');
   grid.querySelectorAll('.stu-thumb').forEach(cnv => {
     const r = rowsByKey[cnv.dataset.key];
-    try { drawThumb(cnv, r && r.payload); } catch (e) { /* 그리기 실패는 무시 */ }
+    try { drawThumb(cnv, r && r.payload); } catch (e) { /* ignore */ }
     cnv.addEventListener('click', () => cnv.parentElement.querySelector('.w-open')?.click());
   });
   bindOpenButtons(grid);
 }
 
-// 학생 작업 요약 칩 (실시간 보드용)
 function summarize(w) {
   const chips = [];
   const on = (label, ok) => chips.push(`<span class="chip ${ok ? 'on' : ''}">${label}</span>`);
@@ -606,7 +590,6 @@ function summarize(w) {
   return chips.join('');
 }
 
-// 학생 작업 미니 썸네일 — 학생이 "지금 보고 있는 탭"의 장면을 그대로 보여준다
 export const TAB_NAMES = { case: '케이스', circuit: '회로', design: '도안', order: '조립 순서', preview: '미리보기' };
 
 function thumbLetters(ctx, w, s, alpha) {
@@ -655,7 +638,7 @@ function thumbCircuit(ctx, M, s, scale, ox, oy) {
 }
 export function drawThumb(cnv, w) {
   const ctx = cnv.getContext('2d');
-  const s = 6; // px per cm (앞면 25×10 기준)
+  const s = 6;
   const W = cnv.width = 25 * s, H = cnv.height = 10 * s;
   ctx.fillStyle = '#eef1f6';
   ctx.fillRect(0, 0, W, H);
@@ -664,7 +647,6 @@ export function drawThumb(cnv, w) {
   const num = v => { const x = parseFloat(v); return isFinite(x) && x > 0 ? x : null; };
 
   if (tab === 'design' || tab === 'preview') {
-    // 검은 앞면 (미리보기는 점등된 모습 느낌으로)
     ctx.fillStyle = tab === 'preview' ? '#0d0f14' : '#1a1c22';
     ctx.fillRect(0, 0, W, H);
     thumbLetters(ctx, w, s, tab === 'preview' ? 0.95 : 0.85);
@@ -703,7 +685,6 @@ export function drawThumb(cnv, w) {
     ctx.fillText(`작업 카드 ${n}/9 배열`, 8, H - 6);
     return;
   }
-  // case: 학생 치수로 만든 상자를 간단한 입체로
   const P = (w.caseTab || {}).pieces || {};
   const bw = num(P.back && P.back.w), bh = num(P.back && P.back.h), d = num(P.side && P.side.w);
   ctx.fillStyle = '#f4f6f9'; ctx.fillRect(0, 0, W, H);
@@ -716,8 +697,8 @@ export function drawThumb(cnv, w) {
   const fw = bw * sc, fh = bh * sc, dep = (d || 5) * sc * 0.55;
   const x0 = (W - fw - dep) / 2, y0 = (H - fh + dep) / 2;
   ctx.strokeStyle = '#7a8794'; ctx.lineWidth = 1.4; ctx.fillStyle = '#ffffff';
-  ctx.fillRect(x0, y0, fw, fh); ctx.strokeRect(x0, y0, fw, fh); // 앞면
-  ctx.beginPath(); // 윗면·옆면
+  ctx.fillRect(x0, y0, fw, fh); ctx.strokeRect(x0, y0, fw, fh);
+  ctx.beginPath();
   ctx.moveTo(x0, y0); ctx.lineTo(x0 + dep, y0 - dep);
   ctx.lineTo(x0 + dep + fw, y0 - dep); ctx.lineTo(x0 + fw, y0);
   ctx.moveTo(x0 + dep + fw, y0 - dep); ctx.lineTo(x0 + fw + dep, y0 - dep + fh); ctx.lineTo(x0 + fw, y0 + fh);
@@ -726,7 +707,7 @@ export function drawThumb(cnv, w) {
   const f = v => v ? (Math.round(v * 10) / 10) : '?';
   ctx.fillText(`${f(bw)} × ${f(bh)} × ${f((d || 0) + 0.5)}`, 4, H - 4);
 }
-// 최근 저장 시각 → 활동 배지
+
 function activityBadge(updatedAt) {
   const ageMin = (Date.now() - new Date(updatedAt).getTime()) / 60000;
   if (ageMin < 2) return '<span class="live-dot on"></span><span class="small" style="color:#1e8e4e">작업 중</span>';
@@ -734,7 +715,6 @@ function activityBadge(updatedAt) {
   return '';
 }
 
-// 오늘의 출결 표시 (이 기기 저장 + 구글 시트 기록)
 function attKey() { return 'lps_att_' + new Date().toISOString().slice(0, 10); }
 function getAtt() { try { return JSON.parse(localStorage.getItem(attKey()) || '{}'); } catch (e) { return {}; } }
 
@@ -746,7 +726,6 @@ async function loadBanBoard(ban) {
     const byNum = {};
     rows.forEach(r => byNum[r.num] = r);
     const att = getAtt();
-    // 명단: CSV 명단이 있으면 그것대로(학적 표시), 없으면 1~최대 번호 + 추가/제외 학번
     const sidOf = num => makeSid(+ban, num);
     const parseList = s => String(s || '').split(',').map(x => x.trim()).filter(Boolean);
     const excluded = new Set(parseList(config.excludedSids));
@@ -797,11 +776,9 @@ async function loadBanBoard(ban) {
           </div>
         </div>`;
     }).join('');
-    // 썸네일 렌더 (학생이 보고 있는 탭의 장면 — 저장 주기에 맞춰 자동 갱신)
     grid.querySelectorAll('.stu-thumb').forEach(cnv => {
       const row = byNum[+cnv.dataset.num];
-      try { drawThumb(cnv, row && row.payload); } catch (e) { /* 그리기 실패는 무시 */ }
-      // 썸네일 클릭 = 그 학생 크게 보기 (4초마다 갱신되는 관찰 화면)
+      try { drawThumb(cnv, row && row.payload); } catch (e) { /* ignore */ }
       cnv.addEventListener('click', () => {
         const btn = cnv.parentElement.querySelector('.w-open');
         if (btn) btn.click();
@@ -852,7 +829,6 @@ function bindOpenButtons(scope) {
     openReadOnly(w, id, kind === 'cloud' ? id : null);
   }));
 }
-// 교사 메모 → 구글 시트에 기록
 function bindNoteButtons(scope) {
   scope.querySelectorAll('.w-note').forEach(b => b.addEventListener('click', () => {
     if (!config.sheetUrl) { alert('먼저 수업 설정에 Google Sheet 기록 URL을 넣어 주세요.'); return; }
@@ -865,7 +841,6 @@ function bindNoteButtons(scope) {
     }
   }));
 }
-// 학생 작업 초기화 (잘못 로그인한 학번 정리, 재작업 등)
 function bindDelButtons(scope) {
   scope.querySelectorAll('.w-del').forEach(b => b.addEventListener('click', async () => {
     const kind = b.dataset.id.split(':')[0];
@@ -879,7 +854,6 @@ function bindDelButtons(scope) {
   }));
 }
 
-// 구글 시트 연동용 Apps Script 기본값 (관리자 화면에서 수정 가능하도록 연동)
 const DEFAULT_APPS_SCRIPT = `function doPost(e) {
   var rows = JSON.parse(e.postData.contents);
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -891,7 +865,6 @@ const DEFAULT_APPS_SCRIPT = `function doPost(e) {
     var sid = String(r.sid || '');
     var status = r.status || '';
 
-    // 1. [AI 분석용 원본 타임라인 탭]
     var timelineTabName = (grade ? grade + '학년 ' : '') + (ban ? ban + '반' : '반별_타임라인');
     var tSh = ss.getSheetByName(timelineTabName) || ss.insertSheet(timelineTabName);
     
@@ -902,7 +875,6 @@ const DEFAULT_APPS_SCRIPT = `function doPost(e) {
     }
     tSh.appendRow([new Date(r.ts), grade, ban, num, "'" + sid, status, r.event, r.detail]);
 
-    // 2. [교사 모니터링용 실시간 대시보드 탭]
     updateSafeDashboard(ss, grade, ban, num, sid, status, r.event, r.detail, r.ts);
   });
 
@@ -1064,7 +1036,6 @@ function updateSafeDashboard(ss, grade, ban, num, sid, status, event, detail, ts
   dash.getRange(row, 13).setValue(aiFact);
 }`;
 
-// 학생 목록 CSV (엑셀용 BOM 포함)
 async function exportCsv() {
   const rows = [['저장 위치', '반', '번호', '학번', '마지막 저장']];
   localWorks().forEach(r => rows.push(['이 기기', r.ban, r.num, `2-${r.ban}-${r.num}`,
@@ -1073,7 +1044,7 @@ async function exportCsv() {
     try {
       (await cloudList()).forEach(r => rows.push(['서버', r.ban, r.num, r.id,
         new Date(r.updated_at).toLocaleString('ko-KR')]));
-    } catch (e) { /* 서버 실패해도 로컬만 내보냄 */ }
+    } catch (e) { /* ignore */ }
   }
   const csv = '﻿' + rows.map(r => r.join(',')).join('\r\n');
   const a = document.createElement('a');
@@ -1095,10 +1066,8 @@ function openReadOnly(w, label, cloudId) {
   $('ro-exit').addEventListener('click', () => { location.search = '?admin=1'; });
   $('student-badge').textContent = label;
   document.dispatchEvent(new CustomEvent('work-loaded'));
-  // 학생이 지금 보고 있는 탭을 그대로 열어 준다 (탭이 하나도 안 켜져 빈 화면이 되는 것 방지)
   switchTab(w && w.activeTab ? w.activeTab : 'case');
   window.dispatchEvent(new Event('resize'));
-  // 서버 작업이면 주기적으로 다시 받아와 실시간처럼 보여준다
   clearInterval(liveTimer);
   if (cloudId) {
     liveTimer = setInterval(async () => {
@@ -1107,11 +1076,10 @@ function openReadOnly(w, label, cloudId) {
         if (w2) {
           setReadOnlyWork(w2, label);
           document.dispatchEvent(new CustomEvent('work-loaded'));
-          // 학생이 탭을 옮기면 교사 화면도 따라간다
           const cur = document.querySelector('.tab-btn.active')?.dataset.tab;
           if (w2.activeTab && w2.activeTab !== cur) switchTab(w2.activeTab);
         }
-      } catch (e) { /* 다음 주기에 재시도 */ }
+      } catch (e) { /* ignore */ }
     }, 4000);
   }
 }
@@ -1133,8 +1101,17 @@ export function initAdmin() {
     renderSettings(); renderEntry(); renderRubric(); renderFaqEditor(); renderMatEditor(); renderOrderTextEditor(); renderMisses(); renderWorks();
     renderRosterSummary(); renderGroups();
     
-    // 저장된 커스텀 코드가 있으면 그것을 보여주고, 없으면 기본 최신 코드를 채워줌 (이제 readonly가 아니라 직접 수정 가능합니다)
-    $('adm-gas').value = config.customGasScript || DEFAULT_APPS_SCRIPT;
+    // Apps Script 코드 상자 초기화 및 버튼 제어 연결
+    const gasArea = $('adm-gas');
+    const editBtn = $('adm-gas-edit');
+    const saveBtn = $('adm-gas-save');
+    
+    if (gasArea) {
+      gasArea.value = config.customGasScript || DEFAULT_APPS_SCRIPT;
+      gasArea.readOnly = true;
+      if (editBtn) editBtn.style.display = '';
+      if (saveBtn) saveBtn.style.display = 'none';
+    }
 
     $('adm-roster-template').addEventListener('click', rosterTemplate);
     $('adm-roster-file').addEventListener('change', e => {
@@ -1169,19 +1146,43 @@ export function initAdmin() {
   });
   $('adm-pin').addEventListener('keydown', e => { if (e.key === 'Enter') $('adm-pin-btn').click(); });
 
+  // [수정하기] 버튼 이벤트 리스너 추가
+  const editBtn = $('adm-gas-edit');
+  const saveBtn = $('adm-gas-save');
+  const gasArea = $('adm-gas');
+
+  if (editBtn && gasArea && saveBtn) {
+    editBtn.onclick = () => {
+      gasArea.readOnly = false;
+      gasArea.style.background = '#ffffff';
+      gasArea.focus();
+      editBtn.style.display = 'none';
+      saveBtn.style.display = '';
+    };
+
+    saveBtn.onclick = () => {
+      gasArea.readOnly = true;
+      gasArea.style.background = '#f8f9fa';
+      config.customGasScript = gasArea.value;
+      saveConfig();
+      saveBtn.style.display = 'none';
+      editBtn.style.display = '';
+      alert('스위치 및 스크립트 수정 내용이 저장되었습니다. [설정 저장]을 눌러 완전히 반영하세요.');
+    };
+  }
+
   $('adm-save').addEventListener('click', async () => {
     collectSettings(); collectRubric(); collectFaq(); collectMats(); collectOrderTexts();
     saveConfig();
-    renderSettings(); renderEntry(); // 코드 배너·시간표 갱신
-    // Supabase가 연결돼 있으면 설정을 서버로 올려 모든 학생 기기에 자동 배포
+    renderSettings(); renderEntry();
     const pushed = await cloudPushConfig();
     alert(pushed
       ? '저장되었습니다. 서버에도 올라가서 학생 화면은 새로고침하면 자동으로 이 설정을 받습니다.'
       : '저장되었습니다. (서버 미연결 — 다른 기기에는 설정 코드로 배포하세요)');
   });
   $('adm-gas-copy').addEventListener('click', () => {
-    $('adm-gas').select();
     const currentScript = $('adm-gas').value || DEFAULT_APPS_SCRIPT;
+    $('adm-gas').select();
     if (navigator.clipboard) navigator.clipboard.writeText(currentScript).catch(() => {});
     alert('복사했습니다. 새 구글 시트 → 확장 프로그램 → Apps Script에 붙여넣고, 웹 앱으로 배포(액세스: 모든 사용자)한 뒤 그 URL을 수업 설정의 [Google Sheet 기록 URL]에 넣으세요.');
   });
@@ -1208,9 +1209,9 @@ export function initAdmin() {
   });
   $('adm-cfg-file').addEventListener('click', () => {
     collectSettings(); collectRubric(); collectFaq(); collectMats(); collectOrderTexts();
-    saveConfig(); // _cfgAt 갱신 — 학생 기기가 "더 최신 설정"으로 인식
+    saveConfig();
     const pub = { ...config };
-    delete pub.adminPin; // 공개 저장소에 PIN은 싣지 않는다 (Supabase 접속 정보는 공개 가능한 키라 포함)
+    delete pub.adminPin;
     downloadText('class-config.json', JSON.stringify(pub, null, 2));
   });
   $('adm-import').addEventListener('click', () => {
