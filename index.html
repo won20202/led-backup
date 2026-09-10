@@ -331,7 +331,8 @@
         ② 배포 → 새 배포 → 웹 앱 → 액세스 권한 "모든 사용자" → 배포<br>
         ③ 웹 앱 URL을 수업 설정의 [Google Sheet 기록 URL]에 넣고 저장 → 설정 코드로 배포<br>
         ④ [시트 기록 테스트]로 확인</p>
-        <textarea id="adm-gas" rows="10" readonly style="width:100%;font-family:monospace;font-size:11px"></textarea>
+        <!-- readonly 속성을 제거하여 관리자 모드에서 직접 수정이 가능하도록 변경함 -->
+        <textarea id="adm-gas" rows="10" style="width:100%;font-family:monospace;font-size:11px"></textarea>
         <div class="tool-row">
           <button id="adm-gas-copy">코드 복사</button>
           <button id="adm-sheet-test">시트 기록 테스트</button>
@@ -347,3 +348,4 @@
 <script type="module" src="js/app.js"></script>
 </body>
 </html>
+```[cite: 1]
