@@ -3,14 +3,14 @@ import { config, saveConfig, exportConfigCode, importConfigCode, getMisses, clea
          cloudList, cloudListBan, cloudGet, cloudDelete, cloudPushConfig, setReadOnlyWork, DEFAULT_CONFIG, DEFAULT_RUBRIC,
          sheetLogFor, sheetFlushNow, todayCode, classSessionCode, studentDayCode,
          makeSid, parseSid, weekKeyOf, timetableForWeek, runsOf, todayRuns,
-         rosterActive, BLOCKED_STATUS } from './state.js';
+         rosterActive, BLOCKED_STATUS, allowedGrades } from './state.js';
 import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js';
 import { switchTab } from './app.js';
 
 const $ = id => document.getElementById(id);
 
 const FIELDS = [
-  ['grade', '학년 (여러 학년은 쉼표로 구분: 1, 2, 3)', 'text'],
+  ['grade', '학년 (여러 학년은 쉼표 구분: 1, 2, 3)', 'text'],
   ['banCount', '반 수', 'number'],
   ['numCount', '한 반의 최대 번호', 'number'],
   ['banDigits', '학번의 반 자리수 (10반 이상이면 2, 9반 이하 학교는 1)', 'number'],
@@ -86,7 +86,7 @@ function collectSettings() {
   $('adm-settings').querySelectorAll('[data-k]').forEach(el => {
     const k = el.dataset.k;
     if (el.type === 'checkbox') config[k] = el.checked;
-    else if (el.type === 'number') config[k] = parseFloat(el.value) || DEFAULT_CONFIG[k];
+    else if (el.type === 'number' && k !== 'grade') config[k] = parseFloat(el.value) || DEFAULT_CONFIG[k];
     else config[k] = el.value;
   });
   collectPeriods();
@@ -238,7 +238,7 @@ function renderEntry() {
   const logLesson = (token, p1, p2) => {
     if (!config.sheetUrl) { alert('먼저 수업 설정에 Google Sheet 기록 URL을 넣어 주세요.'); return; }
     const ban = /^\d+$/.test(token) ? +token : token;
-    sheetLogFor(ban, 0, '수업 실시', `${tokenLabel(token)} ${p1 + 1}${p2 > p1 ? '~' + (p2 + 1) : ''}교시`);
+    sheetLogFor(0, ban, 0, '수업 실시', `${tokenLabel(token)} ${p1 + 1}${p2 > p1 ? '~' + (p2 + 1) : ''}교시`);
     sheetFlushNow();
     alert('시트에 기록했습니다.');
   };
@@ -271,41 +271,71 @@ function downloadText(name, text) {
   const a = document.createElement('a');
   // JSON에는 BOM을 붙이면 파싱이 깨진다 — 엑셀용 CSV에만 붙인다
   const bom = name.endsWith('.json') ? '' : '﻿';
-  a.href = URL.createObjectURL(new Blob([bom + text], { type: name.endsWith('.json') ? 'application/json' : 'text/csv' }));
+  a.href = URL.createObjectURL(new Blob([bom + text], { type: name.endsWith('.json') ? 'application/json' : 'text/csv;charset=utf-8;' }));
   a.download = name;
   a.click();
   URL.revokeObjectURL(a.href);
 }
+
+// 명단 CSV 일괄 템플릿
 function rosterTemplate() {
-  const rows = [['학번', '학적(재학/전입/전출/유예/휴학)']];
-  for (let b = 1; b <= config.banCount; b++)
-    for (let n = 1; n <= config.numCount; n++)
-      rows.push([makeSid(b, n), '재학']);
-  downloadText('학생명단_양식.csv', rows.map(r => r.join(',')).join('\r\n'));
+  const rows = [
+    ['학년', '반', '번호', '학적(재학/전입/전출)', '수업명(비워두면 일반반, 섞인 수업은 동아리/주제선택)']
+  ];
+  allowedGrades().forEach(g => {
+    for (let b = 1; b <= 2; b++) {
+      for (let n = 1; n <= 3; n++) {
+        rows.push([g, b, n, '재학', '']);
+      }
+    }
+  });
+  rows.push([2, 1, 15, '재학', '동아리']);
+  rows.push([3, 2, 8, '재학', '동아리']);
+  downloadText('학생명단_일괄등록양식.csv', rows.map(r => r.join(',')).join('\r\n'));
 }
+
+// CSV 일괄 업로드 (복수 학급, 전입생, 그룹 분리 자동화)
 function importRoster(text) {
   const lines = text.replace(/^﻿/, '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-  const entries = [];
-  for (const line of lines) {
-    const cols = line.split(/[,\t]/).map(c => c.trim().replace(/^"|"$/g, ''));
-    const p = parseSid(cols[0]);
-    if (!p) continue; // 헤더·빈 줄
-    entries.push({ sid: cols[0], status: cols[1] || '재학', key: `${p.grade}-${p.ban}` });
+  let count = 0;
+  config.roster = config.roster || {};
+  config.groups = config.groups || {};
+
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(/[,\t]/).map(c => c.trim().replace(/^"|"$/g, ''));
+    if (cols.length < 3) continue;
+
+    let g = parseInt(cols[0], 10);
+    let b = parseInt(cols[1], 10);
+    let n = parseInt(cols[2], 10);
+    let st = cols[3] || '재학';
+    let group = cols[4] || '';
+
+    // 학번이 첫 번째 열에 직접 들어온 경우도 유연하게 대응
+    if (isNaN(b) && parseSid(cols[0])) {
+      const p = parseSid(cols[0]);
+      g = p.grade; b = p.ban; n = p.num; st = cols[1] || '재학'; group = cols[2] || '';
+    }
+
+    if (!g || !b || !n) continue;
+    const sid = makeSid(b, n, g);
+
+    config.roster[sid] = st;
+
+    // 그룹 수업명(동아리, 주제선택) 자동 편성
+    if (group) {
+      config.groups[group] = config.groups[group] || [];
+      if (!config.groups[group].includes(sid)) config.groups[group].push(sid);
+    }
+    count++;
   }
-  if (!entries.length) { alert('학번을 읽을 수 없습니다. 양식(학번,학적)을 확인해 주세요.'); return; }
-  // 파일에 들어 있는 학년-반만 교체하고 나머지 반의 명단은 유지 (반별 부분 등록)
-  const touched = new Set(entries.map(e => e.key));
-  const next = {};
-  Object.entries(config.roster || {}).forEach(([sid, st]) => {
-    const p = parseSid(sid);
-    if (!p || !touched.has(`${p.grade}-${p.ban}`)) next[sid] = st;
-  });
-  entries.forEach(e => next[e.sid] = e.status);
-  config.roster = next;
+
   saveConfig();
   renderRosterSummary();
-  alert(`${entries.length}명을 등록했습니다 (${[...touched].join(', ')} 반 교체). 설정 코드로 다른 기기에도 배포하세요.`);
+  renderGroups();
+  alert(`${count}명의 학생 정보(학적/특별수업 포함)를 성공적으로 등록했습니다. 설정 코드로 다른 기기에도 배포하세요.`);
 }
+
 function renderRosterSummary() {
   const el = $('adm-roster-summary');
   const r = config.roster || {};
@@ -316,6 +346,7 @@ function renderRosterSummary() {
   el.innerHTML = `<p class="supply">명단 ${sids.length}명 등록됨 — ` +
     Object.entries(byStatus).map(([st, n]) => `${st} ${n}`).join(' · ') + '</p>';
 }
+
 function renderGroups() {
   const g = config.groups || {};
   $('adm-groups').innerHTML = Object.keys(g).map(name => `
@@ -490,16 +521,24 @@ function localWorks() {
   const out = [];
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
-    // 현재 키: lps_work_학년-반-번호, 옛 키: lps_work_반-번호
-    const m = k && k.match(/^lps_work_(?:(\d+)-)?(\d+)-(\d+)$/);
-    if (m) {
+    if (k && k.startsWith('lps_work_')) {
+      const rawSid = k.slice('lps_work_'.length);
+      const p = parseSid(rawSid) || { grade: 2, ban: 1, num: 1 };
       try {
         const w = JSON.parse(localStorage.getItem(k));
-        out.push({ grade: m[1] ? +m[1] : null, ban: +m[2], num: +m[3], id: k.slice('lps_work_'.length), updated: w.updatedAt, w });
+        out.push({ 
+          grade: p.grade, 
+          ban: p.ban, 
+          num: p.num, 
+          sid: makeSid(p.ban, p.num, p.grade), 
+          id: rawSid, 
+          updated: w.updatedAt, 
+          w 
+        });
       } catch (e) { /* ignore */ }
     }
   }
-  return out.sort((a, b) => a.ban - b.ban || a.num - b.num);
+  return out.sort((a, b) => (a.grade - b.grade) || (a.ban - b.ban) || (a.num - b.num));
 }
 
 let cloudRows = [];
@@ -509,7 +548,7 @@ async function renderWorks() {
   let html = '<h4>이 기기에 저장된 작업</h4>';
   const loc = localWorks();
   html += loc.length
-    ? loc.map(r => `<div class="adm-work-row">${r.grade ? r.grade + '학년 ' : ''}${r.ban}반 ${r.num}번 <span class="muted">${r.updated ? new Date(r.updated).toLocaleString('ko-KR') : ''}</span>
+    ? loc.map(r => `<div class="adm-work-row">${r.grade}학년 ${r.ban}반 ${r.num}번 (학번: ${r.sid}) <span class="muted">${r.updated ? new Date(r.updated).toLocaleString('ko-KR') : ''}</span>
         <button class="w-open" data-id="local:${r.id}">보기</button>
         <button class="w-note" data-bn="${r.ban}:${r.num}">메모</button>
         <button class="w-del" data-id="local:${r.id}">삭제</button></div>`).join('')
@@ -818,7 +857,7 @@ function bindAttButtons(scope) {
     if (text.trim()) a[`${ban}-${num}`] = text.trim();
     else delete a[`${ban}-${num}`];
     localStorage.setItem(attKey(), JSON.stringify(a));
-    if (text.trim() && config.sheetUrl) { sheetLogFor(ban, num, '출결', text.trim()); sheetFlushNow(); }
+    if (text.trim() && config.sheetUrl) { sheetLogFor(0, ban, num, '출결', text.trim()); sheetFlushNow(); }
     loadBanBoard(String(ban));
   }));
 }
@@ -855,7 +894,7 @@ function bindNoteButtons(scope) {
     const [ban, num] = b.dataset.bn.split(':').map(Number);
     const text = prompt(`${ban}반 ${num}번 학생에 대한 메모 (시트에 기록됩니다)`);
     if (text && text.trim()) {
-      sheetLogFor(ban, num, '교사 메모', text.trim());
+      sheetLogFor(0, ban, num, '교사 메모', text.trim());
       sheetFlushNow();
       alert('기록했습니다.');
     }
@@ -879,29 +918,97 @@ function bindDelButtons(scope) {
 const APPS_SCRIPT = `function doPost(e) {
   var rows = JSON.parse(e.postData.contents);
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  rows.forEach(function (r) {
-    var name = (r.ban || r.ban === 0) ? r.ban + '반' : '기타';
-    var sh = ss.getSheetByName(name) || ss.insertSheet(name);
-    if (sh.getLastRow() === 0) sh.appendRow(['시각', '번호', '학번', '이벤트', '내용']);
-    sh.appendRow([new Date(r.ts), r.num || '', r.id, r.event, r.detail]);
+
+  rows.forEach(function(r) {
+    var grade = r.grade || (r.sid ? r.sid.charAt(0) : '');
+    var ban = r.ban || '';
+    var num = r.num || '';
+    var sid = String(r.sid || '');
+
+    var tabName = (grade ? grade + '학년 ' : '') + (ban ? ban + '반' : '기타');
+    var sh = ss.getSheetByName(tabName) || ss.insertSheet(tabName);
+    
+    if (sh.getLastRow() === 0) {
+      sh.appendRow(['시각', '학년', '반', '번호', '학번', '단계', '시도 내용 및 피드백']);
+      sh.getRange('A1:G1').setBackground('#e9eef6').setFontWeight('bold').setHorizontalAlignment('center');
+      sh.setFrozenRows(1);
+    }
+    sh.appendRow([new Date(r.ts), grade, ban, num, "'" + sid, r.event, r.detail]);
+
+    updateLiveDashboard(ss, grade, ban, num, sid, r.event, r.detail, r.ts);
   });
+
   return ContentService.createTextOutput('ok');
+}
+
+function updateLiveDashboard(ss, grade, ban, num, sid, event, detail, ts) {
+  if (!sid) return;
+  var dash = ss.getSheetByName('과세특_실시간관찰') || ss.insertSheet('과세특_실시간관찰', 0);
+
+  if (dash.getLastRow() === 0) {
+    dash.appendRow(['학년', '반', '번호', '학번', '케이스 조립', '회로 상태', '도안 상태', '현재 막힌 부분(지도 필요)', '과세특 관찰 문장', '최근 활동']);
+    dash.getRange('A1:J1').setBackground('#2d3748').setFontColor('#ffffff').setFontWeight('bold').setHorizontalAlignment('center');
+    dash.setFrozenRows(1);
+  }
+
+  var data = dash.getDataRange().getValues();
+  var row = -1;
+  for (var i = 1; i < data.length; i++) {
+    if (String(data[i][3]) === sid) { row = i + 1; break; }
+  }
+
+  if (row === -1) {
+    dash.appendRow([grade, ban, num, "'" + sid, '미시도', '미시도', '미작업', '정상 진행', '-', new Date(ts)]);
+    row = dash.getLastRow();
+  }
+
+  if (event === '설계 일지') {
+    if (detail.indexOf('완성') !== -1) {
+      var status = (detail.indexOf('겹침') !== -1 || detail.indexOf('틈') !== -1) ? '오류 발견(수정중)' : '규격 일치(성공)';
+      dash.getRange(row, 5).setValue(status);
+      if (status !== '규격 일치(성공)') dash.getRange(row, 8).setValue('치수/두께 계산 오차');
+      else dash.getRange(row, 8).setValue('케이스 통과');
+    }
+  } else if (event.indexOf('점등') !== -1) {
+    dash.getRange(row, 6).setValue(detail);
+    if (detail.indexOf('합선') !== -1) dash.getRange(row, 8).setValue('회로 합선 발생(위험)');
+    else if (detail.indexOf('소손') !== -1 || detail.indexOf('과전류') !== -1) dash.getRange(row, 8).setValue('과전류/저항 필요');
+  } else if (event === '도안 피드백') {
+    dash.getRange(row, 7).setValue(detail);
+    if (detail.indexOf('벗어났') !== -1) dash.getRange(row, 8).setValue('작업 영역 벗어남');
+  }
+
+  var caseStat = dash.getRange(row, 5).getValue();
+  var circStat = dash.getRange(row, 6).getValue();
+  var note = '';
+
+  if (caseStat === '규격 일치(성공)') note += '재료 두께를 고려한 입체 치수 계산을 완벽히 수행함. ';
+  if (circStat.indexOf('켜짐') !== -1) note += '회로 극성과 병렬 배치를 이해하고 안정적인 점등을 완성함. ';
+  
+  if (note) dash.getRange(row, 9).setValue(note);
+  dash.getRange(row, 10).setValue(new Date(ts));
 }`;
 
 // 학생 목록 CSV (엑셀용 BOM 포함)
 async function exportCsv() {
-  const rows = [['저장 위치', '반', '번호', '학번', '마지막 저장']];
-  localWorks().forEach(r => rows.push(['이 기기', r.ban, r.num, r.id,
-    r.updated ? new Date(r.updated).toLocaleString('ko-KR') : '']));
+  const rows = [['저장 위치', '학년', '반', '번호', '학번', '마지막 저장']];
+  localWorks().forEach(r => {
+    rows.push(['이 기기', r.grade, r.ban, r.num, "'" + r.sid, r.updated ? new Date(r.updated).toLocaleString('ko-KR') : '']);
+  });
+
   if (config.supabaseUrl) {
     try {
-      (await cloudList()).forEach(r => rows.push(['서버', r.ban, r.num, r.id,
-        new Date(r.updated_at).toLocaleString('ko-KR')]));
+      const cRows = await cloudList();
+      cRows.forEach(r => {
+        const p = parseSid(r.id) || { grade: 2, ban: r.ban, num: r.num };
+        const cleanSid = makeSid(r.ban, r.num, p.grade);
+        rows.push(['서버', p.grade, r.ban, r.num, "'" + cleanSid, new Date(r.updated_at).toLocaleString('ko-KR')]);
+      });
     } catch (e) { /* 서버 실패해도 로컬만 내보냄 */ }
   }
   const csv = '﻿' + rows.map(r => r.join(',')).join('\r\n');
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
   a.download = '학생작업목록.csv';
   a.click();
   URL.revokeObjectURL(a.href);
@@ -968,7 +1075,7 @@ export function initAdmin() {
     });
     $('adm-roster-clear').addEventListener('click', () => {
       if (!confirm('등록된 명단을 모두 지울까요? (기본 규칙으로 돌아갑니다)')) return;
-      config.roster = {}; saveConfig(); renderRosterSummary();
+      config.roster = {}; config.groups = {}; saveConfig(); renderRosterSummary(); renderGroups();
     });
     $('adm-group-add').addEventListener('click', () => {
       const name = $('adm-group-name').value.trim();
@@ -1050,9 +1157,9 @@ export function initAdmin() {
   $('adm-sheet-test').addEventListener('click', () => {
     collectSettings();
     if (!config.sheetUrl) { alert('수업 설정에 Google Sheet 기록 URL을 먼저 넣고 [설정 저장]을 눌러 주세요.'); return; }
-    sheetLogFor(0, 0, '테스트', '관리자 모드에서 보낸 테스트 기록입니다');
+    sheetLogFor(allowedGrades()[0] || 2, 1, 1, '테스트', '관리자 모드에서 보낸 테스트 기록입니다');
     sheetFlushNow();
-    alert('테스트 기록을 보냈습니다. 잠시 후 구글 시트에 "0반" 탭이 생겼는지 확인하세요.');
+    alert('테스트 기록을 보냈습니다. 시트의 [과세특_실시간관찰] 탭을 확인하세요.');
   });
   $('adm-wipe-local').addEventListener('click', () => {
     const keys = [];
