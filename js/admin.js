@@ -3,14 +3,14 @@ import { config, saveConfig, exportConfigCode, importConfigCode, getMisses, clea
          cloudList, cloudListBan, cloudGet, cloudDelete, cloudPushConfig, setReadOnlyWork, DEFAULT_CONFIG, DEFAULT_RUBRIC,
          sheetLogFor, sheetFlushNow, todayCode, classSessionCode, studentDayCode,
          makeSid, parseSid, weekKeyOf, timetableForWeek, runsOf, todayRuns,
-         rosterActive, BLOCKED_STATUS, allowedGrades } from './state.js';
+         rosterActive, BLOCKED_STATUS } from './state.js';
 import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js';
 import { switchTab } from './app.js';
 
 const $ = id => document.getElementById(id);
 
 const FIELDS = [
-  ['grade', '학년 (여러 학년은 쉼표 구분: 1, 2, 3)', 'text'],
+  ['grade', '학년', 'number'],
   ['banCount', '반 수', 'number'],
   ['numCount', '한 반의 최대 번호', 'number'],
   ['banDigits', '학번의 반 자리수 (10반 이상이면 2, 9반 이하 학교는 1)', 'number'],
@@ -60,7 +60,7 @@ function renderSettings() {
     config.entryMode === 'daily'
       ? `<p class="measure">오늘의 입장 코드: <b style="font-size:20px">${todayCode()}</b> — 자정에 자동으로 바뀝니다. (모든 기기에서 같은 코드가 계산되므로 재배포 불필요)</p>`
       : config.entryMode === 'session'
-        ? `<p class="measure">입장 방식이 "수업 코드"입니다 — 아래 [입장 코드] 섹션에서 반·교시를 골라 코드를 만드세요.</p>`
+        ? `<p class="measure">입장 방식이 "수업 코드"입니다 — 아래 [입장 코드] 섹션에서 반·교시를 골라 코드를 마드세요.</p>`
         : '';
   $('adm-settings').innerHTML = codeBanner +
   `<label class="adm-row"><span>입장 방식</span>
@@ -86,9 +86,13 @@ function collectSettings() {
   $('adm-settings').querySelectorAll('[data-k]').forEach(el => {
     const k = el.dataset.k;
     if (el.type === 'checkbox') config[k] = el.checked;
-    else if (el.type === 'number' && k !== 'grade') config[k] = parseFloat(el.value) || DEFAULT_CONFIG[k];
+    else if (el.type === 'number') config[k] = parseFloat(el.value) || DEFAULT_CONFIG[k];
     else config[k] = el.value;
   });
+  // 관리자 모드에서 수정한 Apps Script 커스텀 코드도 함께 저장
+  if ($('adm-gas')) {
+    config.customGasScript = $('adm-gas').value;
+  }
   collectPeriods();
   collectTimetable();
   saveConfig();
@@ -150,7 +154,7 @@ function renderEntry() {
   const dow = new Date().getDay();
   const perOpts = per.map((p, i) => `<option value="${i}">${i + 1}교시 (${p.start}~${p.end})</option>`).join('');
 
-  // 오늘의 수업 코드 (이번 주 적용 시간표 기준 — 수업마다 코드가 다르다)
+  // 오늘의 수업 코드 (이번 주 적용 시간표 기준 — 수업마다 코드가 다 다르다)
   const runs = todayRuns();
   const todayHtml = runs.length
     ? `<div class="measure">오늘(${days[dow] || '주말'})의 수업별 코드 — 수업마다 코드가 다릅니다. 해당 수업 칠판에 적어 주세요<br>` +
@@ -173,13 +177,13 @@ function renderEntry() {
     ${todayHtml}
     <h4>수동 생성 (수업 변경·보강 시)</h4>
     <div class="tool-row">
-      <input id="ec-token" list="ec-token-list" placeholder="수업명 (예: 2-7, 3-10, 메이커반)" style="width:170px">
+      <input id="ec-token" list="ec-token-list" placeholder="수업명 (예: 7, 2-7, 메이커반)" style="width:150px">
       <datalist id="ec-token-list">${allTokens().map(t => `<option value="${esc(t)}">`).join('')}</datalist>
       <select id="ec-p1">${perOpts}</select> ~ <select id="ec-p2">${perOpts}</select>
       <button id="ec-make" class="primary">코드 생성</button>
     </div>
     <div id="ec-manual-out"></div>
-    <p class="muted small">"반"이나 "학년-반" 수업은 그 반 학생만 통과합니다. 그룹 수업명(메이커반, 동아리 등)은 [학생 관리]에서 그룹 명단을 등록하면 그 명단의 학생만 통과합니다. 그룹 수업 코드는 시간표에 적혀 있어야 동작해요.</p>
+    <p class="muted small">"반"이나 "학년-반" 수업은 그 반 학생만 통과합니다. 그룹 수업명(메이커반 등)은 [학생 관리]에서 그룹 명단을 등록하면 그 명단의 학생만 통과합니다. 그룹 수업 코드는 시간표에 적혀 있어야 동작해요.</p>
     <h4>미실시자 개인 코드 (결석·보충용)</h4>
     <div class="tool-row"><input id="ec-stu" placeholder="학번을 쉼표로: ${makeSid(3, 21)}, ${makeSid(5, 7)}" style="flex:1"><button id="ec-stu-btn">코드 만들기</button></div>
     <div id="ec-stu-list"></div>
@@ -198,7 +202,7 @@ function renderEntry() {
           `<td><input class="tt-cell" data-d="${d}" data-p="${pi}" value="${esc((tt[d] || [])[pi] || '')}" placeholder="-"></td>`).join('') + '</tr>').join('')}
     </table>
     </div>
-    <p class="muted small">칸에 수업명을 적으세요: 반 번호(7), 학년-반(1-3, 2-7, 3-10), 또는 그룹 이름(메이커반·동아리·주제선택). 비우면 수업 없음.</p>
+    <p class="muted small">칸에 수업명을 적으세요: 반 번호(7), 학년-반(2-7, 1-8), 또는 그룹 이름(메이커반·동아리A). 비우면 수업 없음.</p>
     <h4>교시 시간</h4>
     <div id="ec-periods">${per.map(periodRow).join('')}</div>
     <button id="ec-p-add" class="small-btn">+ 교시 추가</button>
@@ -209,7 +213,7 @@ function renderEntry() {
     let p1 = +$('ec-p1').value, p2 = +$('ec-p2').value;
     if (p2 < p1) { p2 = p1; $('ec-p2').value = String(p1); }
     const tok = $('ec-token').value.trim();
-    if (!tok) { $('ec-manual-out').innerHTML = '<p class="warn">수업명을 먼저 입력하세요 (예: 2-7, 3-10, 동아리)</p>'; $('ec-token').focus(); return; }
+    if (!tok) { $('ec-manual-out').innerHTML = '<p class="warn">수업명을 먼저 입력하세요 (예: 7, 2-7, 메이커반)</p>'; $('ec-token').focus(); return; }
     $('ec-manual-out').innerHTML = `
       <div class="measure tool-row" style="align-items:center">
         <span>${tokenLabel(tok)} ${p1 + 1}${p2 > p1 ? '~' + (p2 + 1) : ''}교시 →</span>
@@ -238,7 +242,7 @@ function renderEntry() {
   const logLesson = (token, p1, p2) => {
     if (!config.sheetUrl) { alert('먼저 수업 설정에 Google Sheet 기록 URL을 넣어 주세요.'); return; }
     const ban = /^\d+$/.test(token) ? +token : token;
-    sheetLogFor(0, ban, 0, '수업 실시', `${tokenLabel(token)} ${p1 + 1}${p2 > p1 ? '~' + (p2 + 1) : ''}교시`);
+    sheetLogFor(ban, 0, '수업 실시', `${tokenLabel(token)} ${p1 + 1}${p2 > p1 ? '~' + (p2 + 1) : ''}교시`);
     sheetFlushNow();
     alert('시트에 기록했습니다.');
   };
@@ -271,71 +275,41 @@ function downloadText(name, text) {
   const a = document.createElement('a');
   // JSON에는 BOM을 붙이면 파싱이 깨진다 — 엑셀용 CSV에만 붙인다
   const bom = name.endsWith('.json') ? '' : '﻿';
-  a.href = URL.createObjectURL(new Blob([bom + text], { type: name.endsWith('.json') ? 'application/json' : 'text/csv;charset=utf-8;' }));
+  a.href = URL.createObjectURL(new Blob([bom + text], { type: name.endsWith('.json') ? 'application/json' : 'text/csv' }));
   a.download = name;
   a.click();
   URL.revokeObjectURL(a.href);
 }
-
-// 명단 CSV 일괄 템플릿
 function rosterTemplate() {
-  const rows = [
-    ['학년', '반', '번호', '학적(재학/전입/전출)', '수업명(비워두면 일반반, 섞인 수업은 동아리/주제선택)']
-  ];
-  allowedGrades().forEach(g => {
-    for (let b = 1; b <= 2; b++) {
-      for (let n = 1; n <= 3; n++) {
-        rows.push([g, b, n, '재학', '']);
-      }
-    }
-  });
-  rows.push([2, 1, 15, '재학', '동아리']);
-  rows.push([3, 2, 8, '재학', '동아리']);
-  downloadText('학생명단_일괄등록양식.csv', rows.map(r => r.join(',')).join('\r\n'));
+  const rows = [['학번', '학적(재학/전입/전출/유예/휴학)']];
+  for (let b = 1; b <= config.banCount; b++)
+    for (let n = 1; n <= config.numCount; n++)
+      rows.push([makeSid(b, n), '재학']);
+  downloadText('학생명단_양식.csv', rows.map(r => r.join(',')).join('\r\n'));
 }
-
-// CSV 일괄 업로드 (복수 학급, 전입생, 그룹 분리 자동화)
 function importRoster(text) {
   const lines = text.replace(/^﻿/, '').split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-  let count = 0;
-  config.roster = config.roster || {};
-  config.groups = config.groups || {};
-
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(/[,\t]/).map(c => c.trim().replace(/^"|"$/g, ''));
-    if (cols.length < 3) continue;
-
-    let g = parseInt(cols[0], 10);
-    let b = parseInt(cols[1], 10);
-    let n = parseInt(cols[2], 10);
-    let st = cols[3] || '재학';
-    let group = cols[4] || '';
-
-    // 학번이 첫 번째 열에 직접 들어온 경우도 유연하게 대응
-    if (isNaN(b) && parseSid(cols[0])) {
-      const p = parseSid(cols[0]);
-      g = p.grade; b = p.ban; n = p.num; st = cols[1] || '재학'; group = cols[2] || '';
-    }
-
-    if (!g || !b || !n) continue;
-    const sid = makeSid(b, n, g);
-
-    config.roster[sid] = st;
-
-    // 그룹 수업명(동아리, 주제선택) 자동 편성
-    if (group) {
-      config.groups[group] = config.groups[group] || [];
-      if (!config.groups[group].includes(sid)) config.groups[group].push(sid);
-    }
-    count++;
+  const entries = [];
+  for (const line of lines) {
+    const cols = line.split(/[,\t]/).map(c => c.trim().replace(/^"|"$/g, ''));
+    const p = parseSid(cols[0]);
+    if (!p) continue; // 헤더·빈 줄
+    entries.push({ sid: cols[0], status: cols[1] || '재학', key: `${p.grade}-${p.ban}` });
   }
-
+  if (!entries.length) { alert('학번을 읽을 수 없습니다. 양식(학번,학적)을 확인해 주세요.'); return; }
+  // 파일에 들어 있는 학년-반만 교체하고 나머지 반의 명단은 유지 (반별 부분 등록)
+  const touched = new Set(entries.map(e => e.key));
+  const next = {};
+  Object.entries(config.roster || {}).forEach(([sid, st]) => {
+    const p = parseSid(sid);
+    if (!p || !touched.has(`${p.grade}-${p.ban}`)) next[sid] = st;
+  });
+  entries.forEach(e => next[e.sid] = e.status);
+  config.roster = next;
   saveConfig();
   renderRosterSummary();
-  renderGroups();
-  alert(`${count}명의 학생 정보(학적/특별수업 포함)를 성공적으로 등록했습니다. 설정 코드로 다른 기기에도 배포하세요.`);
+  alert(`${entries.length}명을 등록했습니다 (${[...touched].join(', ')} 반 교체). 설정 코드로 다른 기기에도 배포하세요.`);
 }
-
 function renderRosterSummary() {
   const el = $('adm-roster-summary');
   const r = config.roster || {};
@@ -346,7 +320,6 @@ function renderRosterSummary() {
   el.innerHTML = `<p class="supply">명단 ${sids.length}명 등록됨 — ` +
     Object.entries(byStatus).map(([st, n]) => `${st} ${n}`).join(' · ') + '</p>';
 }
-
 function renderGroups() {
   const g = config.groups || {};
   $('adm-groups').innerHTML = Object.keys(g).map(name => `
@@ -521,24 +494,16 @@ function localWorks() {
   const out = [];
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
-    if (k && k.startsWith('lps_work_')) {
-      const rawSid = k.slice('lps_work_'.length);
-      const p = parseSid(rawSid) || { grade: 2, ban: 1, num: 1 };
+    // 현재 키: lps_work_학년-반-번호, 옛 키: lps_work_반-번호
+    const m = k && k.match(/^lps_work_(?:(\d+)-)?(\d+)-(\d+)$/);
+    if (m) {
       try {
         const w = JSON.parse(localStorage.getItem(k));
-        out.push({ 
-          grade: p.grade, 
-          ban: p.ban, 
-          num: p.num, 
-          sid: makeSid(p.ban, p.num, p.grade), 
-          id: rawSid, 
-          updated: w.updatedAt, 
-          w 
-        });
+        out.push({ grade: m[1] ? +m[1] : null, ban: +m[2], num: +m[3], id: k.slice('lps_work_'.length), updated: w.updatedAt, w });
       } catch (e) { /* ignore */ }
     }
   }
-  return out.sort((a, b) => (a.grade - b.grade) || (a.ban - b.ban) || (a.num - b.num));
+  return out.sort((a, b) => a.ban - b.ban || a.num - b.num);
 }
 
 let cloudRows = [];
@@ -548,7 +513,7 @@ async function renderWorks() {
   let html = '<h4>이 기기에 저장된 작업</h4>';
   const loc = localWorks();
   html += loc.length
-    ? loc.map(r => `<div class="adm-work-row">${r.grade}학년 ${r.ban}반 ${r.num}번 (학번: ${r.sid}) <span class="muted">${r.updated ? new Date(r.updated).toLocaleString('ko-KR') : ''}</span>
+    ? loc.map(r => `<div class="adm-work-row">${r.grade ? r.grade + '학년 ' : ''}${r.ban}반 ${r.num}번 <span class="muted">${r.updated ? new Date(r.updated).toLocaleString('ko-KR') : ''}</span>
         <button class="w-open" data-id="local:${r.id}">보기</button>
         <button class="w-note" data-bn="${r.ban}:${r.num}">메모</button>
         <button class="w-del" data-id="local:${r.id}">삭제</button></div>`).join('')
@@ -790,7 +755,7 @@ async function loadBanBoard(ban) {
       roster = [];
       Object.entries(config.roster).forEach(([sid, st]) => {
         const q = parseSid(sid);
-        if (q && q.ban === +ban) { roster.push(q.num); statusOf[q.num] = st; }
+        if (q && q.grade === config.grade && q.ban === +ban) { roster.push(q.num); statusOf[q.num] = st; }
       });
       roster.sort((a, b) => a - b);
     } else {
@@ -857,7 +822,7 @@ function bindAttButtons(scope) {
     if (text.trim()) a[`${ban}-${num}`] = text.trim();
     else delete a[`${ban}-${num}`];
     localStorage.setItem(attKey(), JSON.stringify(a));
-    if (text.trim() && config.sheetUrl) { sheetLogFor(0, ban, num, '출결', text.trim()); sheetFlushNow(); }
+    if (text.trim() && config.sheetUrl) { sheetLogFor(ban, num, '출결', text.trim()); sheetFlushNow(); }
     loadBanBoard(String(ban));
   }));
 }
@@ -894,7 +859,7 @@ function bindNoteButtons(scope) {
     const [ban, num] = b.dataset.bn.split(':').map(Number);
     const text = prompt(`${ban}반 ${num}번 학생에 대한 메모 (시트에 기록됩니다)`);
     if (text && text.trim()) {
-      sheetLogFor(0, ban, num, '교사 메모', text.trim());
+      sheetLogFor(ban, num, '교사 메모', text.trim());
       sheetFlushNow();
       alert('기록했습니다.');
     }
@@ -914,41 +879,53 @@ function bindDelButtons(scope) {
   }));
 }
 
-// 구글 시트 연동용 Apps Script — 학기마다 새 시트에 붙여 쓸 수 있게 관리자 화면에서 제공
-const APPS_SCRIPT = `function doPost(e) {
+// 구글 시트 연동용 Apps Script 기본값 (관리자 화면에서 수정 가능하도록 연동)
+const DEFAULT_APPS_SCRIPT = `function doPost(e) {
   var rows = JSON.parse(e.postData.contents);
   var ss = SpreadsheetApp.getActiveSpreadsheet();
 
   rows.forEach(function(r) {
-    var grade = r.grade || (r.sid ? r.sid.charAt(0) : '');
+    var grade = r.grade || (r.sid ? String(r.sid).charAt(0) : '');
     var ban = r.ban || '';
     var num = r.num || '';
     var sid = String(r.sid || '');
+    var status = r.status || '';
 
-    var tabName = (grade ? grade + '학년 ' : '') + (ban ? ban + '반' : '기타');
-    var sh = ss.getSheetByName(tabName) || ss.insertSheet(tabName);
+    // 1. [AI 분석용 원본 타임라인 탭]
+    var timelineTabName = (grade ? grade + '학년 ' : '') + (ban ? ban + '반' : '반별_타임라인');
+    var tSh = ss.getSheetByName(timelineTabName) || ss.insertSheet(timelineTabName);
     
-    if (sh.getLastRow() === 0) {
-      sh.appendRow(['시각', '학년', '반', '번호', '학번', '단계', '시도 내용 및 피드백']);
-      sh.getRange('A1:G1').setBackground('#e9eef6').setFontWeight('bold').setHorizontalAlignment('center');
-      sh.setFrozenRows(1);
+    if (tSh.getLastRow() === 0) {
+      tSh.appendRow(['시각', '학년', '반', '번호', '학번', '학적', '활동 단계', '학생의 구체적 조작 내용 및 오류/성공 팩트']);
+      tSh.getRange('A1:H1').setBackground('#e9eef6').setFontWeight('bold').setHorizontalAlignment('center');
+      tSh.setFrozenRows(1);
     }
-    sh.appendRow([new Date(r.ts), grade, ban, num, "'" + sid, r.event, r.detail]);
+    tSh.appendRow([new Date(r.ts), grade, ban, num, "'" + sid, status, r.event, r.detail]);
 
-    updateLiveDashboard(ss, grade, ban, num, sid, r.event, r.detail, r.ts);
+    // 2. [교사 모니터링용 실시간 대시보드 탭]
+    updateSafeDashboard(ss, grade, ban, num, sid, status, r.event, r.detail, r.ts);
   });
 
   return ContentService.createTextOutput('ok');
 }
 
-function updateLiveDashboard(ss, grade, ban, num, sid, event, detail, ts) {
+function updateSafeDashboard(ss, grade, ban, num, sid, status, event, detail, ts) {
   if (!sid) return;
   var dash = ss.getSheetByName('과세특_실시간관찰') || ss.insertSheet('과세특_실시간관찰', 0);
 
   if (dash.getLastRow() === 0) {
-    dash.appendRow(['학년', '반', '번호', '학번', '케이스 조립', '회로 상태', '도안 상태', '현재 막힌 부분(지도 필요)', '과세특 관찰 문장', '최근 활동']);
-    dash.getRange('A1:J1').setBackground('#2d3748').setFontColor('#ffffff').setFontWeight('bold').setHorizontalAlignment('center');
+    dash.appendRow([
+      '학년', '반', '번호', '학번', '특이학적',
+      '실습 진도율', '총 시도', '케이스', '회로', '도안/조립', 
+      '현재 상태', '교사 맞춤 피드백 가이드', 'AI 프롬프트용 과정 요약 팩트', '최근 활동'
+    ]);
+    dash.getRange('A1:N1').setBackground('#343a40').setFontColor('#ffffff').setFontWeight('bold').setHorizontalAlignment('center');
     dash.setFrozenRows(1);
+    dash.setColumnWidth(6, 130); 
+    dash.setColumnWidth(7, 45);  
+    dash.setColumnWidth(11, 130); 
+    dash.setColumnWidth(12, 250); 
+    dash.setColumnWidth(13, 450); 
   }
 
   var data = dash.getDataRange().getValues();
@@ -957,58 +934,150 @@ function updateLiveDashboard(ss, grade, ban, num, sid, event, detail, ts) {
     if (String(data[i][3]) === sid) { row = i + 1; break; }
   }
 
+  var displayStatus = (status === '재학' || !status) ? '' : status;
+
   if (row === -1) {
-    dash.appendRow([grade, ban, num, "'" + sid, '미시도', '미시도', '미작업', '정상 진행', '-', new Date(ts)]);
+    dash.appendRow([grade, ban, num, "'" + sid, displayStatus, '[□□□□□] 0%', 0, '미시도', '미시도', '미작업', '진행 중', '입장 완료. 조립을 시작하도록 안내하세요.', '아직 활동 기록이 없습니다.', new Date(ts)]);
     row = dash.getLastRow();
+    dash.getRange(row, 1, 1, 10).setHorizontalAlignment('center');
+    dash.getRange(row, 12, 1, 2).setHorizontalAlignment('left');
+  } else {
+    if (displayStatus) {
+      dash.getRange(row, 5).setValue(displayStatus);
+    }
   }
+
+  var sheetRowRange = dash.getRange(row, 1, 1, 14);
+  
+  var tries = dash.getRange(row, 7).getValue() || 0;
+  if (typeof tries === 'string') tries = parseInt(tries, 10) || 0;
+
+  var caseStat = String(dash.getRange(row, 8).getValue());
+  var circStat = String(dash.getRange(row, 9).getValue());
+  var designStat = String(dash.getRange(row, 10).getValue());
+  var statusMsg = String(dash.getRange(row, 11).getValue());
+
+  var hadErrorBefore = (statusMsg.indexOf('오류') !== -1 || statusMsg.indexOf('합선') !== -1 || statusMsg.indexOf('오차') !== -1 || statusMsg.indexOf('이탈') !== -1);
 
   if (event === '설계 일지') {
+    tries++;
     if (detail.indexOf('완성') !== -1) {
-      var status = (detail.indexOf('겹침') !== -1 || detail.indexOf('틈') !== -1) ? '오류 발견(수정중)' : '규격 일치(성공)';
-      dash.getRange(row, 5).setValue(status);
-      if (status !== '규격 일치(성공)') dash.getRange(row, 8).setValue('치수/두께 계산 오차');
-      else dash.getRange(row, 8).setValue('케이스 통과');
+      if (detail.indexOf('겹침') !== -1 || detail.indexOf('틈') !== -1) {
+        caseStat = '치수 오차 수정중';
+        statusMsg = '치수 계산 오류 발생 (수정 중)';
+      } else {
+        caseStat = '통과 완료';
+        statusMsg = hadErrorBefore ? '오류 극복 후 케이스 성공' : '케이스 우수 통과';
+      }
+    } else {
+      caseStat = '치수 입력 중';
+      statusMsg = '케이스 설계 재조정 중';
     }
   } else if (event.indexOf('점등') !== -1) {
-    dash.getRange(row, 6).setValue(detail);
-    if (detail.indexOf('합선') !== -1) dash.getRange(row, 8).setValue('회로 합선 발생(위험)');
-    else if (detail.indexOf('소손') !== -1 || detail.indexOf('과전류') !== -1) dash.getRange(row, 8).setValue('과전류/저항 필요');
-  } else if (event === '도안 피드백') {
-    dash.getRange(row, 7).setValue(detail);
-    if (detail.indexOf('벗어났') !== -1) dash.getRange(row, 8).setValue('작업 영역 벗어남');
+    if (detail.indexOf('합선') !== -1) {
+      circStat = '회로 합선!';
+      statusMsg = '회로 합선 발생';
+    } else if (detail.indexOf('소손') !== -1 || detail.indexOf('과전류') !== -1) {
+      circStat = '과전류 발생';
+      statusMsg = '저항 누락/전지 직결 오류';
+    } else if (detail.indexOf('켜짐') !== -1) {
+      circStat = '점등 성공';
+      statusMsg = '병렬 회로 점등 성공';
+    } else {
+      circStat = '배선 시도 중'; 
+      statusMsg = '회로 재배치 시도 중';
+    }
+  } else if (event === '도안 피드백' || event === '도안' || event === '조립') {
+    if (detail.indexOf('벗어났') !== -1 || detail.indexOf('초과') !== -1) {
+      designStat = '도안 영역 이탈';
+      statusMsg = '도안 규격 초과 (수정 중)';
+    } else if (detail.indexOf('완료') !== -1 || detail.indexOf('조립') !== -1) {
+      designStat = '도안/조립 완료';
+      statusMsg = hadErrorBefore ? '시행착오 후 도안·조립 완성' : '도안 조건 및 조립 완벽 충족';
+    } else {
+      designStat = '도안/조립 진행';
+      statusMsg = '도안 배치 및 조립 마감 중';
+    }
   }
 
-  var caseStat = dash.getRange(row, 5).getValue();
-  var circStat = dash.getRange(row, 6).getValue();
-  var note = '';
+  var currentScore = 0;
+  if (caseStat.indexOf('입력') !== -1) currentScore = 1;
+  if (caseStat === '통과 완료' || caseStat === '케이스 통과') currentScore = 2;
+  if (circStat.indexOf('시도') !== -1 || circStat.indexOf('수정') !== -1 || circStat.indexOf('합선') !== -1 || circStat.indexOf('과전류') !== -1) currentScore = 3;
+  if (circStat === '점등 성공') currentScore = 4;
+  if (designStat.indexOf('완료') !== -1 || designStat.indexOf('통과') !== -1) currentScore = 5;
 
-  if (caseStat === '규격 일치(성공)') note += '재료 두께를 고려한 입체 치수 계산을 완벽히 수행함. ';
-  if (circStat.indexOf('켜짐') !== -1) note += '회로 극성과 병렬 배치를 이해하고 안정적인 점등을 완성함. ';
-  
-  if (note) dash.getRange(row, 9).setValue(note);
-  dash.getRange(row, 10).setValue(new Date(ts));
+  var oldProgressBar = String(dash.getRange(row, 6).getValue() || '[□□□□□] 0%');
+  var oldScore = 0;
+  if (oldProgressBar.indexOf('20%') !== -1) oldScore = 1;
+  else if (oldProgressBar.indexOf('40%') !== -1) oldScore = 2;
+  else if (oldProgressBar.indexOf('60%') !== -1) oldScore = 3;
+  else if (oldProgressBar.indexOf('80%') !== -1) oldScore = 4;
+  else if (oldProgressBar.indexOf('100%') !== -1) oldScore = 5;
+
+  var finalScore = Math.max(currentScore, oldScore);
+
+  var progressBar = '[' + 
+    (finalScore >= 1 ? '■' : '□') + 
+    (finalScore >= 2 ? '■' : '□') + 
+    (finalScore >= 3 ? '■' : '□') + 
+    (finalScore >= 4 ? '■' : '□') + 
+    (finalScore >= 5 ? '■' : '□') + '] ' + (finalScore * 20) + '%';
+
+  var feedbackGuide = '정상적으로 다음 단계를 진행 중입니다.';
+  if (statusMsg.indexOf('오류') !== -1 || statusMsg.indexOf('합선') !== -1 || statusMsg.indexOf('초과') !== -1) {
+    feedbackGuide = '집중 지도 필요: 학생이 현재 오류 지점에서 막혀 있습니다. 조작 화면을 함께 점검해 주세요.';
+  } else if (statusMsg.indexOf('완성') !== -1 || statusMsg.indexOf('충족') !== -1 || statusMsg.indexOf('성공') !== -1) {
+    feedbackGuide = '칭찬 포인트: 해당 단계를 훌륭히 수행함. 다음 단계로 격려하며 유도';
+  }
+
+  dash.getRange(row, 6).setValue(progressBar);
+  dash.getRange(row, 7).setValue(tries);
+  dash.getRange(row, 8).setValue(caseStat);
+  dash.getRange(row, 9).setValue(circStat);
+  dash.getRange(row, 10).setValue(designStat);
+  dash.getRange(row, 11).setValue(statusMsg);
+  dash.getRange(row, 12).setValue(feedbackGuide);
+  dash.getRange(row, 14).setValue(new Date(ts));
+
+  if (statusMsg.indexOf('오류') !== -1 || statusMsg.indexOf('합선') !== -1 || statusMsg.indexOf('초과') !== -1) {
+    sheetRowRange.setBackground('#fff5f5');
+    dash.getRange(row, 11).setFontColor('#c92a2a').setFontWeight('bold'); 
+  } else {
+    sheetRowRange.setBackground('#ffffff');
+    dash.getRange(row, 11).setFontColor('#495057').setFontWeight('normal');
+  }
+
+  var aiFact = '[실습 요약] 총 ' + tries + '회 시도. ';
+  if (caseStat === '통과 완료') {
+    aiFact += '케이스 설계 시 두께를 반영한 입체 규격을 정확히 산출함. ';
+  }
+  if (circStat === '점등 성공') {
+    aiFact += '병렬 회로의 전류 흐름을 이해하고 점등을 성공함. ';
+  }
+  if (designStat.indexOf('완료') !== -1 || designStat.indexOf('통과') !== -1) {
+    aiFact += '도안 작업 영역 조건을 준수하고 최종 조립 마감까지 완성도 있게 수행함. ';
+  } else {
+    aiFact += '현재 도안 배치 및 조립 마감 과정 진행 중. ';
+  }
+
+  dash.getRange(row, 13).setValue(aiFact);
 }`;
 
 // 학생 목록 CSV (엑셀용 BOM 포함)
 async function exportCsv() {
-  const rows = [['저장 위치', '학년', '반', '번호', '학번', '마지막 저장']];
-  localWorks().forEach(r => {
-    rows.push(['이 기기', r.grade, r.ban, r.num, "'" + r.sid, r.updated ? new Date(r.updated).toLocaleString('ko-KR') : '']);
-  });
-
+  const rows = [['저장 위치', '반', '번호', '학번', '마지막 저장']];
+  localWorks().forEach(r => rows.push(['이 기기', r.ban, r.num, `2-${r.ban}-${r.num}`,
+    r.updated ? new Date(r.updated).toLocaleString('ko-KR') : '']));
   if (config.supabaseUrl) {
     try {
-      const cRows = await cloudList();
-      cRows.forEach(r => {
-        const p = parseSid(r.id) || { grade: 2, ban: r.ban, num: r.num };
-        const cleanSid = makeSid(r.ban, r.num, p.grade);
-        rows.push(['서버', p.grade, r.ban, r.num, "'" + cleanSid, new Date(r.updated_at).toLocaleString('ko-KR')]);
-      });
+      (await cloudList()).forEach(r => rows.push(['서버', r.ban, r.num, r.id,
+        new Date(r.updated_at).toLocaleString('ko-KR')]));
     } catch (e) { /* 서버 실패해도 로컬만 내보냄 */ }
   }
   const csv = '﻿' + rows.map(r => r.join(',')).join('\r\n');
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
   a.download = '학생작업목록.csv';
   a.click();
   URL.revokeObjectURL(a.href);
@@ -1063,7 +1132,10 @@ export function initAdmin() {
     $('adm-content').classList.remove('hidden');
     renderSettings(); renderEntry(); renderRubric(); renderFaqEditor(); renderMatEditor(); renderOrderTextEditor(); renderMisses(); renderWorks();
     renderRosterSummary(); renderGroups();
-    $('adm-gas').value = APPS_SCRIPT;
+    
+    // 저장된 커스텀 코드가 있으면 그것을 보여주고, 없으면 기본 최신 코드를 채워줌 (이제 readonly가 아니라 직접 수정 가능합니다)
+    $('adm-gas').value = config.customGasScript || DEFAULT_APPS_SCRIPT;
+
     $('adm-roster-template').addEventListener('click', rosterTemplate);
     $('adm-roster-file').addEventListener('change', e => {
       const f = e.target.files[0];
@@ -1075,7 +1147,7 @@ export function initAdmin() {
     });
     $('adm-roster-clear').addEventListener('click', () => {
       if (!confirm('등록된 명단을 모두 지울까요? (기본 규칙으로 돌아갑니다)')) return;
-      config.roster = {}; config.groups = {}; saveConfig(); renderRosterSummary(); renderGroups();
+      config.roster = {}; saveConfig(); renderRosterSummary();
     });
     $('adm-group-add').addEventListener('click', () => {
       const name = $('adm-group-name').value.trim();
@@ -1109,7 +1181,8 @@ export function initAdmin() {
   });
   $('adm-gas-copy').addEventListener('click', () => {
     $('adm-gas').select();
-    if (navigator.clipboard) navigator.clipboard.writeText(APPS_SCRIPT).catch(() => {});
+    const currentScript = $('adm-gas').value || DEFAULT_APPS_SCRIPT;
+    if (navigator.clipboard) navigator.clipboard.writeText(currentScript).catch(() => {});
     alert('복사했습니다. 새 구글 시트 → 확장 프로그램 → Apps Script에 붙여넣고, 웹 앱으로 배포(액세스: 모든 사용자)한 뒤 그 URL을 수업 설정의 [Google Sheet 기록 URL]에 넣으세요.');
   });
   $('adm-rubric-add').addEventListener('click', () => {
@@ -1157,9 +1230,9 @@ export function initAdmin() {
   $('adm-sheet-test').addEventListener('click', () => {
     collectSettings();
     if (!config.sheetUrl) { alert('수업 설정에 Google Sheet 기록 URL을 먼저 넣고 [설정 저장]을 눌러 주세요.'); return; }
-    sheetLogFor(allowedGrades()[0] || 2, 1, 1, '테스트', '관리자 모드에서 보낸 테스트 기록입니다');
+    sheetLogFor(0, 0, '테스트', '관리자 모드에서 보낸 테스트 기록입니다');
     sheetFlushNow();
-    alert('테스트 기록을 보냈습니다. 시트의 [과세특_실시간관찰] 탭을 확인하세요.');
+    alert('테스트 기록을 보냈습니다. 잠시 후 구글 시트에 "0반" 탭이 생겼는지 확인하세요.');
   });
   $('adm-wipe-local').addEventListener('click', () => {
     const keys = [];
