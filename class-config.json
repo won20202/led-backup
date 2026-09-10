@@ -28,7 +28,7 @@
     },
     {
       "name": "설계 포트폴리오",
-      "note": "조건: ① 도안을 제작 조건(구성·크기·획 굵기)에 맞게 작성 ② 전개도의 조각별 재단 치수에 재료 두께 반영 ③ 등각투상도에 완성된 모습과 전체 치수·척도 표기 ④ 회로도에 전원·발광 소자의 연결과 극성 표시",
+      "note": "조건: ① 도안을 제작 조건(구성·크기·획 굵기)에 맞게 작성 ② 전개도의 조각별 재단 치수에 재료 두께 반영 ③ 등각투상도에 완성된 모습과 전체 치수·척도 표기 ④ 회로도에 전원·발광 다이오드(LED)의 연결과 극성 표시",
       "levels": [
         {
           "d": "4가지 조건을 모두 충족하여 작성함",
@@ -54,7 +54,7 @@
     },
     {
       "name": "제작 실습",
-      "note": "조건: ① 도안과 도면대로 제작 ② 발광 소자가 모두 점등되고 빛이 고르게 나타남 ③ 케이스가 견고하게 조립되어 형태 유지 ④ 절단면과 접합부가 깔끔하게 마무리됨",
+      "note": "조건: ① 도안과 도면대로 제작 ② 발광 다이오드(LED)가 모두 점등되고 빛이 고르게 나타남 ③ 케이스가 견고하게 조립되어 형태 유지 ④ 절단면과 접합부가 깔끔하게 마무리됨",
       "levels": [
         {
           "d": "4가지 조건을 모두 충족하여 제작함",
@@ -196,16 +196,16 @@
   "extraSids": "",
   "roster": {},
   "groups": {},
-  "entryMode": "session",
+  "entryMode": "none",
   "classCode": "",
   "timetable": {
     "1": [
-      "",
       "2-7",
       "2-7",
       "",
       "2-3",
       "2-3",
+      "",
       ""
     ],
     "2": [
@@ -326,7 +326,7 @@
   ],
   "supabaseUrl": "https://ojppryqhzphgpsrutncf.supabase.co",
   "supabaseKey": "sb_publishable_0kQnMhE0qJLzsdnMOJhcOg_HojpKmbz",
-  "sheetUrl": "https://script.google.com/macros/s/AKfycbzXKxgWEG3Ae7Fs8yxDtRpMwIiOUlzveniU_aHKc9SYJ427_j-xFWsZo5Fr051_ncUykw/exec",
+  "sheetUrl": "https://script.google.com/macros/s/AKfycbz6DP4PQrl_9orPHZPcLnI9_OXuRmxSZpnn0-QaLm4XdmHoyhorYYiwksH_FOENC-Ju/exec",
   "faq": [
     {
       "q": "완성 크기가 얼마인가요?",
@@ -431,5 +431,6 @@
       "tab": "all"
     }
   ],
-  "_cfgAt": 1789010990581
+  "_cfgAt": 1789034043934,
+  "customGasScript": "function doPost(e) {\n  var rows = JSON.parse(e.postData.contents);\n  var ss = SpreadsheetApp.getActiveSpreadsheet();\n   \n  rows.forEach(function(r) {\n    var grade = r.grade || (r.sid ? String(r.sid).charAt(0) : '');\n    var ban = r.ban || '';\n    var num = r.num || '';\n    var sid = String(r.sid || '');\n    var status = r.status || '';\n\n    var timelineTabName = (grade ? grade + '학년 ' : '') + (ban ? ban + '반' : '반별_타임라인');\n    var tSh = ss.getSheetByName(timelineTabName) || ss.insertSheet(timelineTabName);\n    \n    if (tSh.getLastRow() === 0) {\n      tSh.appendRow(['시각', '학년', '반', '번호', '학번', '학적', '활동 단계', '학생의 구체적 조작 내용 및 오류/성공 팩트']);\n      tSh.getRange('A1:H1').setBackground('#e9eef6').setFontWeight('bold').setHorizontalAlignment('center');\n      tSh.setFrozenRows(1);\n    }\n    tSh.appendRow([new Date(r.ts), grade, ban, num, \"'\" + sid, status, r.event, r.detail]);\n\n    updateSafeDashboard(ss, grade, ban, num, sid, status, r.event, r.detail, r.ts);\n  });\n\n  return ContentService.createTextOutput('ok');\n}\n\nfunction updateSafeDashboard(ss, grade, ban, num, sid, status, event, detail, ts) {\n  if (!sid) return;\n  var dash = ss.getSheetByName('과세특_실시간관찰') || ss.insertSheet('과세특_실시간관찰', 0);\n\n  if (dash.getLastRow() === 0) {\n    dash.appendRow([\n      '학년', '반', '번호', '학번', '특이학적',\n      '실습 진도율', '총 시도', '케이스', '회로', '도안/조립', \n      '현재 상태', '교사 맞춤 피드백 가이드', 'AI 프롬프트용 과정 요약 팩트', '최근 활동'\n    ]);\n    dash.getRange('A1:N1').setBackground('#343a40').setFontColor('#ffffff').setFontWeight('bold').setHorizontalAlignment('center');\n    dash.setFrozenRows(1);\n    dash.setColumnWidth(6, 130); \n    dash.setColumnWidth(7, 45);  \n    dash.setColumnWidth(11, 130); \n    dash.setColumnWidth(12, 250); \n    dash.setColumnWidth(13, 450); \n  }\n\n  var data = dash.getDataRange().getValues();\n  var row = -1;\n  for (var i = 1; i < data.length; i++) {\n    if (String(data[i][3]) === sid) { row = i + 1; break; }\n  }\n\n  var displayStatus = (status === '재학' || !status) ? '' : status;\n\n  if (row === -1) {\n    dash.appendRow([grade, ban, num, \"'\" + sid, displayStatus, '[□□□□□] 0%', 0, '미시도', '미시도', '미작업', '진행 중', '입장 완료. 조립을 시작하도록 안내하세요.', '아직 활동 기록이 없습니다.', new Date(ts)]);\n    row = dash.getLastRow();\n    dash.getRange(row, 1, 1, 10).setHorizontalAlignment('center');\n    dash.getRange(row, 12, 1, 2).setHorizontalAlignment('left');\n  } else {\n    if (displayStatus) {\n      dash.getRange(row, 5).setValue(displayStatus);\n    }\n  }\n\n  var sheetRowRange = dash.getRange(row, 1, 1, 14);\n  \n  var tries = dash.getRange(row, 7).getValue() || 0;\n  if (typeof tries === 'string') tries = parseInt(tries, 10) || 0;\n\n  var caseStat = String(dash.getRange(row, 8).getValue());\n  var circStat = String(dash.getRange(row, 9).getValue());\n  var designStat = String(dash.getRange(row, 10).getValue());\n  var statusMsg = String(dash.getRange(row, 11).getValue());\n\n  var hadErrorBefore = (statusMsg.indexOf('오류') !== -1 || statusMsg.indexOf('합선') !== -1 || statusMsg.indexOf('오차') !== -1 || statusMsg.indexOf('이탈') !== -1);\n\n  if (event === '설계 일지') {\n    tries++;\n    if (detail.indexOf('완성') !== -1) {\n      if (detail.indexOf('겹침') !== -1 || detail.indexOf('틈') !== -1) {\n        caseStat = '치수 오차 수정중';\n        statusMsg = '치수 계산 오류 발생 (수정 중)';\n      } else {\n        caseStat = '통과 완료';\n        statusMsg = hadErrorBefore ? '오류 극복 후 케이스 성공' : '케이스 우수 통과';\n      }\n    } else {\n      caseStat = '치수 입력 중';\n      statusMsg = '케이스 설계 재조정 중';\n    }\n  } else if (event.indexOf('점등') !== -1) {\n    if (detail.indexOf('합선') !== -1) {\n      circStat = '회로 합선!';\n      statusMsg = '회로 합선 발생';\n    } else if (detail.indexOf('소손') !== -1 || detail.indexOf('과전류') !== -1) {\n      circStat = '과전류 발생';\n      statusMsg = '저항 누락/전지 직결 오류';\n    } else if (detail.indexOf('켜짐') !== -1) {\n      circStat = '점등 성공';\n      statusMsg = '병렬 회로 점등 성공';\n    } else {\n      circStat = '배선 시도 중'; \n      statusMsg = '회로 재배치 시도 중';\n    }\n  } else if (event === '도안 피드백' || event === '도안' || event === '조립') {\n    if (detail.indexOf('벗어났') !== -1 || detail.indexOf('초과') !== -1) {\n      designStat = '도안 영역 이탈';\n      statusMsg = '도안 규격 초과 (수정 중)';\n    } else if (detail.indexOf('완료') !== -1 || detail.indexOf('조립') !== -1) {\n      designStat = '도안/조립 완료';\n      statusMsg = hadErrorBefore ? '시행착오 후 도안·조립 완성' : '도안 조건 및 조립 완벽 충족';\n    } else {\n      designStat = '도안/조립 진행';\n      statusMsg = '도안 배치 및 조립 마감 중';\n    }\n  }\n\n  var currentScore = 0;\n  if (caseStat.indexOf('입력') !== -1) currentScore = 1;\n  if (caseStat === '통과 완료' || caseStat === '케이스 통과') currentScore = 2;\n  if (circStat.indexOf('시도') !== -1 || circStat.indexOf('수정') !== -1 || circStat.indexOf('합선') !== -1 || circStat.indexOf('과전류') !== -1) currentScore = 3;\n  if (circStat === '점등 성공') currentScore = 4;\n  if (designStat.indexOf('완료') !== -1 || designStat.indexOf('통과') !== -1) currentScore = 5;\n\n  var oldProgressBar = String(dash.getRange(row, 6).getValue() || '[□□□□□] 0%');\n  var oldScore = 0;\n  if (oldProgressBar.indexOf('20%') !== -1) oldScore = 1;\n  else if (oldProgressBar.indexOf('40%') !== -1) oldScore = 2;\n  else if (oldProgressBar.indexOf('60%') !== -1) oldScore = 3;\n  else if (oldProgressBar.indexOf('80%') !== -1) oldScore = 4;\n  else if (oldProgressBar.indexOf('100%') !== -1) oldScore = 5;\n\n  var finalScore = Math.max(currentScore, oldScore);\n\n  var progressBar = '[' + \n    (finalScore >= 1 ? '■' : '□') + \n    (finalScore >= 2 ? '■' : '□') + \n    (finalScore >= 3 ? '■' : '□') + \n    (finalScore >= 4 ? '■' : '□') + \n    (finalScore >= 5 ? '■' : '□') + '] ' + (finalScore * 20) + '%';\n\n  var feedbackGuide = '정상적으로 다음 단계를 진행 중입니다.';\n  if (statusMsg.indexOf('오류') !== -1 || statusMsg.indexOf('합선') !== -1 || statusMsg.indexOf('초과') !== -1) {\n    feedbackGuide = '집중 지도 필요: 학생이 현재 오류 지점에서 막혀 있습니다. 조작 화면을 함께 점검해 주세요.';\n  } else if (statusMsg.indexOf('완성') !== -1 || statusMsg.indexOf('충족') !== -1 || statusMsg.indexOf('성공') !== -1) {\n    feedbackGuide = '칭찬 포인트: 해당 단계를 훌륭히 수행함. 다음 단계로 격려하며 유도';\n  }\n\n  dash.getRange(row, 6).setValue(progressBar);\n  dash.getRange(row, 7).setValue(tries);\n  dash.getRange(row, 8).setValue(caseStat);\n  dash.getRange(row, 9).setValue(circStat);\n  dash.getRange(row, 10).setValue(designStat);\n  dash.getRange(row, 11).setValue(statusMsg);\n  dash.getRange(row, 12).setValue(feedbackGuide);\n  dash.getRange(row, 14).setValue(new Date(ts));\n\n  if (statusMsg.indexOf('오류') !== -1 || statusMsg.indexOf('합선') !== -1 || statusMsg.indexOf('초과') !== -1) {\n    sheetRowRange.setBackground('#fff5f5');\n    dash.getRange(row, 11).setFontColor('#c92a2a').setFontWeight('bold'); \n  } else {\n    sheetRowRange.setBackground('#ffffff');\n    dash.getRange(row, 11).setFontColor('#495057').setFontWeight('normal');\n  }\n\n  var aiFact = '[실습 요약] 총 ' + tries + '회 시도. ';\n  if (caseStat === '통과 완료') {\n    aiFact += '케이스 설계 시 두께를 반영한 입체 규격을 정확히 산출함. ';\n  }\n  if (circStat === '점등 성공') {\n    aiFact += '병렬 회로의 전류 흐름을 이해하고 점등을 성공함. ';\n  }\n  if (designStat.indexOf('완료') !== -1 || designStat.indexOf('통과') !== -1) {\n    aiFact += '도안 작업 영역 조건을 준수하고 최종 조립 마감까지 완성도 있게 수행함. ';\n  } else {\n    aiFact += '현재 도안 배치 및 조립 마감 과정 진행 중. ';\n  }\n\n  dash.getRange(row, 13).setValue(aiFact);\n}"
 }
