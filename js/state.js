@@ -94,6 +94,7 @@ export const DEFAULT_CONFIG = {
   orderTips: {},    // 조립 순서 팁 덮어쓰기 (비어 있으면 기본 문구)
   orderSafety: {},  // 조립 순서 안전 문구 덮어쓰기
   showSupply: true, showMeasure: true, askPredict: true, questionFeedback: true,
+  logMax: 200,      // 설계 일지 보관 개수 (케이스·회로·조립 순서가 함께 쓴다)
   overLimit: 'warn',        // 'warn' | 'block'
   // 학교 기본 정보 — 1, 2, 3학년 복수 지원
   grade: '1, 2, 3',
@@ -530,8 +531,11 @@ function reportProgress() {
 
 export function addLog(line) {
   if (readOnly) return;
-  work.log.push(`${work.log.length + 1}차 · ${line}`);
-  if (work.log.length > 60) work.log.shift();
+  // 회차 번호는 일지가 가득 차도 계속 올라간다 (예전에는 61차에서 멈췄다)
+  work.logSeq = (work.logSeq || work.log.length) + 1;
+  work.log.push(`${work.logSeq}차 · ${line}`);
+  const max = Number(config.logMax) || 200;   // 케이스·회로·조립 순서가 함께 쓰는 칸 수
+  while (work.log.length > max) work.log.shift();
   sheetLog('설계 일지', line);
   touch();
 }

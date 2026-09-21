@@ -44,6 +44,7 @@ const FIELDS = [
   ['boardW', '우드락 판 가로 (cm)', 'number'],
   ['boardH', '우드락 판 세로 (cm)', 'number'],
   ['showMeasure', '실측값 표시', 'checkbox'],
+  ['logMax', '설계 일지 보관 개수 (케이스·회로·조립 순서 합계)', 'number'],
   ['askPredict', '예측 먼저 (조립·점등 전 예측 입력)', 'checkbox'],
   ['questionFeedback', '질문형 피드백 표시', 'checkbox'],
   ['classCode', '고정 코드 (입장 방식이 "고정 코드"일 때)', 'text'],

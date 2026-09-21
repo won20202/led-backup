@@ -32,7 +32,9 @@ function onOpen() {
   SpreadsheetApp.getUi().createMenu('LED 수업')
     .addItem('지금 상태로 백업 사본 만들기', 'makeBackupCopy')
     .addSeparator()
-    .addItem('오늘부터 새로 기록 (초기화)', 'resetRecords')
+    .addItem('오늘 기록만 남기고 이전 것 정리', 'keepTodayOnly')
+    .addSeparator()
+    .addItem('오늘부터 새로 기록 (전체 초기화)', 'resetRecords')
     .addToUi();
 }
 
@@ -345,4 +347,48 @@ function resetRecords() {
     if (/반$/.test(sh.getName()) && sh.getLastRow() > 1) sh.deleteRows(2, sh.getLastRow() - 1);
   });
   ui.alert('초기화했습니다. 이제부터 들어오는 기록만 쌓입니다.');
+}
+
+
+/** 시트 메뉴: 오늘 기록만 남기고 그 이전 것을 정리한다 (오늘 수업 기록은 그대로) */
+function keepTodayOnly() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var tz = ss.getSpreadsheetTimeZone();
+  var cut = new Date(Utilities.formatDate(new Date(), tz, 'yyyy/MM/dd') + ' 00:00:00');
+  var ui = null;
+  try { ui = SpreadsheetApp.getUi(); } catch (e) { /* 편집기에서 실행하면 대화상자가 없다 */ }
+  if (ui && ui.alert('오늘 기록만 남기기',
+        '오늘(' + Utilities.formatDate(cut, tz, 'MM월 dd일') + ') 이전 기록을 모두 지웁니다.
+오늘 수업 기록은 그대로 남습니다. 계속할까요?',
+        ui.ButtonSet.YES_NO) !== ui.Button.YES) return;
+
+  var removed = 0, tabsGone = [];
+
+  // 1) 대시보드: 마지막 활동이 오늘 이전인 학생 줄을 지운다
+  var dash = ss.getSheetByName(DASH);
+  if (dash && dash.getLastRow() > 1) {
+    var last = dash.getRange(2, 1, dash.getLastRow() - 1, HEAD.length).getValues();
+    for (var i = last.length - 1; i >= 0; i--) {
+      var when = last[i][14];                       // '마지막 활동'
+      if (!(when instanceof Date) || when < cut) { dash.deleteRow(i + 2); removed++; }
+    }
+  }
+
+  // 2) 반별 타임라인: 오늘 이전 행을 지우고, 남는 게 없으면 탭째 정리
+  ss.getSheets().forEach(function (sh) {
+    var name = sh.getName();
+    if (!/반$/.test(name) || sh.getLastRow() < 2) return;
+    var vals = sh.getRange(2, 1, sh.getLastRow() - 1, 1).getValues();
+    for (var i = vals.length - 1; i >= 0; i--) {
+      var when = vals[i][0];
+      if (!(when instanceof Date) || when < cut) { sh.deleteRow(i + 2); removed++; }
+    }
+    if (sh.getLastRow() < 2) { ss.deleteSheet(sh); tabsGone.push(name); }
+  });
+
+  var msg = '정리했습니다. 지운 줄 ' + removed + '개'
+          + (tabsGone.length ? ', 비어서 없앤 탭: ' + tabsGone.join(', ') : '')
+          + '. 오늘 수업 기록은 그대로 있습니다.';
+  if (ui) ui.alert(msg);
+  return msg;
 }
