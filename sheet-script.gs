@@ -41,6 +41,27 @@ var ITEMS = ['도안 작업', '도안 조건 충족', '케이스 치수 입력',
              '회로 연습', '켜기 전 예측', '전 LED 점등', '홀더 위치'];
 
 function onOpen() {
+  buildMenu();
+  try { autoTidyOnce(); } catch (e) { /* 실패해도 메뉴는 그대로 쓸 수 있다 */ }
+}
+
+// 탭이 어질러져 있으면 한 번만 스스로 정리한다 (이미 정돈돼 있으면 아무것도 하지 않는다)
+function autoTidyOnce() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var messy = false;
+  ss.getSheets().forEach(function (sh) {
+    var n = sh.getName();
+    if (/타임라인$/.test(n)) messy = true;                       // 잘못 생긴 탭
+    if (/^\d+학년 \d+반$/.test(n) && n.indexOf(GRADE + '학년 ') !== 0) messy = true;
+  });
+  if (!ss.getSheetByName(banTabName(1))) messy = true;           // 1반 탭이 아직 없음
+  if (messy) tidySheets(true);
+
+  var dash = ss.getSheetByName(DASH);
+  if (!dash || dash.getLastRow() < 2) rebuildFromTimeline(true); // 표가 비어 있으면 원본에서 되살린다
+}
+
+function buildMenu() {
   SpreadsheetApp.getUi().createMenu('LED 수업')
     .addItem('지금 상태로 백업 사본 만들기', 'makeBackupCopy')
     .addSeparator()
@@ -428,7 +449,7 @@ function keepTodayOnly() {
   var msg = '정리했습니다. 지운 줄 ' + removed + '개'
           + (tabsGone.length ? ', 비어서 없앤 탭: ' + tabsGone.join(', ') : '')
           + '. 오늘 수업 기록은 그대로 있습니다.';
-  if (ui) ui.alert(msg);
+  if (ui && !quiet) ui.alert(msg);
   return msg;
 }
 
@@ -436,7 +457,7 @@ function keepTodayOnly() {
  * 반별 타임라인에 쌓인 원본 기록을 그대로 다시 읽어 대시보드를 만든다.
  * 표 구조를 바꿨을 때나 실수로 표를 지웠을 때 쓴다. 타임라인이 원본이라 손실이 없다.
  */
-function rebuildFromTimeline() {
+function rebuildFromTimeline(quiet) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var ui = null;
   try { ui = SpreadsheetApp.getUi(); } catch (e) { /* 편집기 실행 */ }
@@ -466,7 +487,7 @@ function rebuildFromTimeline() {
   sortDash(dash);
 
   var msg = '타임라인 ' + events.length + '건을 다시 읽어 대시보드를 만들었습니다. 학생 ' + (dash.getLastRow() - 1) + '명.';
-  if (ui) ui.alert(msg);
+  if (ui && !quiet) ui.alert(msg);
   return msg;
 }
 
@@ -480,7 +501,7 @@ function rebuildFromTimeline() {
  */
 var TEST_SIDS = ['29999', '21035'];
 
-function tidySheets() {
+function tidySheets(quiet) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var ui = null;
   try { ui = SpreadsheetApp.getUi(); } catch (e) { /* 편집기 실행 */ }
