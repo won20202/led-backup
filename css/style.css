@@ -179,8 +179,13 @@ button.primary, button.big { box-shadow: 0 2px 6px rgba(74,108,240,0.25); }
 .login-box h1 { letter-spacing: -0.4px; }
 .credit {
   margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line);
-  font-size: 13px; color: #6b7585; letter-spacing: 0.2px; font-weight: 600;
+  font-size: 13px; color: #8a93a2; letter-spacing: 0.3px;
 }
+.credit b { color: var(--accent-dark); font-weight: 700; }
+/* 작업 화면 머리글의 제작자 표시 — 로고 아래 한 줄 */
+.logo-wrap { display: flex; flex-direction: column; justify-content: center; line-height: 1.15; }
+.credit-mini { font-size: 10.5px; color: #9aa3b2; letter-spacing: 0.2px; }
+.credit-mini b { color: var(--accent); font-weight: 700; }
 
 /* 모달 */
 .modal {

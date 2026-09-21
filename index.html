@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LED 플래카드 설계 시뮬레이터</title>
-<link rel="stylesheet" href="css/style.css?v=8">
+<link rel="stylesheet" href="css/style.css?v=9">
 </head>
 <body>
 
@@ -32,7 +32,10 @@
 <!-- 본 화면 -->
 <div id="app" class="hidden">
   <header>
-    <span class="logo">LED 플래카드</span>
+    <span class="logo-wrap">
+      <span class="logo">LED 플래카드</span>
+      <span id="header-credit" class="credit-mini"></span>
+    </span>
     <nav>
       <button class="tab-btn" data-tab="case">케이스</button>
       <button class="tab-btn" data-tab="circuit">회로</button>
@@ -351,6 +354,6 @@
   </div>
 </div>
 
-<script type="module" src="js/app.js"></script>
+<script type="module" src="js/app.js?v=9"></script>
 </body>
 </html>

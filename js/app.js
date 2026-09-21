@@ -16,6 +16,12 @@ const $ = id => document.getElementById(id);
 // 설정(입장 방식·학번 자리수)이 바뀌면 로그인 화면도 연동되어 4자리/5자리 예시 자동 표시
 // 시연 학번을 입력하면 코드 칸이 '관리자 PIN' 칸으로 바뀐다 (입력값은 가려진다)
 function isDemoSid(v) { return sidInList(config.demoSids, String(v || '').trim()); }
+// 제작자 표시 — 로그인 화면과 작업 화면 머리글에 같은 문구로
+function showCredit() {
+  const by = String(config.madeBy || '').trim();
+  const html = by ? `made by <b>${by.replace(/[<>&]/g, '')}</b>` : '';
+  ['login-credit', 'header-credit'].forEach(id => { const el = $(id); if (el) el.innerHTML = html; });
+}
 function refreshCodeField() {
   const demo = isDemoSid($('login-sid').value);
   const box = $('login-code');
@@ -41,11 +47,7 @@ function setupLogin() {
     if (last) $('login-sid').value = last;
   } catch (e) { /* ignore */ }
 
-  const credit = $('login-credit');
-  if (credit) {
-    const by = String(config.madeBy || '').trim();
-    credit.textContent = by ? `${by}이 직접 만든 수업 도구입니다 · ${new Date().getFullYear()}` : '';
-  }
+  showCredit();
   $('login-sid').addEventListener('input', refreshCodeField);
   refreshCodeField();
   $('login-admin').addEventListener('click', openAdmin);
