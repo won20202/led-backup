@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LED 플래카드 설계 시뮬레이터</title>
-<link rel="stylesheet" href="css/style.css?v=5">
+<link rel="stylesheet" href="css/style.css?v=6">
 </head>
 <body>
 
@@ -62,7 +62,7 @@
       </div>
       <div id="predict-row" class="predict-box">
         <label>조립하면 완성 크기가 얼마가 될까요?</label>
-        <div><input id="in-pre-w" type="number" step="0.1" placeholder="가로"> × <input id="in-pre-h" type="number" step="0.1" placeholder="세로"> × <input id="in-pre-d" type="number" step="0.1" placeholder="깊이"></div>
+        <div><input id="in-pre-w" type="number" step="0.1" placeholder="가로"> × <input id="in-pre-h" type="number" step="0.1" placeholder="높이"> × <input id="in-pre-d" type="number" step="0.1" placeholder="깊이"></div>
         <p id="predict-hint" class="warn small"></p>
       </div>
       <button id="btn-assemble" class="primary big" disabled>조립하기</button>
@@ -154,7 +154,7 @@
     <aside class="panel-left">
       <h3>도안 <button class="faq-btn" data-faqtab="design">?</button></h3>
       <div class="dim-group">
-        <label>도안 이미지 올리기 (캔바 등)</label>
+        <label>도안 이미지 올리기 (PNG)</label>
         <p class="muted small" id="d-img-hint"></p>
         <input type="file" id="d-img-file" accept="image/png,image/jpeg,image/webp">
         <div id="d-img-status"></div>

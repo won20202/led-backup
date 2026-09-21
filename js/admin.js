@@ -22,7 +22,7 @@ const FIELDS = [
   ['madeBy', '제작자 표시 (로그인 화면 아래, 비우면 숨김)', 'text'],
   ['thickness', '재료(우드락) 두께 (cm)', 'number'],
   ['targetW', '완성 목표 가로 (cm)', 'number'],
-  ['targetH', '완성 목표 세로 (cm)', 'number'],
+  ['targetH', '완성 목표 높이 (cm)', 'number'],
   ['targetD', '완성 목표 깊이 (cm)', 'number'],
   ['showTarget', '완성 목표 치수를 학생 화면에 표시', 'checkbox'],
   ['ledCount', 'LED 지급 개수', 'number'],

@@ -360,7 +360,7 @@ function updatePanel() {
   if (hasImage()) { // 이미지 도안: 영역·비율·안쪽 조각만 안내 (모양은 캔바에서 정한 대로)
     const b = a.boxes[0];
     if (D().image.ratioOff)
-      warns.push(`올린 도안의 비율이 앞면(${config.frontW}×${config.frontH}cm)과 달라 늘려서 맞췄어요. 캔바에서 도안 크기를 확인해 보세요.`);
+      warns.push(`올린 도안의 비율이 앞면(${config.frontW}×${config.frontH}cm)과 달라 늘려서 맞췄어요. 원본 그림의 가로세로 비율을 확인해 보세요.`);
     if (b && (b.x < ax - 0.05 || b.y < ay - 0.05 || b.x + b.w > ax + config.areaW + 0.05 || b.y + b.h > ay + config.areaH + 0.05))
       warns.push(`도안이 작업 영역(${config.areaW}×${config.areaH}cm)을 벗어났어요. 가장자리 여백을 확인해 보세요.`);
     warns.forEach(w => html += `<p class="hint">${w}</p>`);
@@ -569,8 +569,7 @@ export function initDesign() {
 // 글자 입력칸: 설정된 글자 수(또는 자유 모드의 현재 개수)만큼 동적으로 만든다
 function renderLetterRows() {
   // 업로드 안내와 상태 (앞면 크기는 관리자 설정을 따른다)
-  $('d-img-hint').innerHTML = `캔바에서 <b>${config.frontW}×${config.frontH}cm</b>` +
-    ` (비율 ${config.frontW}:${config.frontH}, 예: ${config.frontW * 100}×${config.frontH * 100}px)로 만들어 PNG로 올리세요.` +
+  $('d-img-hint').innerHTML = `앞면과 같은 <b>${config.frontW}:${config.frontH} 비율</b>로 만든 그림을 PNG로 올리세요.` +
     ' 흰 바탕에 그린 글씨·그림(색이 있어도 됨)이 오려낼 부분이 됩니다. 그대로 인쇄해 검정 도화지에 대고 파내면 돼요.';
   const stat = $('d-img-status');
   if (hasImage()) {
