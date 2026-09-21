@@ -569,7 +569,7 @@ export function initDesign() {
 // 글자 입력칸: 설정된 글자 수(또는 자유 모드의 현재 개수)만큼 동적으로 만든다
 function renderLetterRows() {
   // 업로드 안내와 상태 (앞면 크기는 관리자 설정을 따른다)
-  $('d-img-hint').innerHTML = `앞면과 같은 <b>${config.frontW}:${config.frontH} 비율</b>로 만든 그림을 PNG로 올리세요.` +
+  $('d-img-hint').innerHTML = 'PNG 또는 JPG 파일로 올려 주세요.' +
     ' 흰 바탕에 그린 글씨·그림(색이 있어도 됨)이 오려낼 부분이 됩니다. 그대로 인쇄해 검정 도화지에 대고 파내면 돼요.';
   const stat = $('d-img-status');
   if (hasImage()) {
