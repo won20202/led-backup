@@ -31,7 +31,7 @@ var CHECK_HEAD = ['확인① 전개도·등각투상도', '확인② 도안·회
 
 // 수업하는 학년과 반 수 — 여기만 고치면 탭 정리가 그에 맞춰 돌아간다
 var GRADE = 2, BAN_COUNT = 10;
-var MISC = '기타 기록';                       // 학생 기록이 아닌 것(수업 기록·테스트)
+var MISC = '기록(원본)';                      // 모든 활동 기록이 시간순으로 쌓이는 곳
 var TIMELINE_HEAD = ['시각', '학년', '반', '번호', '학번', '학적', '활동 단계',
                      '학생의 구체적 조작 내용 및 오류/성공 팩트'];
 function banTabName(ban) { return GRADE + '학년 ' + Number(ban) + '반'; }
@@ -63,6 +63,10 @@ function autoTidyOnce() {
   }
   if (messy) tidySheets(true);
 
+  // 반 탭이 아직 '원본 기록'이면 보드로 바꾼다 (수업 중 그 반 탭만 보면 되게)
+  var one = ss.getSheetByName(banTabName(1));
+  if (!one || String(one.getRange('A1').getValue()) !== BOARD_HEAD[0]) makeBanBoards(true);
+
   var dash = ss.getSheetByName(DASH);
   if (!dash || dash.getLastRow() < 2) rebuildFromTimeline(true); // 표가 비어 있으면 원본에서 되살린다
 }
@@ -70,6 +74,8 @@ function autoTidyOnce() {
 function buildMenu() {
   SpreadsheetApp.getUi().createMenu('LED 수업')
     .addItem('지금 상태로 백업 사본 만들기', 'makeBackupCopy')
+    .addSeparator()
+    .addItem('반별 보드 만들기 (1~10반)', 'makeBanBoards')
     .addSeparator()
     .addItem('탭 정리 (반 순서대로)', 'tidySheets')
     .addSeparator()
@@ -111,7 +117,7 @@ function isStudent(r) {
 function appendTimeline(ss, r) {
   // 학생 기록만 반 탭으로. 수업 기록·테스트는 '기타 기록' 한 곳에 모은다
   // (예전에는 수업명이 학년 자리에 들어가 '2-3학년 반별_타임라인' 같은 탭이 생겼다)
-  var sh = timelineSheet(ss, isStudent(r) ? banTabName(r.ban) : MISC);
+  var sh = timelineSheet(ss, MISC);   // 원본 기록은 한 곳에. 반 탭은 보드로 쓴다
   sh.appendRow([new Date(r.ts), r.grade || '', r.ban || '', r.num || '',
                 "'" + String(r.sid || ''), r.status || '', r.event, r.detail]);
 }
@@ -585,4 +591,58 @@ function tidySheets(quiet) {
           + (killed.length ? ', 없앤 탭: ' + killed.join(', ') : '') + '.';
   if (ui) ui.alert(msg);
   return msg;
+}
+
+
+// ── 반별 보드 ──────────────────────────────────────────────
+// 수업 중에는 그 반 탭만 보면 되게. 전체 대시보드에서 그 반만 뽑아 오는
+// 수식이라 따로 갱신할 필요가 없다 (원본 기록은 '기록(원본)' 탭에 쌓인다).
+var BOARD_HEAD = ['번호', '학번', '상태', '진도', '남은 것', '최근 활동 · 막힌 곳', '교사가 할 일',
+                  '도안 시도', '케이스 시도', '회로 시도', '조립 시도', '마지막 활동'];
+
+function banBoardSheet(ss, ban) {
+  var name = banTabName(ban);
+  var sh = ss.getSheetByName(name) || ss.insertSheet(name);
+  sh.clear();
+  sh.getRange(1, 1, 1, BOARD_HEAD.length).setValues([BOARD_HEAD])
+    .setBackground('#343a40').setFontColor('#ffffff').setFontWeight('bold').setHorizontalAlignment('center');
+  sh.getRange('A2').setFormula(
+    "=IFERROR(QUERY('" + DASH + "'!A2:S, \"select B,C,D,E,F,G,H,M,N,O,P,S where A=" + ban +
+    " order by B\", 0), \"아직 이 반의 기록이 없습니다\")");
+  [50, 70, 95, 140, 200, 300, 290, 68, 74, 68, 68, 125]
+    .forEach(function (w, i) { sh.setColumnWidth(i + 1, w); });
+  sh.setFrozenRows(1);
+  sh.setFrozenColumns(2);
+  var body = sh.getRange(2, 1, sh.getMaxRows() - 1, BOARD_HEAD.length);
+  sh.setConditionalFormatRules([
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenFormulaSatisfied('=REGEXMATCH($C2,"도움 필요")').setBackground('#fff0f0').setRanges([body]).build(),
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenFormulaSatisfied('=REGEXMATCH($C2,"완료")').setBackground('#f2fbf4').setRanges([body]).build(),
+  ]);
+  return sh;
+}
+
+/** 시트 메뉴: 반별 보드를 새로 만든다 (1~10반) */
+function makeBanBoards(quiet) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  for (var b = 1; b <= BAN_COUNT; b++) banBoardSheet(ss, b);
+  orderTabs(ss);
+  var msg = '1~' + BAN_COUNT + '반 보드를 만들었습니다. 수업 중에는 그 반 탭만 보시면 됩니다.';
+  try { if (!quiet) SpreadsheetApp.getUi().alert(msg); } catch (e) {}
+  return msg;
+}
+
+function orderTabs(ss) {
+  var order = [DASH, NEED];
+  for (var b = 1; b <= BAN_COUNT; b++) order.push(banTabName(b));
+  order.push(MISC);
+  var pos = 1;
+  order.forEach(function (n) {
+    var sh = ss.getSheetByName(n);
+    if (!sh) return;
+    ss.setActiveSheet(sh);
+    ss.moveActiveSheet(pos++);
+  });
+  ss.setActiveSheet(ss.getSheetByName(DASH));
 }
