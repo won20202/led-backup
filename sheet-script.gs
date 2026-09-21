@@ -230,6 +230,10 @@ function updateDashboard(dash, table, r) {
   var state, todo;
   if (!left.length) {
     state = '✅ 완료'; todo = '전 항목 완료. 마감 상태를 함께 점검하고 포트폴리오 제출을 안내하세요.';
+  } else if (event === '진도' && String(cur[3]).indexOf('도움') !== -1) {
+    // 진도 신호는 '막혀 있음' 표시를 지우지 않는다.
+    // 🔴는 학생이 실제로 문제를 해결한 기록(성공한 점등·조건 충족 등)이 올 때 풀린다.
+    state = cur[3]; todo = cur[7];
   } else if (trouble) {
     state = '🔴 도움 필요'; todo = troubleTodo(kase, circ, design, note);
   } else if (acts <= 1) {
