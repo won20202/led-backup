@@ -118,27 +118,34 @@ export const DEFAULT_CONFIG = {
     { start: '15:10', end: '15:55' },
   ],
   adminPin: '2026',
+  // 입장 코드 계산용 고정 씨앗 — PIN과 분리해야 PIN을 바꾸거나 초기화돼도 코드가 그대로다
+  codeSalt: 'lps-code-2026',
   // 학교 공용 Supabase (publishable key — 브라우저 공개용으로 설계된 키라 코드에 넣어도 안전)
-  supabaseUrl: 'https://gakrtbuicpruxjaqalec.supabase.co',
-  supabaseKey: 'sb_publishable_Y6T-PsFY5WPq-w7dZ2IQMA_COG6dOYI',
+  supabaseUrl: 'https://ojppryqhzphgpsrutncf.supabase.co',
+  supabaseKey: 'sb_publishable_0kQnMhE0qJLzsdnMOJhcOg_HojpKmbz',
   sheetUrl: '',             // Google Apps Script 웹 앱 URL — 설정하면 학생 활동·피드백이 시트에 기록됨
   faq: DEFAULT_FAQ,
 };
 
-const CONFIG_KEY = 'lps_config3'; // v3: 현실 물리 모델로 교체하며 키 갱신
+// 같은 도메인(won20202.github.io)에 여러 버전이 올라가 있으면 localStorage를 공유해서 설정이 섞인다.
+// 주소의 첫 칸(/led-backup/ → 'led-backup')으로 저장 칸을 나눠 버전끼리 영향을 주지 않게 한다.
+const APP_NS = (typeof location !== 'undefined' && location.pathname.split('/')[1]) || 'local';
+const CONFIG_KEY = `lps_config3@${APP_NS}`;
+const OLD_CONFIG_KEY = 'lps_config3';          // 칸을 나누기 전 설정 — 처음 한 번만 이어받는다
+const OTHER_SUPABASE = 'gakrtbuicpruxjaqalec'; // 다른 버전(led)이 쓰는 무료 프로젝트 — 이 앱은 항상 유료 쪽으로
 const MISS_KEY = 'lps_faq_miss';
 
 export let config = loadConfig();
 
 function loadConfig() {
   try {
-    const raw = localStorage.getItem(CONFIG_KEY);
+    const raw = localStorage.getItem(CONFIG_KEY) || localStorage.getItem(OLD_CONFIG_KEY);
     if (raw) {
       const c = { ...DEFAULT_CONFIG, ...JSON.parse(raw) };
       // 옛 설정 이관: dailyCode/classCode → entryMode
       if (!c.entryMode) c.entryMode = c.dailyCode ? 'daily' : (c.classCode ? 'fixed' : 'none');
-      // 옛 설정에 서버 주소가 비어 있으면 내장 기본 서버로 연결
-      if (!c.supabaseUrl || !c.supabaseKey) {
+      // 주소가 비었거나 다른 버전의 무료 서버를 가리키면 이 앱의 유료 서버로 돌린다 (작업 유실 방지)
+      if (!c.supabaseUrl || !c.supabaseKey || String(c.supabaseUrl).includes(OTHER_SUPABASE)) {
         c.supabaseUrl = DEFAULT_CONFIG.supabaseUrl;
         c.supabaseKey = DEFAULT_CONFIG.supabaseKey;
       }
@@ -161,7 +168,8 @@ export async function fileConfigPull() {
     if (!res.ok) return false;
     const pub = await res.json();
     if (!pub || typeof pub !== 'object' || !Object.keys(pub).length) return false;
-    delete pub.adminPin; // 공개 저장소에 PIN이 실렸어도 받지 않는다
+    delete pub.adminPin;  // 공개 저장소에 PIN이 실렸어도 받지 않는다
+    delete pub.codeSalt;  // 코드 씨앗은 모든 기기가 같은 기본값을 써야 코드가 일치한다
     if ((pub._cfgAt || 0) <= (config._cfgAt || 0)) return false; // 내 설정이 더 최신
     Object.assign(config, pub);
     localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
@@ -172,7 +180,7 @@ export async function fileConfigPull() {
 // ---- 수업 설정 자동 배포 (Supabase 연결 시) ----
 // 관리자가 [설정 저장]하면 설정이 서버에 올라가고, 학생 앱은 시작할 때 자동으로 받아온다.
 // PIN과 서버 접속 정보는 배포에서 제외 (접속 정보는 기기별, PIN은 교사만).
-const CONFIG_SYNC_EXCLUDE = ['supabaseUrl', 'supabaseKey', 'adminPin'];
+const CONFIG_SYNC_EXCLUDE = ['supabaseUrl', 'supabaseKey', 'adminPin', 'codeSalt'];
 export async function cloudPushConfig() {
   const c = sb();
   if (!c) return false;
@@ -209,7 +217,7 @@ function dateStr() {
   return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 }
 function codeOf(...parts) {
-  const s = config.adminPin + '|' + parts.join('|');
+  const s = (config.codeSalt || DEFAULT_CONFIG.codeSalt) + '|' + parts.join('|');
   let h = 0;
   for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   return String(1000 + h % 9000);

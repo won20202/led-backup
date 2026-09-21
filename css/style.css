@@ -172,7 +172,19 @@ h4 { font-size: 13px; margin: 12px 0 6px; color: #4a5561; }
 .adm-table td, .adm-table th { border: 1px solid #e3e8ee; padding: 5px 8px; font-size: 13px; }
 .adm-work-row { padding: 5px 0; border-bottom: 1px dashed #eef1f5; }
 #adm-code { width: 100%; font-size: 11px; font-family: monospace; }
-#adm-tabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--line); padding-bottom: 8px; margin: 10px 0; }
+#adm-tabs { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 1px solid var(--line); padding-bottom: 8px; margin: 10px 0;
+  position: sticky; top: -22px; background: #fff; z-index: 3; padding-top: 6px; }
+/* 저장 막대: 어느 탭에 있든 화면 아래에 늘 보인다 */
+#adm-savebar {
+  position: sticky; bottom: -22px; z-index: 3;
+  margin: 14px -22px -22px; padding: 12px 22px;
+  background: #fff; border-top: 2px solid var(--line);
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+#adm-savebar button { font-size: 16px; padding: 10px 20px; }
+.save-status { font-size: 13px; color: #5a6474; flex: 1; min-width: 180px; }
+.save-status.ok { color: #1f7a3d; }
+.save-status.bad { color: #b3261e; }
 #adm-tabs button { border: none; background: transparent; border-radius: 999px; padding: 7px 14px; font-weight: 600; color: #5a6474; }
 #adm-tabs button:hover { background: #eef1fb; }
 #adm-tabs button.active { background: var(--accent); color: #fff; }

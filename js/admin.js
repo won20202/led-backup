@@ -89,13 +89,42 @@ function collectSettings() {
     else if (el.type === 'number') config[k] = parseFloat(el.value) || DEFAULT_CONFIG[k];
     else config[k] = el.value;
   });
-  // 관리자 모드에서 직접 수정한 Apps Script 코드를 설정에 반영
-  if ($('adm-gas')) {
+  // Apps Script 코드는 [코드 수정] 잠금을 푼 동안에만 저장한다 (평소엔 실수로도 안 바뀜)
+  if ($('adm-gas') && !$('adm-gas').readOnly && $('adm-gas').value.trim()) {
     config.customGasScript = $('adm-gas').value;
   }
   collectPeriods();
   collectTimetable();
   saveConfig();
+}
+
+// 화면에 열려 있는 모든 탭의 입력을 한 번에 모아 이 기기에 저장한다.
+// (탭마다 따로 저장하러 가지 않아도 되도록 — 저장 버튼도, 자동 저장도 이 함수를 쓴다)
+let unlocked = false;
+export function collectAll() {
+  if (!unlocked) return false;
+  collectSettings(); collectRubric(); collectFaq(); collectMats(); collectOrderTexts();
+  saveConfig();
+  return true;
+}
+function stamp() {
+  const t = new Date();
+  return `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
+}
+function saveStatus(msg, cls) {
+  const el = $('adm-save-status');
+  if (el) { el.textContent = msg; el.className = 'save-status ' + (cls || ''); }
+}
+// push=false: 이 기기에만 (입력이 바뀔 때마다 자동) / push=true: 서버에 올려 학생 기기까지 반영
+async function saveAll(push) {
+  if (!collectAll()) return;
+  if (!push) { saveStatus(`이 기기에 자동 저장됨 ${stamp()} — 학생 기기에 반영하려면 [설정 저장]`, 'ok'); return; }
+  saveStatus('서버에 올리는 중…');
+  const pushed = await cloudPushConfig();
+  renderSettings(); renderEntry();
+  saveStatus(pushed
+    ? `저장 완료 ${stamp()} — 학생은 새로고침하면 이 설정으로 바뀝니다`
+    : `이 기기에 저장됨 ${stamp()} — 서버 연결 안 됨(설정 코드로 배포하세요)`, pushed ? 'ok' : 'bad');
 }
 
 // ---- 입장 코드 (수업 코드·미실시자·시간표) ----
@@ -113,7 +142,7 @@ function collectPeriods() {
     }));
 }
 // 시간표 편집 대상: 'base'(기본) 또는 주 시작(월요일) 날짜 키
-let entrySel = { kind: 'week', off: 0 };
+let entrySel = { kind: 'base', off: 0 };  // 기본 시간표부터 보여 준다 (이번 주만 바꾸려면 [주차별 보기])
 function entryWeekKey() {
   const d = new Date();
   d.setDate(d.getDate() + entrySel.off * 7);
@@ -373,6 +402,7 @@ function renderRubric() {
   });
 }
 function collectRubric() {
+  if (!$('adm-rubric').children.length) return; // 아직 안 그려졌으면 건드리지 않는다
   const out = [];
   $('adm-rubric').querySelectorAll('.adm-area').forEach(div => {
     const levels = [];
@@ -403,6 +433,7 @@ function renderFaqEditor() {
     b.addEventListener('click', () => { config.faq.splice(i, 1); saveConfig(); renderFaqEditor(); }));
 }
 function collectFaq() {
+  if (!$('adm-faq').children.length) return;
   const items = [];
   $('adm-faq').querySelectorAll('.adm-faq-item').forEach(div => {
     const q = div.querySelector('.fq').value.trim();
@@ -427,6 +458,7 @@ function renderMatEditor() {
     b.addEventListener('click', () => { collectMats(); config.materials.splice(i, 1); saveConfig(); renderMatEditor(); }));
 }
 function collectMats() {
+  if (!$('adm-mats').children.length) return;
   const items = [];
   const palette = ['#f0e3c0', '#fff3b0', '#d7dde6', '#eef4f0', '#c9cdd3', '#d9e6d5', '#f3d9d3', '#dcd6ea'];
   $('adm-mats').querySelectorAll('.adm-mat-item').forEach((div, i) => {
@@ -461,6 +493,7 @@ function renderOrderTextEditor() {
     </div>`).join('');
 }
 function collectOrderTexts() {
+  if (!$('adm-otips').children.length) return;
   const tips = {}, safe = {};
   $('adm-otips').querySelectorAll('.otv').forEach(t => {
     const v = t.value.trim();
@@ -1096,6 +1129,7 @@ export function openAdmin() {
   $('adm-pin').focus();
 }
 
+let wired = false;   // 관리자 창 안의 버튼 연결은 한 번만
 export function initAdmin() {
   $('adm-pin-btn').addEventListener('click', () => {
     if ($('adm-pin').value !== config.adminPin) { $('adm-pin-err').textContent = 'PIN이 다릅니다.'; return; }
@@ -1103,11 +1137,23 @@ export function initAdmin() {
     $('adm-content').classList.remove('hidden');
     renderSettings(); renderEntry(); renderRubric(); renderFaqEditor(); renderMatEditor(); renderOrderTextEditor(); renderMisses(); renderWorks();
     renderRosterSummary(); renderGroups();
-    
-    // Apps Script 코드 상자 채우기 (이제 readonly가 아니므로 상자를 누르면 바로 수정 가능)
+    unlocked = true;
+    saveStatus('바꾸면 자동으로 저장됩니다. 학생 기기에 반영하려면 [설정 저장]을 누르세요.');
+
+    // Apps Script 코드 상자 — 열 때마다 잠근다. 고칠 때만 [코드 수정]으로 잠금을 푼다.
     if ($('adm-gas')) {
       $('adm-gas').value = config.customGasScript || DEFAULT_APPS_SCRIPT;
+      $('adm-gas').readOnly = true;
+      if ($('adm-gas-edit')) $('adm-gas-edit').textContent = '코드 수정하기 (잠김)';
     }
+
+    clearInterval(worksTimer);   // 학생 화면 자동 새로고침 — 열 때마다 다시 건다
+    worksTimer = setInterval(() => {
+      if (!$('admin-modal').classList.contains('hidden')) renderWorks();
+    }, 20000);
+
+    if (wired) return;  // 아래 버튼들은 한 번만 연결한다 (다시 열 때마다 쌓이면 오동작)
+    wired = true;
 
     $('adm-roster-template').addEventListener('click', rosterTemplate);
     $('adm-roster-file').addEventListener('change', e => {
@@ -1130,26 +1176,35 @@ export function initAdmin() {
       $('adm-group-name').value = '';
       saveConfig(); renderGroups();
     });
+    // 어느 탭에서든 입력이 바뀌면 그 자리에서 이 기기에 저장된다 (탭 이동·닫기로 날아가지 않게)
+    $('adm-content').addEventListener('change', e => {
+      if (e.target.type === 'file' || e.target.id === 'adm-code' || e.target.id === 'adm-pin') return;
+      saveAll(false);
+    });
+
     document.querySelectorAll('#adm-tabs button').forEach(b =>
       b.addEventListener('click', () => {
+        saveAll(false);                       // 탭을 옮기기 전에 지금 탭 내용을 저장
+        if (b.dataset.at === 'entry') renderEntry();   // 시간표·코드를 최신 설정으로 다시 계산
         document.querySelectorAll('#adm-tabs button').forEach(x => x.classList.toggle('active', x === b));
         document.querySelectorAll('.adm-panel').forEach(p => p.classList.toggle('active', p.id === 'ap-' + b.dataset.at));
       }));
-    clearInterval(worksTimer);
-    worksTimer = setInterval(() => {
-      if (!$('admin-modal').classList.contains('hidden')) renderWorks();
-    }, 20000);
   });
   $('adm-pin').addEventListener('keydown', e => { if (e.key === 'Enter') $('adm-pin-btn').click(); });
 
-  $('adm-save').addEventListener('click', async () => {
-    collectSettings(); collectRubric(); collectFaq(); collectMats(); collectOrderTexts();
-    saveConfig();
-    renderSettings(); renderEntry();
-    const pushed = await cloudPushConfig();
-    alert(pushed
-      ? '저장되었습니다. 서버에도 올라가서 학생 화면은 새로고침하면 자동으로 이 설정을 받습니다.'
-      : '저장되었습니다. (서버 미연결 — 다른 기기에는 설정 코드로 배포하세요)');
+  $('adm-save').addEventListener('click', () => saveAll(true));
+  if ($('adm-gas-edit')) $('adm-gas-edit').addEventListener('click', () => {
+    const box = $('adm-gas');
+    if (box.readOnly) {
+      if (!confirm('Apps Script 코드를 수정할 수 있게 잠금을 풀까요? 시트 연동이 잘 되고 있다면 그대로 두세요.')) return;
+      box.readOnly = false;
+      $('adm-gas-edit').textContent = '수정 끝 — 다시 잠그기';
+      box.focus();
+    } else {
+      box.readOnly = true;
+      $('adm-gas-edit').textContent = '코드 수정하기 (잠김)';
+      saveAll(false);
+    }
   });
   $('adm-gas-copy').addEventListener('click', () => {
     const currentScript = $('adm-gas').value || DEFAULT_APPS_SCRIPT;
@@ -1183,6 +1238,7 @@ export function initAdmin() {
     saveConfig();
     const pub = { ...config };
     delete pub.adminPin;
+    delete pub.codeSalt;
     downloadText('class-config.json', JSON.stringify(pub, null, 2));
   });
   $('adm-import').addEventListener('click', () => {
@@ -1194,6 +1250,7 @@ export function initAdmin() {
   });
   $('adm-miss-clear').addEventListener('click', () => { clearMisses(); renderMisses(); });
   $('adm-close').addEventListener('click', () => {
+    saveAll(false);                 // 닫기 전에 이 기기에 저장
     $('admin-modal').classList.add('hidden');
     clearInterval(worksTimer);
   });
