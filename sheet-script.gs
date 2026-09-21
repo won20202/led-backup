@@ -358,8 +358,7 @@ function keepTodayOnly() {
   var ui = null;
   try { ui = SpreadsheetApp.getUi(); } catch (e) { /* 편집기에서 실행하면 대화상자가 없다 */ }
   if (ui && ui.alert('오늘 기록만 남기기',
-        '오늘(' + Utilities.formatDate(cut, tz, 'MM월 dd일') + ') 이전 기록을 모두 지웁니다.
-오늘 수업 기록은 그대로 남습니다. 계속할까요?',
+        '오늘(' + Utilities.formatDate(cut, tz, 'MM월 dd일') + ') 이전 기록을 모두 지웁니다. 오늘 수업 기록은 그대로 남습니다. 계속할까요?',
         ui.ButtonSet.YES_NO) !== ui.Button.YES) return;
 
   var removed = 0, tabsGone = [];
