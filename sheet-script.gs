@@ -532,7 +532,7 @@ function rebuildFromTimeline(quiet) {
  *  - 탭 순서: 대시보드 → 도움 필요 → 1반~10반 → 기타 기록 → 보관 탭
  *  - 지정한 테스트 학번의 기록은 지운다
  */
-var TEST_SIDS = ['29999', '21035', '20630'];   // 기록에서 걷어낼 테스트 학번
+var TEST_SIDS = ['29999', '29998', '21035', '20630'];   // 기록에서 걷어낼 테스트 학번
 
 function tidySheets(quiet) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -546,7 +546,7 @@ function tidySheets(quiet) {
   // 1) 타임라인 탭을 훑어 기록을 제자리로 옮긴다
   ss.getSheets().forEach(function (sh) {
     var name = sh.getName();
-    var isTimeline = /반$/.test(name) || /타임라인$/.test(name) || name === MISC;
+    var isTimeline = /반$/.test(name) || /타임라인$/.test(name) || name === MISC || name === '기타 기록';
     if (!isTimeline || proper[name] || name === MISC) return;      // 제자리 탭은 그대로
     if (sh.getLastRow() >= 2) {
       var rows = sh.getRange(2, 1, sh.getLastRow() - 1, TIMELINE_HEAD.length).getValues();
