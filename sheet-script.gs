@@ -20,8 +20,13 @@
 var DASH = '과세특_실시간관찰';
 var NEED = '🔴 지금 도움 필요';
 var HEAD = ['반', '번호', '학번', '상태', '진도', '남은 것', '최근 활동 · 막힌 곳', '교사가 할 일',
-            '도안', '케이스', '회로', '조립', '오류', '활동수', '마지막 활동', '특이학적',
-            '달성항목', '과세특 요약 팩트'];
+            '도안', '케이스', '회로', '조립',
+            '도안 시도', '케이스 시도', '회로 시도', '조립 시도',
+            '오류', '활동수', '마지막 활동', '특이학적', '달성항목', '과세특 요약 팩트'];
+// 열 번호(1부터). 열을 옮기면 여기만 고치면 된다.
+var C = { design: 9, kase: 10, circ: 11, build: 12,
+          tDesign: 13, tKase: 14, tCirc: 15, tBuild: 16,
+          errs: 17, acts: 18, when: 19, status: 20, done: 21, fact: 22 };
 var CHECK_HEAD = ['확인① 전개도·등각투상도', '확인② 도안·회로도', '확인③ 가공·점등', '확인④ 조립·마감'];
 
 // 진도 체크리스트 — 수업 순서(도안 먼저)대로 적되, 순서는 강제하지 않는다
@@ -31,6 +36,8 @@ var ITEMS = ['도안 작업', '도안 조건 충족', '케이스 치수 입력',
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('LED 수업')
     .addItem('지금 상태로 백업 사본 만들기', 'makeBackupCopy')
+    .addSeparator()
+    .addItem('대시보드 다시 만들기 (타임라인에서)', 'rebuildFromTimeline')
     .addSeparator()
     .addItem('오늘 기록만 남기고 이전 것 정리', 'keepTodayOnly')
     .addSeparator()
@@ -98,7 +105,7 @@ function getDash(ss) {
         .setBackground('#2b6cb0').setFontColor('#ffffff').setFontWeight('bold').setHorizontalAlignment('center');
     dash.setFrozenRows(1);
     dash.setFrozenColumns(3);
-    [45, 45, 68, 92, 135, 190, 300, 280, 110, 105, 105, 90, 45, 55, 125, 65, 90, 400]
+    [45, 45, 68, 92, 135, 190, 300, 280, 110, 105, 105, 90, 62, 68, 62, 62, 45, 55, 125, 65, 90, 400]
       .forEach(function (w, i) { dash.setColumnWidth(i + 1, w); });
     for (var i = 0; i < CHECK_HEAD.length; i++) dash.setColumnWidth(HEAD.length + 1 + i, 120);
     makeCheckBoxes(dash);
@@ -133,7 +140,7 @@ function makeNeedSheet(ss) {
   sh.getRange('A1').setValue('지금 도움이 필요한 학생 — 자동 갱신 (위에서부터 최근 순)')
     .setFontWeight('bold').setFontSize(13);
   sh.getRange('A2').setFormula(
-    "=IFERROR(QUERY('" + DASH + "'!A2:O, \"select A,B,C,E,G,H,O where D contains '도움' order by O desc\", 0)," +
+    "=IFERROR(QUERY('" + DASH + "'!A2:V, \"select A,B,C,E,G,H,S where D contains '도움' order by S desc\", 0)," +
     " \"지금 막혀 있는 학생이 없습니다\")");
   sh.setColumnWidths(1, 7, 110);
   sh.setColumnWidth(5, 300);
@@ -149,12 +156,16 @@ function updateDashboard(dash, table, r) {
     if (String(table[i][2]).replace(/^'/, '') === sid) { row = i + 1; cur = table[i]; break; }
   }
   var isNew = (row === -1);
-  if (isNew) cur = ['', '', '', '', '', '', '', '', '미작업', '미시도', '미시도', '미작업', 0, 0, '', '', '', ''];
+  if (isNew) cur = ['', '', '', '', '', '', '', '', '미작업', '미시도', '미시도', '미작업',
+                    0, 0, 0, 0, 0, 0, '', '', '', ''];
 
-  var design = String(cur[8]), kase = String(cur[9]), circ = String(cur[10]), build = String(cur[11]);
-  var errs = Number(cur[12]) || 0;
-  var acts = (Number(cur[13]) || 0) + (String(r.event) === '진도' ? 0 : 1);
-  var done = parseDone(cur[16]);                    // 지금까지 달성한 항목 (한 번 달성하면 유지)
+  var design = String(cur[C.design - 1]), kase = String(cur[C.kase - 1]);
+  var circ = String(cur[C.circ - 1]), build = String(cur[C.build - 1]);
+  var tDesign = Number(cur[C.tDesign - 1]) || 0, tKase = Number(cur[C.tKase - 1]) || 0;
+  var tCirc = Number(cur[C.tCirc - 1]) || 0, tBuild = Number(cur[C.tBuild - 1]) || 0;
+  var errs = Number(cur[C.errs - 1]) || 0;
+  var acts = (Number(cur[C.acts - 1]) || 0) + (String(r.event) === '진도' ? 0 : 1);
+  var done = parseDone(cur[C.done - 1]);            // 지금까지 달성한 항목
   var event = String(r.event || ''), detail = String(r.detail || '');
   var note = String(cur[6] || ''), trouble = false, c;
 
@@ -165,6 +176,7 @@ function updateDashboard(dash, table, r) {
     if (!note) note = '작업 중';
 
   } else if (event === '도안 피드백') {
+    tDesign++;
     done['도안 작업'] = true;
     if (detail.indexOf('안쪽 조각') === 0 || !detail) {
       design = '조건 충족'; note = '도안 조건을 모두 충족 — ' + detail;
@@ -173,10 +185,12 @@ function updateDashboard(dash, table, r) {
       design = '수정 필요'; note = detail; trouble = true;
     }
   } else if (event === '도안') {
+    tDesign++;
     design = (design === '조건 충족') ? design : '작업 중';
     note = detail; done['도안 작업'] = true;
 
   } else if (event === '설계 일지' && detail.indexOf('회로') === 0) {
+    tCirc++;
     c = readCircuit(detail);                        // '회로 — …' 는 케이스가 아니라 회로다
     circ = c.stat; note = c.note; trouble = c.bad;
     done['회로 연습'] = true;
@@ -184,6 +198,7 @@ function updateDashboard(dash, table, r) {
     if (detail.indexOf('예측') !== -1) done['켜기 전 예측'] = true;
 
   } else if (event === '설계 일지') {
+    tKase++;
     done['케이스 치수 입력'] = true;
     if (detail.indexOf('완성') !== -1) {
       if (detail.indexOf('겹침') !== -1 || detail.indexOf('틈') !== -1) {
@@ -197,16 +212,19 @@ function updateDashboard(dash, table, r) {
     }
 
   } else if (event === '회로 점등') {
+    tCirc++;
     c = readCircuit(detail);
     circ = c.stat; note = c.note; trouble = c.bad;
     if (c.stat === '점등 성공') done['전 LED 점등'] = true;
     if (detail.indexOf('예측') !== -1) done['켜기 전 예측'] = true;
 
   } else if (event === '실험실 점등') {
+    tCirc++;
     note = '실험실에서 연습 — ' + detail;
     done['회로 연습'] = true;                        // 연습은 연습으로만 센다
 
   } else if (event.indexOf('조립') === 0) {
+    tBuild++;
     build = '홀더 배치'; note = '조립 — ' + detail;
     done['홀더 위치'] = true;
 
@@ -248,9 +266,12 @@ function updateDashboard(dash, table, r) {
 
   var line = [Number(r.ban) || '', Number(r.num) || '', "'" + sid, state, progress,
               left.join(' · ') || '없음', note, todo,
-              design, kase, circ, build, errs, acts, new Date(r.ts),
-              (!r.status || r.status === '재학') ? (cur[15] || '') : r.status,
-              doneList.join(','), makeFact(kase, circ, design, build, acts, errs, doneList.length)];
+              design, kase, circ, build,
+              tDesign, tKase, tCirc, tBuild,
+              errs, acts, new Date(r.ts),
+              (!r.status || r.status === '재학') ? (cur[C.status - 1] || '') : r.status,
+              doneList.join(','),
+              makeFact(kase, circ, design, build, acts, errs, doneList.length, tDesign, tKase, tCirc, tBuild)];
 
   if (isNew) {
     dash.appendRow(line);
@@ -302,8 +323,9 @@ function troubleTodo(kase, circ, design, note) {
   return '막힌 지점: ' + note;
 }
 
-function makeFact(kase, circ, design, build, acts, errs, doneN) {
-  var f = '[실습 요약] 활동 ' + acts + '회, 달성 ' + doneN + '/' + ITEMS.length +
+function makeFact(kase, circ, design, build, acts, errs, doneN, tD, tK, tC, tB) {
+  var f = '[실습 요약] 달성 ' + doneN + '/' + ITEMS.length +
+          ' (도안 ' + (tD || 0) + '회 · 케이스 ' + (tK || 0) + '회 · 회로 ' + (tC || 0) + '회 · 조립 ' + (tB || 0) + '회)' +
           (errs ? ', 오류 ' + errs + '회 경험' : '') + '. ';
   if (design === '조건 충족') f += '도안을 작업 영역·글자 크기·획 굵기 조건에 맞게 완성함. ';
   else if (design === '수정 필요') f += '도안 조건에 맞추어 배치를 수정하는 중. ';
@@ -388,6 +410,44 @@ function keepTodayOnly() {
   var msg = '정리했습니다. 지운 줄 ' + removed + '개'
           + (tabsGone.length ? ', 비어서 없앤 탭: ' + tabsGone.join(', ') : '')
           + '. 오늘 수업 기록은 그대로 있습니다.';
+  if (ui) ui.alert(msg);
+  return msg;
+}
+
+/**
+ * 반별 타임라인에 쌓인 원본 기록을 그대로 다시 읽어 대시보드를 만든다.
+ * 표 구조를 바꿨을 때나 실수로 표를 지웠을 때 쓴다. 타임라인이 원본이라 손실이 없다.
+ */
+function rebuildFromTimeline() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ui = null;
+  try { ui = SpreadsheetApp.getUi(); } catch (e) { /* 편집기 실행 */ }
+
+  var events = [];
+  ss.getSheets().forEach(function (sh) {
+    var name = sh.getName();
+    if (!/반$/.test(name) || sh.getLastRow() < 2) return;
+    sh.getRange(2, 1, sh.getLastRow() - 1, 8).getValues().forEach(function (v) {
+      if (!(v[0] instanceof Date)) return;
+      events.push({ ts: v[0].getTime(), grade: v[1], ban: v[2], num: v[3],
+                    sid: String(v[4]).replace(/^'/, ''), status: v[5],
+                    event: String(v[6] || ''), detail: String(v[7] || '') });
+    });
+  });
+  if (!events.length) {
+    if (ui) ui.alert('반별 타임라인에 기록이 없습니다.');
+    return '기록 없음';
+  }
+  events.sort(function (a, b) { return a.ts - b.ts; });   // 시간 순서대로 다시 재생
+
+  var dash = ss.getSheetByName(DASH);
+  if (dash && dash.getLastRow() > 1) dash.deleteRows(2, dash.getLastRow() - 1);
+  dash = getDash(ss);
+  var table = dash.getDataRange().getValues();
+  events.forEach(function (r) { if (isStudent(r)) updateDashboard(dash, table, r); });
+  sortDash(dash);
+
+  var msg = '타임라인 ' + events.length + '건을 다시 읽어 대시보드를 만들었습니다. 학생 ' + (dash.getLastRow() - 1) + '명.';
   if (ui) ui.alert(msg);
   return msg;
 }
