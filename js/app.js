@@ -59,6 +59,8 @@ function setupLogin() {
     const inBase = grades.includes(p.grade) && p.ban >= 1 && p.ban <= config.banCount && p.num >= 1 && p.num <= config.numCount;
     const entered = $('login-code').value.trim();
     const ban = p.ban, num = p.num;
+    // 교사 시연용 학번: 수업 화면을 보여줄 때 쓴다. 코드·시간표·명단을 따지지 않는다.
+    const isDemo = sidInList(config.demoSids, sid);
     let codeOk = true, errMsg = '', viaSession = false;
     if (config.entryMode === 'fixed') {
       codeOk = entered === config.classCode;
@@ -72,6 +74,7 @@ function setupLogin() {
       codeOk = v.ok || entered === studentDayCode(sid);
       errMsg = '지금 시간, 이 수업의 입장 코드가 아닙니다. 학번과 코드를 다시 확인해 보세요.';
     }
+    if (isDemo) { codeOk = true; viaSession = true; }   // 시연 계정은 언제든 통과
     if (!codeOk) { $('login-err').textContent = errMsg; return; }
     // 명단 밖 학생(다른 학년·그룹 수업 등)은 유효한 수업 코드가 있어야 입장
     if (!inBase && !isExtra && !viaSession) {

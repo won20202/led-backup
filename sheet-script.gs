@@ -55,6 +55,12 @@ function autoTidyOnce() {
     if (/^\d+학년 \d+반$/.test(n) && n.indexOf(GRADE + '학년 ') !== 0) messy = true;
   });
   if (!ss.getSheetByName(banTabName(1))) messy = true;           // 1반 탭이 아직 없음
+  var dash0 = ss.getSheetByName(DASH);                          // 테스트 학번이 아직 남아 있으면
+  if (dash0 && dash0.getLastRow() >= 2) {
+    dash0.getRange(2, 3, dash0.getLastRow() - 1, 1).getValues().forEach(function (v) {
+      if (TEST_SIDS.indexOf(String(v[0]).replace(/^'/, '')) !== -1) messy = true;
+    });
+  }
   if (messy) tidySheets(true);
 
   var dash = ss.getSheetByName(DASH);
@@ -499,7 +505,7 @@ function rebuildFromTimeline(quiet) {
  *  - 탭 순서: 대시보드 → 도움 필요 → 1반~10반 → 기타 기록 → 보관 탭
  *  - 지정한 테스트 학번의 기록은 지운다
  */
-var TEST_SIDS = ['29999', '21035'];
+var TEST_SIDS = ['29999', '21035', '20630'];   // 기록에서 걷어낼 테스트 학번
 
 function tidySheets(quiet) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();

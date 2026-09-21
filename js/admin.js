@@ -18,6 +18,7 @@ const FIELDS = [
   ['numDigits', '학번의 번호 자리수 (보통 2)', 'number'],
   ['excludedSids', '명단 제외 학번 (전출 등 — 쉼표 구분, 예: 20627)', 'text'],
   ['extraSids', '추가 학번 (전입생 등 — 번호 범위 밖이어도 입장 허용)', 'text'],
+  ['demoSids', '교사 시연용 학번 (코드·시간표 무시하고 입장, 쉼표로)', 'text'],
   ['thickness', '재료(우드락) 두께 (cm)', 'number'],
   ['targetW', '완성 목표 가로 (cm)', 'number'],
   ['targetH', '완성 목표 세로 (cm)', 'number'],
