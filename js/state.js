@@ -117,6 +117,9 @@ export const DEFAULT_CONFIG = {
     { start: '13:20', end: '14:05' }, { start: '14:15', end: '15:00' },
     { start: '15:10', end: '15:55' },
   ],
+  // 이 시각 이전의 학생 작업은 없던 것으로 친다 (새 수행·새 학기 시작).
+  // 서버 자료를 지우지 않으므로 0으로 되돌리면 그대로 되살아난다.
+  resetAt: 0,
   adminPin: '2026',
   // 입장 코드 계산용 고정 씨앗 — PIN과 분리해야 PIN을 바꾸거나 초기화돼도 코드가 그대로다
   codeSalt: 'lps-code-2026',
@@ -457,6 +460,8 @@ export async function login(ban, num, grade) {
   // 서버 작업을 먼저 받아 합친 뒤에 화면이 열리게 한다.
   // (기다리지 않으면 새 기기의 빈 작업이 서버의 진짜 작업을 덮어쓸 수 있다)
   await cloudPull();
+  // [새로 시작] 이후라면 그 이전 작업은 접어 두고 빈 화면으로 연다
+  if ((work.updatedAt || 0) < (config.resetAt || 0)) replaceWork(null);
 }
 
 export function setReadOnlyWork(w, label) {
@@ -592,10 +597,14 @@ async function cloudPull() {
   } catch (e) { setCloud('error'); }
 }
 
+// [새로 시작] 시점 이후의 작업만 불러오는 조건
+function sinceReset() {
+  return config.resetAt ? `&updated_at=gte.${new Date(config.resetAt).toISOString()}` : '';
+}
 export async function cloudList() {
   const c = sb();
   if (!c) return null;
-  const res = await fetch(`${c.url}?select=id,ban,num,updated_at&ban=gte.1&order=ban,num`, { headers: c.headers });
+  const res = await fetch(`${c.url}?select=id,ban,num,updated_at&ban=gte.1&order=ban,num${sinceReset()}`, { headers: c.headers });
   if (!res.ok) throw new Error('불러오기 실패 ' + res.status);
   return res.json();
 }
@@ -603,7 +612,7 @@ export async function cloudList() {
 export async function cloudListBan(ban) {
   const c = sb();
   if (!c) return [];
-  const res = await fetch(`${c.url}?ban=eq.${ban}&select=id,ban,num,updated_at,payload&order=num`, { headers: c.headers });
+  const res = await fetch(`${c.url}?ban=eq.${ban}&select=id,ban,num,updated_at,payload&order=num${sinceReset()}`, { headers: c.headers });
   if (!res.ok) throw new Error('불러오기 실패 ' + res.status);
   return res.json();
 }

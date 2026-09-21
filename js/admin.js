@@ -531,7 +531,16 @@ function localWorks() {
 }
 
 let cloudRows = [];
+// [이전 작업 접고 새로 시작] 버튼의 현재 상태
+function renderResetBtn() {
+  const b = $('adm-reset-works');
+  if (!b) return;
+  b.textContent = config.resetAt
+    ? `새로 시작 적용 중 (${new Date(config.resetAt).toLocaleString('ko-KR')}) — 되돌리기`
+    : '이전 작업 접고 새로 시작';
+}
 async function renderWorks() {
+  renderResetBtn();
   const el = $('adm-works');
   if (!el) return;
   let html = '<h4>이 기기에 저장된 작업</h4>';
@@ -1263,6 +1272,23 @@ export function initAdmin() {
     sheetFlushNow();
     alert('테스트 기록을 보냈습니다. 잠시 후 구글 시트에 "0반" 탭이 생겼는지 확인하세요.');
   });
+  $('adm-reset-works').addEventListener('click', async () => {
+      if (config.resetAt) {
+        if (!confirm('접어 둔 이전 작업을 다시 보이게 되돌릴까요?')) return;
+        config.resetAt = 0;
+      } else {
+        if (!confirm('지금부터 새로 시작합니다. 이 시각 이전의 학생 작업은 학생 화면과 실시간 보드에서 빈 상태가 됩니다. 서버 자료는 지우지 않으니 언제든 되돌릴 수 있어요.')) return;
+        config.resetAt = Date.now();
+      }
+      saveConfig();
+      renderResetBtn();
+      const ok = await cloudPushConfig();
+      renderWorks();
+      alert(ok
+        ? '모든 학생 기기에 적용됩니다. 학생은 새로고침하면 새로 시작합니다.'
+        : '이 기기에만 적용됐습니다 — 서버 연결을 확인하고 [설정 저장]을 눌러 주세요.');
+    });
+
   $('adm-wipe-local').addEventListener('click', () => {
     const keys = [];
     for (let i = 0; i < localStorage.length; i++) {
