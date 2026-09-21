@@ -134,6 +134,19 @@ h4 { font-size: 13px; margin: 12px 0 6px; color: #4a5561; }
 .order-step { color: #1e8e4e; padding: 3px 0; }
 .order-fail { color: #c0392b; font-weight: 700; padding: 3px 0; }
 
+/* 로그인 화면 — LED(빛)가 주제라 은은한 빛 번짐으로. 아이콘은 쓰지 않는다 */
+#login-modal {
+  background:
+    radial-gradient(900px 520px at 50% -12%, rgba(90,130,255,0.40), transparent 62%),
+    radial-gradient(620px 420px at 88% 112%, rgba(80,200,160,0.20), transparent 60%),
+    linear-gradient(160deg, #1b2440 0%, #121829 100%);
+}
+.login-box h1 { letter-spacing: -0.4px; }
+.credit {
+  margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line);
+  font-size: 12px; color: var(--muted); letter-spacing: 0.2px;
+}
+
 /* 모달 */
 .modal {
   position: fixed; inset: 0; background: rgba(30,40,50,0.55);

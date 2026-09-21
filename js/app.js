@@ -41,6 +41,11 @@ function setupLogin() {
     if (last) $('login-sid').value = last;
   } catch (e) { /* ignore */ }
 
+  const credit = $('login-credit');
+  if (credit) {
+    const by = String(config.madeBy || '').trim();
+    credit.textContent = by ? `${by}이 직접 만든 수업 도구입니다 · ${new Date().getFullYear()}` : '';
+  }
   $('login-sid').addEventListener('input', refreshCodeField);
   refreshCodeField();
   $('login-admin').addEventListener('click', openAdmin);

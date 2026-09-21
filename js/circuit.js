@@ -911,7 +911,7 @@ function draw() {
       const l = C.leds[hoverLed];
       const I = Math.round(R.iOf[hoverLed] || 0);
       const lines = R.burnt.has(hoverLed)
-        ? [`전류가 약 ${I}mA나 흘러 LED가 타버렸어요.`, `권장 최대는 20mA — 저항을 넣거나 전압을 낮춰 보세요.`]
+        ? [`전류가 약 ${I}mA나 흘러 LED가 타버렸어요.`, `권장 최대는 20mA입니다. 전류를 줄이려면 무엇을 바꿔야 할까요?`]
         : [`이 LED에 흐르는 전류는 약 ${I}mA — 권장 최대 20mA.`, `실제라면 뜨거워지고 수명이 짧아져요.`];
       ctx.font = '12px sans-serif';
       const w = Math.max(...lines.map(t => ctx.measureText(t).width)) + 20;
@@ -1014,9 +1014,9 @@ function updatePanel() {
       html += `<p class="${ok ? 'ok' : 'warn'}">내 예측: ${C.predictCount}개</p>`;
     }
     if (R.burnt.size)
-      html += `<p class="warn">전류가 너무 커서 LED ${R.burnt.size}개가 타버렸어요! 실제로도 저항 없이 높은 전압을 직접 연결하면 이렇게 됩니다. 전지 개수를 줄이거나 저항을 넣어 보세요.</p>`;
+      html += `<p class="warn">전류가 너무 커서 LED ${R.burnt.size}개가 타버렸어요! 실제 회로에서도 똑같은 일이 일어납니다. 전류가 왜 이렇게 커졌는지, 회로에서 무엇을 바꾸면 줄어들지 생각해 볼까요?</p>`;
     else if (R.over.size)
-      html += `<p class="warn">LED에 정격(20mA)보다 큰 전류가 흐르고 있어요. 실제라면 매우 뜨거워지고 수명이 크게 짧아집니다. 저항을 넣거나 전압을 낮춰 볼까요?</p>`;
+      html += `<p class="warn">LED에 정격(20mA)보다 큰 전류가 흐르고 있어요. 실제라면 매우 뜨거워지고 수명이 크게 짧아집니다. 지금 이 회로에서 전류의 크기를 정하는 것은 무엇일까요?</p>`;
     if (config.questionFeedback) {
       const unlit = C.leds.length - litN - R.burnt.size;
       if (unlit > 0) html += `<p class="hint">안 켜진 LED가 ${unlit}개 있습니다. 긴 다리(+)가 어느 줄에 붙어 있는지, 두 다리가 서로 다른 줄에 있는지, 전압이 충분한지 살펴볼까요?</p>`;
@@ -1033,7 +1033,7 @@ function updatePanel() {
       if (darks) html += `<p class="hint">어두운 색으로 칠한 LED는 실제로는 빛이 조금 어둡게 보일 수 있어요.</p>`;
     }
     if (mode === 'placard' && R.noResistorLit && !R.over.size && !R.burnt.size)
-      html += `<p class="hint">지금 회로에는 저항이 없어서 LED에 전류가 그대로 흐릅니다. 실제 제작에서는 LED가 뜨거워져 수명이 빨리 닳을 수 있어요. 저항을 함께 쓰면 전류를 알맞게 제한해 LED를 오래 쓸 수 있습니다.</p>`;
+      html += `<p class="hint">지금은 LED에 전류가 그대로 흐르고 있어요. 실제 제작에서는 LED가 뜨거워져 수명이 빨리 닳을 수 있습니다. 전류를 알맞게 줄이려면 회로에 무엇이 더 있어야 할까요?</p>`;
   } else html += mode === 'placard'
     ? '<p class="muted">스위치가 꺼져 있어요. 몇 개가 켜질지 예측을 적고 스위치를 켜 보세요.</p>'
     : '<p class="muted">스위치가 꺼져 있어요. 홀더의 스위치를 눌러 보세요.</p>';
