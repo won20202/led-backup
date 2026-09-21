@@ -594,7 +594,14 @@ export function sheetFlushNow() { clearTimeout(flushTimer); flushSheet(); }
 function flushSheet() {
   flushTimer = null;
   if (!sheetQueue.length || !config.sheetUrl) return;
-  const body = JSON.stringify(sheetQueue.splice(0));
+  const rows = sheetQueue.splice(0);
+  // 학교 설정(학년·반 수·학번 자리수)을 첫 줄에 실어 보낸다.
+  // 시트가 이 값을 기억해 반 탭을 그 학교에 맞게 만든다.
+  rows[0] = { ...rows[0], cfg: {
+    grade: config.grade, banCount: config.banCount, numCount: config.numCount,
+    banDigits: config.banDigits, numDigits: config.numDigits,
+  } };
+  const body = JSON.stringify(rows);
   try {
     fetch(config.sheetUrl, { method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain' }, body })
       .catch(() => { /* 네트워크 실패는 조용히 무시 */ });

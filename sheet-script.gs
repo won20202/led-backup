@@ -29,12 +29,29 @@ var C = { design: 9, kase: 10, circ: 11, build: 12,
           errs: 17, acts: 18, when: 19, status: 20, done: 21, fact: 22 };
 var CHECK_HEAD = ['확인① 전개도·등각투상도', '확인② 도안·회로도', '확인③ 가공·점등', '확인④ 조립·마감'];
 
-// 수업하는 학년과 반 수 — 여기만 고치면 탭 정리가 그에 맞춰 돌아간다
-var GRADE = 2, BAN_COUNT = 10;
+// 학년·반 수는 웹앱 관리자 설정에서 받아 기억한다 (다른 학교에 그대로 써도 맞는다).
+// 아직 한 번도 못 받았으면 아래 기본값을 쓴다.
+var DEFAULT_GRADE = 2, DEFAULT_BAN_COUNT = 10;
+function cfgNum(key, dflt) {
+  try {
+    var v = Number(PropertiesService.getDocumentProperties().getProperty(key));
+    return v > 0 ? v : dflt;
+  } catch (e) { return dflt; }
+}
+function gradeNo()  { return cfgNum('grade', DEFAULT_GRADE); }
+function banCount() { return cfgNum('banCount', DEFAULT_BAN_COUNT); }
+// 앱이 보내 준 학교 설정을 기억한다
+function rememberCfg(cfg) {
+  if (!cfg) return;
+  var props = PropertiesService.getDocumentProperties();
+  ['grade', 'banCount', 'numCount', 'banDigits', 'numDigits'].forEach(function (k) {
+    if (cfg[k] !== undefined && cfg[k] !== null && cfg[k] !== '') props.setProperty(k, String(cfg[k]));
+  });
+}
 var MISC = '기록(원본)';                      // 모든 활동 기록이 시간순으로 쌓이는 곳
 var TIMELINE_HEAD = ['시각', '학년', '반', '번호', '학번', '학적', '활동 단계',
                      '학생의 구체적 조작 내용 및 오류/성공 팩트'];
-function banTabName(ban) { return GRADE + '학년 ' + Number(ban) + '반'; }
+function banTabName(ban) { return gradeNo() + '학년 ' + Number(ban) + '반'; }
 
 // 진도 체크리스트 — 수업 순서(도안 먼저)대로 적되, 순서는 강제하지 않는다
 var ITEMS = ['도안 작업', '도안 조건 충족', '케이스 치수 입력', '케이스 통과',
@@ -52,7 +69,7 @@ function autoTidyOnce() {
   ss.getSheets().forEach(function (sh) {
     var n = sh.getName();
     if (/타임라인$/.test(n)) messy = true;                       // 잘못 생긴 탭
-    if (/^\d+학년 \d+반$/.test(n) && n.indexOf(GRADE + '학년 ') !== 0) messy = true;
+    if (/^\d+학년 \d+반$/.test(n) && n.indexOf(gradeNo() + '학년 ') !== 0) messy = true;
   });
   if (!ss.getSheetByName(banTabName(1))) messy = true;           // 1반 탭이 아직 없음
   var dash0 = ss.getSheetByName(DASH);                          // 테스트 학번이 아직 남아 있으면
@@ -65,7 +82,10 @@ function autoTidyOnce() {
 
   // 반 탭이 아직 '원본 기록'이면 보드로 바꾼다 (수업 중 그 반 탭만 보면 되게)
   var one = ss.getSheetByName(banTabName(1));
-  if (!one || String(one.getRange('A1').getValue()) !== BOARD_HEAD[0]) makeBanBoards(true);
+  var 반탭수 = ss.getSheets().filter(function (sh) { return /^\d+학년 \d+반$/.test(sh.getName()); }).length;
+  if (!one || String(one.getRange('A1').getValue()) !== BOARD_HEAD[0] || 반탭수 !== banCount()) {
+    makeBanBoards(true);   // 학년·반 수 설정이 바뀌면 그에 맞게 다시 만든다
+  }
 
   var dash = ss.getSheetByName(DASH);
   if (!dash || dash.getLastRow() < 2) rebuildFromTimeline(true); // 표가 비어 있으면 원본에서 되살린다
@@ -98,6 +118,7 @@ function doPost(e) {
     var added = false;
 
     rows.forEach(function (r) {
+      if (r.cfg) rememberCfg(r.cfg);        // 학교 설정을 기억해 둔다
       if (r.event !== '진도') appendTimeline(ss, r);   // 진도 신호는 타임라인에 쌓지 않는다
       if (isStudent(r) && updateDashboard(dash, table, r)) added = true;
     });
@@ -520,7 +541,7 @@ function tidySheets(quiet) {
 
   var moved = 0, dropped = 0, killed = [];
   var proper = {};
-  for (var b = 1; b <= BAN_COUNT; b++) proper[banTabName(b)] = true;
+  for (var b = 1; b <= banCount(); b++) proper[banTabName(b)] = true;
 
   // 1) 타임라인 탭을 훑어 기록을 제자리로 옮긴다
   ss.getSheets().forEach(function (sh) {
@@ -549,7 +570,7 @@ function tidySheets(quiet) {
   });
 
   // 2) 제자리 탭에서도 테스트 기록을 걷어낸다
-  for (var b2 = 1; b2 <= BAN_COUNT; b2++) {
+  for (var b2 = 1; b2 <= banCount(); b2++) {
     var sh2 = ss.getSheetByName(banTabName(b2));
     if (!sh2 || sh2.getLastRow() < 2) continue;
     var vals = sh2.getRange(2, 1, sh2.getLastRow() - 1, 5).getValues();
@@ -559,7 +580,7 @@ function tidySheets(quiet) {
   }
 
   // 3) 1~10반 탭을 빠짐없이 만들고, 시간순으로 정렬해 둔다
-  for (var b3 = 1; b3 <= BAN_COUNT; b3++) {
+  for (var b3 = 1; b3 <= banCount(); b3++) {
     var sh3 = timelineSheet(ss, banTabName(b3));
     if (sh3.getLastRow() > 2) sh3.getRange(2, 1, sh3.getLastRow() - 1, TIMELINE_HEAD.length).sort(1);
   }
@@ -576,7 +597,7 @@ function tidySheets(quiet) {
 
   // 5) 탭 순서를 정한다 — 보는 순서대로
   var order = [DASH, NEED];
-  for (var b4 = 1; b4 <= BAN_COUNT; b4++) order.push(banTabName(b4));
+  for (var b4 = 1; b4 <= banCount(); b4++) order.push(banTabName(b4));
   order.push(MISC);
   var pos = 1;
   order.forEach(function (n) {
@@ -626,16 +647,22 @@ function banBoardSheet(ss, ban) {
 /** 시트 메뉴: 반별 보드를 새로 만든다 (1~10반) */
 function makeBanBoards(quiet) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  for (var b = 1; b <= BAN_COUNT; b++) banBoardSheet(ss, b);
+  var n = banCount();
+  for (var b = 1; b <= n; b++) banBoardSheet(ss, b);
+  // 반 수가 줄었으면 남는 반 탭은 없앤다 (기록은 '기록(원본)'에 그대로 있다)
+  ss.getSheets().forEach(function (sh) {
+    var m = sh.getName().match(/^(\d+)학년 (\d+)반$/);
+    if (m && Number(m[2]) > n) ss.deleteSheet(sh);
+  });
   orderTabs(ss);
-  var msg = '1~' + BAN_COUNT + '반 보드를 만들었습니다. 수업 중에는 그 반 탭만 보시면 됩니다.';
+  var msg = '1~' + banCount() + '반 보드를 만들었습니다. 수업 중에는 그 반 탭만 보시면 됩니다.';
   try { if (!quiet) SpreadsheetApp.getUi().alert(msg); } catch (e) {}
   return msg;
 }
 
 function orderTabs(ss) {
   var order = [DASH, NEED];
-  for (var b = 1; b <= BAN_COUNT; b++) order.push(banTabName(b));
+  for (var b = 1; b <= banCount(); b++) order.push(banTabName(b));
   order.push(MISC);
   var pos = 1;
   order.forEach(function (n) {
