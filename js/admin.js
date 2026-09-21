@@ -2,6 +2,7 @@
 import { config, saveConfig, exportConfigCode, importConfigCode, getMisses, clearMisses,
          cloudList, cloudListBan, cloudGet, cloudDelete, cloudPushConfig, setReadOnlyWork, DEFAULT_CONFIG, DEFAULT_RUBRIC,
          sheetLogFor, sheetFlushNow, todayCode, classSessionCode, codeKeyOf, autoSessionCode, studentDayCode,
+         checkAdminPin, syncAdminPin,
          makeSid, parseSid, weekKeyOf, timetableForWeek, runsOf, todayRuns,
          rosterActive, BLOCKED_STATUS } from './state.js';
 import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js';
@@ -53,7 +54,7 @@ const FIELDS = [
   ['classCode', '고정 코드 (입장 방식이 "고정 코드"일 때)', 'text'],
   ['codeTimeLimit', '수업 코드를 그 수업 시간에만 허용 (앞 교시 반 차단)', 'checkbox'],
   ['codeWindowMin', '수업 시간 앞뒤 여유 (분) — 수업이 밀릴 때 대비', 'number'],
-  ['adminPin', '관리자 PIN', 'text'],
+  ['adminPin', '관리자 PIN (저장하면 모든 기기에 적용)', 'text'],
   ['supabaseUrl', 'Supabase URL (비우면 이 기기에만 저장)', 'text'],
   ['supabaseKey', 'Supabase anon key', 'text'],
   ['sheetUrl', 'Google Sheet 기록 URL (Apps Script 배포 주소, README 참고)', 'text'],
@@ -125,6 +126,8 @@ function saveStatus(msg, cls) {
 // push=false: 이 기기에만 (입력이 바뀔 때마다 자동) / push=true: 서버에 올려 학생 기기까지 반영
 async function saveAll(push) {
   if (!collectAll()) return;
+  await syncAdminPin();      // 바뀐 PIN의 지문을 서버로 함께 보낸다
+  saveConfig();
   if (!push) { saveStatus(`이 기기에 자동 저장됨 ${stamp()} — 학생 기기에 반영하려면 [설정 저장]`, 'ok'); return; }
   saveStatus('서버에 올리는 중…');
   const pushed = await cloudPushConfig();
@@ -1167,8 +1170,8 @@ export function openAdmin() {
 
 let wired = false;   // 관리자 창 안의 버튼 연결은 한 번만
 export function initAdmin() {
-  $('adm-pin-btn').addEventListener('click', () => {
-    if ($('adm-pin').value !== config.adminPin) { $('adm-pin-err').textContent = 'PIN이 다릅니다.'; return; }
+  $('adm-pin-btn').addEventListener('click', async () => {
+    if (!(await checkAdminPin($('adm-pin').value))) { $('adm-pin-err').textContent = 'PIN이 다릅니다.'; return; }
     $('adm-pin-gate').classList.add('hidden');
     $('adm-content').classList.remove('hidden');
     renderSettings(); renderEntry(); renderRubric(); renderFaqEditor(); renderMatEditor(); renderOrderTextEditor(); renderMisses(); renderWorks();
@@ -1274,6 +1277,7 @@ export function initAdmin() {
     saveConfig();
     const pub = { ...config };
     delete pub.adminPin;
+    delete pub.adminPinHash;   // 공개 파일에는 PIN 지문도 담지 않는다
     delete pub.codeSalt;
     downloadText('class-config.json', JSON.stringify(pub, null, 2));
   });

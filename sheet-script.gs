@@ -29,6 +29,13 @@ var C = { design: 9, kase: 10, circ: 11, build: 12,
           errs: 17, acts: 18, when: 19, status: 20, done: 21, fact: 22 };
 var CHECK_HEAD = ['확인① 전개도·등각투상도', '확인② 도안·회로도', '확인③ 가공·점등', '확인④ 조립·마감'];
 
+// 수업하는 학년과 반 수 — 여기만 고치면 탭 정리가 그에 맞춰 돌아간다
+var GRADE = 2, BAN_COUNT = 10;
+var MISC = '기타 기록';                       // 학생 기록이 아닌 것(수업 기록·테스트)
+var TIMELINE_HEAD = ['시각', '학년', '반', '번호', '학번', '학적', '활동 단계',
+                     '학생의 구체적 조작 내용 및 오류/성공 팩트'];
+function banTabName(ban) { return GRADE + '학년 ' + Number(ban) + '반'; }
+
 // 진도 체크리스트 — 수업 순서(도안 먼저)대로 적되, 순서는 강제하지 않는다
 var ITEMS = ['도안 작업', '도안 조건 충족', '케이스 치수 입력', '케이스 통과',
              '회로 연습', '켜기 전 예측', '전 LED 점등', '홀더 위치'];
@@ -36,6 +43,8 @@ var ITEMS = ['도안 작업', '도안 조건 충족', '케이스 치수 입력',
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('LED 수업')
     .addItem('지금 상태로 백업 사본 만들기', 'makeBackupCopy')
+    .addSeparator()
+    .addItem('탭 정리 (반 순서대로)', 'tidySheets')
     .addSeparator()
     .addItem('대시보드 다시 만들기 (타임라인에서)', 'rebuildFromTimeline')
     .addSeparator()
@@ -73,16 +82,25 @@ function isStudent(r) {
 
 /** 반별 타임라인 — 있는 그대로 쌓는 원본 기록 */
 function appendTimeline(ss, r) {
-  var grade = r.grade || (r.sid ? String(r.sid).charAt(0) : '');
-  var name = (grade ? grade + '학년 ' : '') + (r.ban ? r.ban + '반' : '반별_타임라인');
-  var sh = ss.getSheetByName(name) || ss.insertSheet(name);
+  // 학생 기록만 반 탭으로. 수업 기록·테스트는 '기타 기록' 한 곳에 모은다
+  // (예전에는 수업명이 학년 자리에 들어가 '2-3학년 반별_타임라인' 같은 탭이 생겼다)
+  var sh = timelineSheet(ss, isStudent(r) ? banTabName(r.ban) : MISC);
+  sh.appendRow([new Date(r.ts), r.grade || '', r.ban || '', r.num || '',
+                "'" + String(r.sid || ''), r.status || '', r.event, r.detail]);
+}
+
+function timelineSheet(ss, name) {
+  var sh = ss.getSheetByName(name);
+  if (!sh) sh = ss.insertSheet(name);
   if (sh.getLastRow() === 0) {
-    sh.appendRow(['시각', '학년', '반', '번호', '학번', '학적', '활동 단계', '학생의 구체적 조작 내용 및 오류/성공 팩트']);
-    sh.getRange('A1:H1').setBackground('#e9eef6').setFontWeight('bold').setHorizontalAlignment('center');
+    sh.appendRow(TIMELINE_HEAD);
+    sh.getRange(1, 1, 1, TIMELINE_HEAD.length)
+      .setBackground('#e9eef6').setFontWeight('bold').setHorizontalAlignment('center');
     sh.setFrozenRows(1);
+    sh.setColumnWidth(1, 135);
+    sh.setColumnWidth(8, 520);
   }
-  sh.appendRow([new Date(r.ts), grade, r.ban || '', r.num || '', "'" + String(r.sid || ''),
-                r.status || '', r.event, r.detail]);
+  return sh;
 }
 
 /** 대시보드 가져오기 — 표 구조가 예전 것이면 보관해 두고 새로 만든다 */
@@ -448,6 +466,96 @@ function rebuildFromTimeline() {
   sortDash(dash);
 
   var msg = '타임라인 ' + events.length + '건을 다시 읽어 대시보드를 만들었습니다. 학생 ' + (dash.getLastRow() - 1) + '명.';
+  if (ui) ui.alert(msg);
+  return msg;
+}
+
+
+/**
+ * 시트 탭을 교사가 보기 좋게 정리한다.
+ *  - 잘못 만들어진 타임라인 탭(2-3학년 반별_타임라인 등)의 기록을 제자리로 옮긴다
+ *  - 2학년 1~10반 탭을 빠짐없이 만들어 둔다
+ *  - 탭 순서: 대시보드 → 도움 필요 → 1반~10반 → 기타 기록 → 보관 탭
+ *  - 지정한 테스트 학번의 기록은 지운다
+ */
+var TEST_SIDS = ['29999', '21035'];
+
+function tidySheets() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ui = null;
+  try { ui = SpreadsheetApp.getUi(); } catch (e) { /* 편집기 실행 */ }
+
+  var moved = 0, dropped = 0, killed = [];
+  var proper = {};
+  for (var b = 1; b <= BAN_COUNT; b++) proper[banTabName(b)] = true;
+
+  // 1) 타임라인 탭을 훑어 기록을 제자리로 옮긴다
+  ss.getSheets().forEach(function (sh) {
+    var name = sh.getName();
+    var isTimeline = /반$/.test(name) || /타임라인$/.test(name) || name === MISC;
+    if (!isTimeline || proper[name] || name === MISC) return;      // 제자리 탭은 그대로
+    if (sh.getLastRow() >= 2) {
+      var rows = sh.getRange(2, 1, sh.getLastRow() - 1, TIMELINE_HEAD.length).getValues();
+      var bucket = {};
+      rows.forEach(function (v) {
+        var sid = String(v[4]).replace(/^'/, '');
+        if (TEST_SIDS.indexOf(sid) !== -1) { dropped++; return; }
+        var ban = Number(v[2]);
+        var key = (/^\d{4,6}$/.test(sid) && ban > 0) ? banTabName(ban) : MISC;
+        (bucket[key] = bucket[key] || []).push(v);
+      });
+      Object.keys(bucket).forEach(function (key) {
+        var dest = timelineSheet(ss, key);
+        dest.getRange(dest.getLastRow() + 1, 1, bucket[key].length, TIMELINE_HEAD.length)
+            .setValues(bucket[key]);
+        moved += bucket[key].length;
+      });
+    }
+    ss.deleteSheet(sh);
+    killed.push(name);
+  });
+
+  // 2) 제자리 탭에서도 테스트 기록을 걷어낸다
+  for (var b2 = 1; b2 <= BAN_COUNT; b2++) {
+    var sh2 = ss.getSheetByName(banTabName(b2));
+    if (!sh2 || sh2.getLastRow() < 2) continue;
+    var vals = sh2.getRange(2, 1, sh2.getLastRow() - 1, 5).getValues();
+    for (var i = vals.length - 1; i >= 0; i--) {
+      if (TEST_SIDS.indexOf(String(vals[i][4]).replace(/^'/, '')) !== -1) { sh2.deleteRow(i + 2); dropped++; }
+    }
+  }
+
+  // 3) 1~10반 탭을 빠짐없이 만들고, 시간순으로 정렬해 둔다
+  for (var b3 = 1; b3 <= BAN_COUNT; b3++) {
+    var sh3 = timelineSheet(ss, banTabName(b3));
+    if (sh3.getLastRow() > 2) sh3.getRange(2, 1, sh3.getLastRow() - 1, TIMELINE_HEAD.length).sort(1);
+  }
+  timelineSheet(ss, MISC);
+
+  // 4) 대시보드에서도 테스트 학생 줄을 지운다
+  var dash = ss.getSheetByName(DASH);
+  if (dash && dash.getLastRow() >= 2) {
+    var d = dash.getRange(2, 3, dash.getLastRow() - 1, 1).getValues();
+    for (var j = d.length - 1; j >= 0; j--) {
+      if (TEST_SIDS.indexOf(String(d[j][0]).replace(/^'/, '')) !== -1) { dash.deleteRow(j + 2); dropped++; }
+    }
+  }
+
+  // 5) 탭 순서를 정한다 — 보는 순서대로
+  var order = [DASH, NEED];
+  for (var b4 = 1; b4 <= BAN_COUNT; b4++) order.push(banTabName(b4));
+  order.push(MISC);
+  var pos = 1;
+  order.forEach(function (n) {
+    var sh = ss.getSheetByName(n);
+    if (!sh) return;
+    ss.setActiveSheet(sh);
+    ss.moveActiveSheet(pos++);
+  });
+  ss.setActiveSheet(ss.getSheetByName(DASH));
+
+  var msg = '탭을 정리했습니다. 옮긴 기록 ' + moved + '건, 지운 테스트 기록 ' + dropped + '건'
+          + (killed.length ? ', 없앤 탭: ' + killed.join(', ') : '') + '.';
   if (ui) ui.alert(msg);
   return msg;
 }

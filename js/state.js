@@ -129,7 +129,8 @@ export const DEFAULT_CONFIG = {
   // 이 시각 이전의 학생 작업은 없던 것으로 친다 (새 수행·새 학기 시작).
   // 서버 자료를 지우지 않으므로 0으로 되돌리면 그대로 되살아난다.
   resetAt: 0,
-  adminPin: '2026',
+  adminPin: '2026',      // 이 기기에만 보관 (서버에 원문을 올리지 않는다)
+  adminPinHash: '',      // PIN의 지문만 서버로 동기화 — 어느 기기에서나 같은 PIN으로 들어간다
   // 입장 코드 계산용 고정 씨앗 — PIN과 분리해야 PIN을 바꾸거나 초기화돼도 코드가 그대로다
   codeSalt: 'lps-code-2026',
   // 학교 공용 Supabase (publishable key — 브라우저 공개용으로 설계된 키라 코드에 넣어도 안전)
@@ -180,7 +181,8 @@ export async function fileConfigPull() {
     if (!res.ok) return false;
     const pub = await res.json();
     if (!pub || typeof pub !== 'object' || !Object.keys(pub).length) return false;
-    delete pub.adminPin;  // 공개 저장소에 PIN이 실렸어도 받지 않는다
+    delete pub.adminPin;      // 공개 저장소에 PIN이 실렸어도 받지 않는다
+    delete pub.adminPinHash;  // PIN 지문도 파일로는 받지 않는다 (서버에서만)
     delete pub.codeSalt;  // 코드 씨앗은 모든 기기가 같은 기본값을 써야 코드가 일치한다
     if ((pub._cfgAt || 0) <= (config._cfgAt || 0)) return false; // 내 설정이 더 최신
     Object.assign(config, pub);
@@ -223,6 +225,24 @@ export async function cloudPullConfig() {
     return true;
   } catch (e) { return false; }
 }
+// ---- 관리자 PIN ----
+// 서버(lps_works)는 브라우저 공개키로 읽히므로 PIN 원문을 올리면 학생도 볼 수 있다.
+// 그래서 되돌릴 수 없는 지문(SHA-256)만 올리고, 원문은 이 기기에만 둔다.
+export async function hashPin(pin) {
+  const data = new TextEncoder().encode('lps-pin|' + String(pin));
+  const buf = await crypto.subtle.digest('SHA-256', data);
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+export async function checkAdminPin(input) {
+  if (config.adminPinHash) return (await hashPin(input)) === config.adminPinHash;
+  return String(input) === String(config.adminPin);   // 아직 지문이 없는 옛 설정
+}
+// 설정을 저장할 때 호출 — 바뀐 PIN의 지문을 만들어 둔다
+export async function syncAdminPin() {
+  if (!config.adminPin) return;
+  config.adminPinHash = await hashPin(config.adminPin);
+}
+
 // ---- 입장 코드: PIN+날짜(+반·교시)에서 모든 기기가 똑같이 계산 — 서버·재배포 없이 유효 ----
 function dateStr() {
   const d = new Date();
