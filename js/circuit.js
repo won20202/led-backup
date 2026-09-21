@@ -1178,6 +1178,7 @@ function toggleSwitch(hi) {
       (R.short ? ', 합선' : '') + (R.dimSeries ? ', 직렬로 어두움' : '') + (R.hasBlockedSeries ? ', 전압 부족 소등' : '') +
       (R.over.size ? ', 과전류' : '') + (R.burnt.size ? `, ${R.burnt.size}개 소손` : '');
     if (mode === 'placard') {
+      C.lastLit = { n: litN, total: C.leds.length };   // 진도 체크리스트용
       addLog(`회로 — ${summary}` + (config.askPredict ? ` (예측 ${C.predictCount}개)` : ''));
       sheetLog('회로 점등', summary + (config.askPredict ? `, 예측 ${C.predictCount}개` : ''));
       renderLogList();

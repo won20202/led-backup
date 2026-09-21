@@ -105,6 +105,11 @@ export const DEFAULT_CONFIG = {
   groups: {},         // 섞인 반(그룹 수업) 명단: { "메이커반": ["10821","20321"] }
   // 입장 방식: none(코드 없음) | fixed(고정 코드) | daily(매일 바뀜) | session(수업 코드: 반·교시 지정)
   entryMode: 'none',
+  // 수업 코드는 그 수업 시간에만 통해야 한다 — 앞 교시 반이 다음 교시에 들어오는 것을 막는다.
+  // 수업이 밀리거나 당겨질 때를 대비한 여유 시간은 codeWindowMin(분)으로 조절한다.
+  codeTimeLimit: true,
+  codeWindowMin: 20,
+  codeOverrides: {},      // 교사가 직접 정한 코드 { '2026-09-21|2-3|4|5': '1234' } — 그날만 적용
   classCode: '',            // fixed 모드에서 쓰는 고정 코드
   // 주간 시간표: 요일(1=월~5=금)별 교시 칸에 수업명. "7", "2-7"(학년-반)뿐 아니라
   // "메이커반", "동아리A"처럼 학년·반이 섞인 그룹 수업명도 된다.
@@ -326,15 +331,23 @@ export function makeSid(ban, num, grade) {
 }
 
 // 수업 코드: 수업명(반 번호·"학년-반"·그룹명) + 교시 범위 (p1, p2는 0부터)
-export function classSessionCode(token, p1, p2) { return codeOf('ban', dateStr(), String(token).trim(), p1, p2); }
+export function codeKeyOf(token, p1, p2) { return `${dateStr()}|${String(token).trim()}|${p1}|${p2}`; }
+// 관리자 화면에서 '자동으로 계산된 원래 코드'를 비교할 때 쓴다
+export function autoSessionCode(token, p1, p2) { return codeOf('ban', dateStr(), String(token).trim(), p1, p2); }
+export function classSessionCode(token, p1, p2) {
+  const ov = (config.codeOverrides || {})[codeKeyOf(token, p1, p2)];
+  return /^\d{4}$/.test(ov) ? ov : codeOf('ban', dateStr(), String(token).trim(), p1, p2);
+}
 // 미실시자 개인 코드: 학번 그대로, 그날 하루
 export function studentDayCode(sid) { return codeOf('stu', dateStr(), String(sid).trim()); }
 const toMin = t => { const [h, m] = String(t).split(':').map(Number); return h * 60 + m; };
 function inWindow(p1, p2) {
   const per = config.periods || [];
   if (!per[p1] || !per[p2]) return false;
+  const pad = Number(config.codeWindowMin);
+  const m = isNaN(pad) ? 20 : pad;
   const mins = new Date().getHours() * 60 + new Date().getMinutes();
-  return mins >= toMin(per[p1].start) - 10 && mins <= toMin(per[p2].end) + 10;
+  return mins >= toMin(per[p1].start) - m && mins <= toMin(per[p2].end) + m;
 }
 
 // 수업명이 이 학생의 수업인지: "학년-반"/"반" 은 학번과 대조,
@@ -369,8 +382,9 @@ function tokenMatches(token, p, sid) {
 // 2) 시간표에 없어도 자기 반 코드는 통과 (수동 발급 대비)
 export function sessionCodeValid(code, p, sid) {
   if (!/^\d{4}$/.test(code)) return { ok: false };
+  const timeOk = (p1, p2) => !config.codeTimeLimit || inWindow(p1, p2);
   for (const r of todayRuns()) {
-    if (classSessionCode(r.token, r.p1, r.p2) === code && inWindow(r.p1, r.p2))
+    if (classSessionCode(r.token, r.p1, r.p2) === code && timeOk(r.p1, r.p2))
       if (tokenMatches(r.token, p, sid)) return { ok: true, token: r.token };
   }
   const per = config.periods || [];
@@ -378,7 +392,7 @@ export function sessionCodeValid(code, p, sid) {
   for (const token of own)
     for (let p1 = 0; p1 < per.length; p1++)
       for (let p2 = p1; p2 < per.length; p2++)
-        if (classSessionCode(token, p1, p2) === code && inWindow(p1, p2))
+        if (classSessionCode(token, p1, p2) === code && timeOk(p1, p2))
           return { ok: true, token };
   return { ok: false };
 }
@@ -478,7 +492,40 @@ export function touch() {
   saveTimer = setTimeout(() => {
     localStorage.setItem(studentKey(student), JSON.stringify(work));
     cloudPush();
+    reportProgress();   // 지금 화면 그대로의 진도를 교사 시트에 알린다
   }, 500);
+}
+
+// ---- 진도 체크리스트 ----
+// 지금 작업 상태를 그대로 계산한다. 순서를 강제하지 않고,
+// 학생이 지우면 그 항목도 같이 내려간다 (모든 학생에게 같은 기준).
+export const PROGRESS_ITEMS = ['도안 작업', '도안 조건 충족', '케이스 치수 입력', '케이스 통과',
+                               '회로 연습', '켜기 전 예측', '전 LED 점등', '홀더 위치'];
+export function progressDone() {
+  const c = work.caseTab || {}, ci = work.circuit || {}, lab = work.lab || {}, d = work.design || {};
+  const pieces = Object.values(c.pieces || {});
+  const filled = pieces.some(v => v && (String(v.w || '') !== '' || String(v.h || '') !== ''));
+  const drawn = ((d.drawing || {}).strokes || []).length > 0;
+  const lettered = (d.letters || []).some(l => l && l.text);
+  const lit = ci.lastLit;   // 마지막 점등 결과 {n, total} — LED를 지우면 개수가 어긋나 꺼진다
+  return {
+    '도안 작업': lettered || drawn,
+    '도안 조건 충족': !!d.ok,
+    '케이스 치수 입력': filled,
+    '케이스 통과': filled && !!c.fit,
+    '회로 연습': (lab.leds || []).length > 0 || (lab.tapes || []).length > 0,
+    '켜기 전 예측': String(ci.predictCount || '') !== '',
+    '전 LED 점등': !!lit && lit.total > 0 && lit.n === lit.total && lit.total === (ci.leds || []).length,
+    '홀더 위치': !!((work.assembly || {}).holderPos),
+  };
+}
+let lastProgressKey = null;
+function reportProgress() {
+  const done = progressDone();
+  const key = PROGRESS_ITEMS.filter(n => done[n]).join(',');
+  if (key === lastProgressKey) return;   // 바뀐 때만 보낸다
+  lastProgressKey = key;
+  sheetLog('진도', key || '없음');
 }
 
 export function addLog(line) {

@@ -85,7 +85,7 @@ function setupLogin() {
     $('login-modal').classList.add('hidden');
     $('app').classList.remove('hidden');
     document.dispatchEvent(new CustomEvent('work-loaded'));
-    switchTab('case');
+    switchTab('design');   // 수업 순서: 도안부터
   });
 }
 

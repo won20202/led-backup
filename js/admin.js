@@ -1,7 +1,7 @@
 // 관리자 모드: 로그인 화면의 [관리자] 버튼 또는 URL ?admin=1 → PIN 입력.
 import { config, saveConfig, exportConfigCode, importConfigCode, getMisses, clearMisses,
          cloudList, cloudListBan, cloudGet, cloudDelete, cloudPushConfig, setReadOnlyWork, DEFAULT_CONFIG, DEFAULT_RUBRIC,
-         sheetLogFor, sheetFlushNow, todayCode, classSessionCode, studentDayCode,
+         sheetLogFor, sheetFlushNow, todayCode, classSessionCode, codeKeyOf, autoSessionCode, studentDayCode,
          makeSid, parseSid, weekKeyOf, timetableForWeek, runsOf, todayRuns,
          rosterActive, BLOCKED_STATUS } from './state.js';
 import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js';
@@ -47,6 +47,8 @@ const FIELDS = [
   ['askPredict', '예측 먼저 (조립·점등 전 예측 입력)', 'checkbox'],
   ['questionFeedback', '질문형 피드백 표시', 'checkbox'],
   ['classCode', '고정 코드 (입장 방식이 "고정 코드"일 때)', 'text'],
+  ['codeTimeLimit', '수업 코드를 그 수업 시간에만 허용 (앞 교시 반 차단)', 'checkbox'],
+  ['codeWindowMin', '수업 시간 앞뒤 여유 (분) — 수업이 밀릴 때 대비', 'number'],
   ['adminPin', '관리자 PIN', 'text'],
   ['supabaseUrl', 'Supabase URL (비우면 이 기기에만 저장)', 'text'],
   ['supabaseKey', 'Supabase anon key', 'text'],
@@ -95,6 +97,7 @@ function collectSettings() {
   }
   collectPeriods();
   collectTimetable();
+  collectCodeOverrides();
   saveConfig();
 }
 
@@ -148,6 +151,24 @@ function entryWeekKey() {
   d.setDate(d.getDate() + entrySel.off * 7);
   return weekKeyOf(d);
 }
+// 교사가 직접 고쳐 쓴 오늘의 코드 (지난 날짜 것은 자동으로 버린다)
+function collectCodeOverrides() {
+  const rows = [...document.querySelectorAll('#adm-entry .ec-code-ov')];
+  if (!rows.length) return;
+  const today = new Date();
+  const prefix = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}|`;
+  const keep = {};
+  Object.keys(config.codeOverrides || {}).forEach(k => {
+    if (k.indexOf(prefix) === 0) keep[k] = config.codeOverrides[k];
+  });
+  rows.forEach(el => {
+    const v = el.value.trim();
+    const auto = el.dataset.auto;
+    if (/^\d{4}$/.test(v) && v !== auto) keep[el.dataset.key] = v;
+    else delete keep[el.dataset.key];
+  });
+  config.codeOverrides = keep;
+}
 function collectTimetable() {
   const grid = document.querySelector('#adm-entry .tt-grid');
   if (!grid) return;
@@ -187,8 +208,10 @@ function renderEntry() {
     ? `<div class="measure">오늘(${days[dow] || '주말'})의 수업별 코드 — 수업마다 코드가 다릅니다. 해당 수업 칠판에 적어 주세요<br>` +
       runs.map((r, i) =>
         `<div class="tool-row">${r.p1 + 1}${r.p2 > r.p1 ? '~' + (r.p2 + 1) : ''}교시 <b>${tokenLabel(r.token)}</b> →
-         <b style="font-size:20px">${classSessionCode(r.token, r.p1, r.p2)}</b>
-         <button class="ec-log small-btn" data-i="${i}">시트에 수업 기록</button></div>`).join('') + '</div>'
+         <input class="ec-code-ov" data-key="${esc(codeKeyOf(r.token, r.p1, r.p2))}" maxlength="4" inputmode="numeric"
+                data-auto="${autoSessionCode(r.token, r.p1, r.p2)}" value="${classSessionCode(r.token, r.p1, r.p2)}">
+         <button class="ec-log small-btn" data-i="${i}">시트에 수업 기록</button></div>`).join('') +
+      '<p class="muted small">코드를 직접 고쳐 써도 됩니다(숫자 4자리, 오늘만 적용). 칸을 비우면 자동 코드로 돌아갑니다.</p></div>'
     : `<p class="muted small">시간표를 채우면 요일에 맞춰 오늘의 수업 코드가 자동으로 나옵니다.</p>`;
 
   const isBase = entrySel.kind === 'base';

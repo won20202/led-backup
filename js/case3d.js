@@ -165,6 +165,7 @@ function assemble(logIt) {
   const info = $('case-info');
   if (!p.back.w || !p.back.h || !p.side.w || !p.side.h || !p.topbot.w || !p.topbot.h) {
     info.innerHTML = '<p class="muted">여섯 값을 모두 입력한 뒤 [조립하기]를 누르세요.</p>';
+    work.caseTab.fit = false;   // 치수를 지우면 진도의 '케이스 통과'도 내려간다
     dirty = true;
     return;
   }
@@ -270,6 +271,7 @@ function assemble(logIt) {
     renderLogList();
   }
   work.caseTab.assembled = true;
+  work.caseTab.fit = !overlapN && !gapN;   // 진도 체크리스트용 — 겹침·틈이 없어야 통과
   touch();
   dirty = true;
 }

@@ -404,6 +404,7 @@ function updatePanel() {
   if (!warns.length && letters().some(l => l.text))
     html += `<p class="ok">조건에 잘 맞습니다. 빛이 어떻게 새어 나올지는 [미리보기] 탭에서 확인하세요.</p>`;
   el.innerHTML = html;
+  work.design.ok = !warns.length && letters().some(l => l.text);   // 진도 체크리스트용
   // 교사 분석용: 어떤 피드백이 떴는지 기록 (같은 내용 반복 기록 방지)
   const key = warns.join('|') + (a.islandCount ? `|섬${a.islandCount}` : '');
   if (key && key !== lastFeedbackKey) sheetLog('도안 피드백', warns.join(' / ') || `안쪽 조각 ${a.islandCount}개`);
