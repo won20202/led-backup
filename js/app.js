@@ -1,7 +1,8 @@
 // 앱 진입점: 로그인(반·번호) → 탭 화면
 import { config, login, student, onCloudStatus, sheetLog, todayCode,
          sessionCodeValid, studentDayCode, sidInList, parseSid, makeSid, sidLength,
-         rosterActive, rosterStatus, BLOCKED_STATUS, work, touch, allowedGrades } from './state.js';
+         rosterActive, rosterStatus, BLOCKED_STATUS, work, touch, allowedGrades,
+         checkAdminPin } from './state.js';
 import { initCase, refreshFromWork } from './case3d.js';
 import { initCircuit, refreshCircuit } from './circuit.js';
 import { initDesign, refreshDesign } from './design.js';
@@ -13,6 +14,16 @@ import { initAdmin, openAdmin } from './admin.js';
 const $ = id => document.getElementById(id);
 
 // 설정(입장 방식·학번 자리수)이 바뀌면 로그인 화면도 연동되어 4자리/5자리 예시 자동 표시
+// 시연 학번을 입력하면 코드 칸이 '관리자 PIN' 칸으로 바뀐다 (입력값은 가려진다)
+function isDemoSid(v) { return sidInList(config.demoSids, String(v || '').trim()); }
+function refreshCodeField() {
+  const demo = isDemoSid($('login-sid').value);
+  const box = $('login-code');
+  $('login-code-row').style.display = (demo || config.entryMode !== 'none') ? '' : 'none';
+  box.type = demo ? 'password' : 'text';
+  box.placeholder = demo ? '관리자 PIN' : '입장 코드 (선생님이 알려줌)';
+}
+
 function refreshLoginUI() {
   $('login-code-row').style.display = config.entryMode !== 'none' ? '' : 'none';
   // 학번 자리수는 학교 체계 설정을 따른다 (예: 반 2자리 20627, 반 1자리 2527)
@@ -30,6 +41,8 @@ function setupLogin() {
     if (last) $('login-sid').value = last;
   } catch (e) { /* ignore */ }
 
+  $('login-sid').addEventListener('input', refreshCodeField);
+  refreshCodeField();
   $('login-admin').addEventListener('click', openAdmin);
   $('header-admin').addEventListener('click', openAdmin);
   ['login-sid', 'login-code'].forEach(id =>
@@ -74,7 +87,12 @@ function setupLogin() {
       codeOk = v.ok || entered === studentDayCode(sid);
       errMsg = '지금 시간, 이 수업의 입장 코드가 아닙니다. 학번과 코드를 다시 확인해 보세요.';
     }
-    if (isDemo) { codeOk = true; viaSession = true; }   // 시연 계정은 언제든 통과
+    if (isDemo) {
+      // 학생이 이 학번을 알아내도 못 들어오게, 관리자 PIN을 확인한다
+      codeOk = await checkAdminPin(entered);
+      viaSession = codeOk;
+      errMsg = '관리자 PIN을 입력해야 합니다.';
+    }
     if (!codeOk) { $('login-err').textContent = errMsg; return; }
     // 명단 밖 학생(다른 학년·그룹 수업 등)은 유효한 수업 코드가 있어야 입장
     if (!inBase && !isExtra && !viaSession) {
