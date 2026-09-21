@@ -624,6 +624,12 @@ var BOARD_HEAD = ['번호', '학번', '상태', '진도', '남은 것', '최근 
 function banBoardSheet(ss, ban) {
   var name = banTabName(ban);
   var sh = ss.getSheetByName(name) || ss.insertSheet(name);
+  // 예전에 이 탭이 원본 기록이었다면, 지우기 전에 '기록(원본)'으로 옮긴다
+  if (sh.getLastRow() >= 2 && String(sh.getRange('A1').getValue()) === TIMELINE_HEAD[0]) {
+    var old = sh.getRange(2, 1, sh.getLastRow() - 1, TIMELINE_HEAD.length).getValues();
+    var dest = timelineSheet(ss, MISC);
+    dest.getRange(dest.getLastRow() + 1, 1, old.length, TIMELINE_HEAD.length).setValues(old);
+  }
   sh.clear();
   sh.getRange(1, 1, 1, BOARD_HEAD.length).setValues([BOARD_HEAD])
     .setBackground('#343a40').setFontColor('#ffffff').setFontWeight('bold').setHorizontalAlignment('center');
