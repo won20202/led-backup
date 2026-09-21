@@ -1,6 +1,6 @@
 // 케이스 탭: 조각 치수 입력 → 3D 조립. 겹침(빨강)·틈(노랑)을 보여주되 수치는 알려주지 않는다.
 import * as THREE from '../vendor/three.module.min.js';
-import { config, work, addLog, touch, readOnly } from './state.js';
+import { config, work, addLog, touch, readOnly, attemptCount } from './state.js';
 
 let scene, camera, renderer, root, el3d;
 let theta = 0.55, phi = 0.5, radius = 42; // 카메라 궤도
@@ -277,14 +277,40 @@ function assemble(logIt) {
 }
 
 // 설계 일지 — 탭마다 자기 기록만 보여준다 (전체 기록은 데이터·시트에 그대로 남는다)
+// 시도 횟수 안내 — 혼내는 말이 아니라 "한 번 생각하고 해 보자"는 권유
+const ATTEMPT_MSG = [
+  '아래 기록을 보면서 <b>무엇을 바꿀지 먼저 정하고</b> 실행해 볼까요?',
+  '바로 전과 비교해서 <b>무엇을 얼마나 바꿨는지</b>, 그래서 결과가 <b>어느 쪽으로 움직였는지</b> 살펴보세요. 같은 값을 반복하고 있지는 않나요?',
+  '숫자만 바꿔 보는 것으로는 잘 풀리지 않을 수 있어요. <b>왜 그런 결과가 나오는지</b> 종이에 그려서 계산해 본 다음 다시 해 보세요.',
+];
+function attemptNotice() {
+  const n = attemptCount();
+  const steps = String(config.attemptSteps || '20,40,60').split(',')
+    .map(v => parseInt(v, 10)).filter(v => v > 0).sort((a, b) => a - b);
+  const warnFrom = Number(config.attemptWarnFrom) || 80;
+  const guide = Number(config.attemptGuide) || 100;
+
+  if (n >= warnFrom) {
+    const left = guide - n;
+    return `<div class="attempt-notice">지금까지 <b>${n}번</b> 해 봤어요. ` + (left > 0
+      ? `수정할 기회가 <b>${left}번</b> 남았습니다. 혼자 오래 붙잡고 있었다면 선생님께 물어보는 것도 좋은 방법이에요.`
+      : `아래 기록을 보며 무엇이 달라졌는지 먼저 정리해 보고, 선생님께 도움을 요청해 보세요.`) + '</div>';
+  }
+  let idx = -1;
+  steps.forEach((v, i) => { if (n >= v) idx = i; });
+  if (idx < 0) return '';
+  return `<div class="attempt-notice">벌써 <b>${n}번</b> 해 봤네요. ${ATTEMPT_MSG[Math.min(idx, ATTEMPT_MSG.length - 1)]}</div>`;
+}
+
 export function renderLogList() {
+  const notice = attemptNotice();
   const fill = (id, pred, empty) => {
     const el = $(id);
     if (!el) return;
     const rows = work.log.filter(l => pred(String(l)));
-    el.innerHTML = rows.length
+    el.innerHTML = notice + (rows.length
       ? rows.slice(-12).map(l => `<div>${l}</div>`).join('')
-      : `<div class="muted">${empty}</div>`;
+      : `<div class="muted">${empty}</div>`);
   };
   fill('case-log', l => !l.includes('회로 —') && !l.includes('조립 순서 —'),
     '조립할 때마다 기록이 쌓입니다. 포트폴리오 자기 평가에 활용하세요.');

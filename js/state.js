@@ -94,7 +94,10 @@ export const DEFAULT_CONFIG = {
   orderTips: {},    // 조립 순서 팁 덮어쓰기 (비어 있으면 기본 문구)
   orderSafety: {},  // 조립 순서 안전 문구 덮어쓰기
   showSupply: true, showMeasure: true, askPredict: true, questionFeedback: true,
-  logMax: 200,      // 설계 일지 보관 개수 (케이스·회로·조립 순서가 함께 쓴다)
+  logMax: 200,          // 설계 일지 보관 개수 (케이스·회로·조립 순서가 함께 쓴다)
+  attemptSteps: '20,40,60',  // 이 회차마다 "생각하고 해 보자" 안내를 띄운다
+  attemptWarnFrom: 80,       // 이 회차부터 남은 횟수를 알려 준다
+  attemptGuide: 100,         // 권장 시도 횟수 (넘어도 막지 않는다)
   overLimit: 'warn',        // 'warn' | 'block'
   // 학교 기본 정보 — 1, 2, 3학년 복수 지원
   grade: '1, 2, 3',
@@ -529,6 +532,7 @@ function reportProgress() {
   sheetLog('진도', key || '없음');
 }
 
+export function attemptCount() { return work.logSeq || work.log.length || 0; }
 export function addLog(line) {
   if (readOnly) return;
   // 회차 번호는 일지가 가득 차도 계속 올라간다 (예전에는 61차에서 멈췄다)
