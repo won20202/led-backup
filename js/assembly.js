@@ -1,11 +1,11 @@
 // 조립 순서 탭: 카드를 배열하고, 배열한 카드를 "눌러서" 그 단계의 모습을 본다.
 // 순서가 잘못되면 그 단계에서 무슨 일이 생기는지 보여주고, 그 뒤 단계는 볼 수 없다.
 // 건전지 홀더를 어디에 붙일지도 여기서 정한다. 정답 순서는 알려주지 않는다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=30';
-import { renderLogList } from './case3d.js?v=30';
-import { drawAssembled, getLighting } from './circuit.js?v=30';
-import { drawLitFront } from './preview.js?v=30';
-import { getDesignMask } from './design.js?v=30';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=31';
+import { renderLogList } from './case3d.js?v=31';
+import { drawAssembled, getLighting } from './circuit.js?v=31';
+import { drawLitFront } from './preview.js?v=31';
+import { getDesignMask } from './design.js?v=31';
 
 const $ = id => document.getElementById(id);
 
@@ -261,12 +261,13 @@ function scenePlace() {
   placing = true;
   cv.style.touchAction = 'none'; // 터치로 끌 때 화면이 같이 스크롤되지 않게
 }
-// 무게중심 판정: 뒷면에 붙이면 홀더가 뒤로 튀어나와, 높이 붙일수록 뒤로 기우뚱한다.
-// 옆면은 튀어나오는 방향이 좌우여서 넓은 바닥 안에 머무른다 — 실제로도 높이와 상관없이 잘 선다.
+// 무게중심 판정: 전지가 든 홀더는 무거워서 어느 면이든 위쪽에 붙이면 기운다.
+// (y는 그 면의 위에서 잰 거리 — 커야 바닥 쪽) 뒷면은 좌우로도 치우치면 안 된다.
 function isStable(hp, d) {
   if (!hp) return false;
-  if ((hp.face || 'back') !== 'back') return true;
-  return hp.y > d.bh * 0.55 && hp.x > 2.5 && hp.x < d.bw - 2.5;
+  const back = (hp.face || 'back') === 'back';
+  if (hp.y <= (back ? d.bh : d.sh) * 0.55) return false;
+  return !back || (hp.x > 2.5 && hp.x < d.bw - 2.5);
 }
 function sceneFinal() {
   clearCanvas();

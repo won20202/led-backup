@@ -4,9 +4,9 @@ import { config, saveConfig, exportConfigCode, importConfigCode, getMisses, clea
          sheetLogFor, sheetFlushNow, todayCode, classSessionCode, codeKeyOf, autoSessionCode, studentDayCode,
          checkAdminPin, syncAdminPin,
          makeSid, parseSid, weekKeyOf, timetableForWeek, runsOf, todayRuns,
-         rosterActive, BLOCKED_STATUS } from './state.js?v=30';
-import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=30';
-import { switchTab } from './app.js?v=30';
+         rosterActive, readOnly, BLOCKED_STATUS } from './state.js?v=31';
+import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=31';
+import { switchTab } from './app.js?v=31';
 
 const $ = id => document.getElementById(id);
 
@@ -1140,6 +1140,12 @@ async function exportCsv() {
 }
 
 let liveTimer = null, worksTimer = null;
+let roFollow = true;    // 학생이 보는 탭을 따라간다 — 교사가 탭을 누르면 멈춘다
+let roTabsWired = false;
+// 열람 중에는 입력칸을 잠근다 (캔버스·버튼은 각 탭에서 이미 막고 있다)
+function lockInputs() {
+  document.querySelectorAll('#app input, #app textarea, #app select').forEach(el => { el.disabled = true; });
+}
 function openReadOnly(w, label, cloudId) {
   setReadOnlyWork(w, label);
   $('admin-modal').classList.add('hidden');
@@ -1147,11 +1153,25 @@ function openReadOnly(w, label, cloudId) {
   $('app').classList.remove('hidden');
   $('readonly-banner').classList.remove('hidden');
   $('readonly-banner').innerHTML = `관리자 열람 중 — ${esc(label)}` +
-    (cloudId ? ' (실시간 갱신)' : '') + ' · 편집 불가 <button id="ro-exit" class="small-btn">관리자로 돌아가기</button>';
-  $('ro-exit').addEventListener('click', () => { location.search = '?admin=1'; });
+    (cloudId ? ' (실시간 갱신)' : '') + ' · 편집 불가 · 위 탭을 눌러 케이스·회로·도안·조립 순서·미리보기를 볼 수 있어요' +
+    ' <button id="ro-exit" class="small-btn">학생 목록으로</button>';
+  // PIN을 다시 묻지 않도록 새로고침 없이 관리자 창만 다시 연다
+  $('ro-exit').addEventListener('click', () => {
+    clearInterval(liveTimer);
+    $('readonly-banner').classList.add('hidden');
+    $('app').classList.add('hidden');
+    openAdmin();
+  });
+  roFollow = true;
+  if (!roTabsWired) {
+    roTabsWired = true;
+    document.querySelectorAll('.tab-btn').forEach(b =>
+      b.addEventListener('click', () => { roFollow = false; }));
+  }
   $('student-badge').textContent = label;
   document.dispatchEvent(new CustomEvent('work-loaded'));
   switchTab(w && w.activeTab ? w.activeTab : 'case');
+  lockInputs();
   window.dispatchEvent(new Event('resize'));
   clearInterval(liveTimer);
   if (cloudId) {
@@ -1161,8 +1181,9 @@ function openReadOnly(w, label, cloudId) {
         if (w2) {
           setReadOnlyWork(w2, label);
           document.dispatchEvent(new CustomEvent('work-loaded'));
+          lockInputs();
           const cur = document.querySelector('.tab-btn.active')?.dataset.tab;
-          if (w2.activeTab && w2.activeTab !== cur) switchTab(w2.activeTab);
+          if (roFollow && w2.activeTab && w2.activeTab !== cur) switchTab(w2.activeTab);
         }
       } catch (e) { /* ignore */ }
     }, 4000);
@@ -1171,6 +1192,17 @@ function openReadOnly(w, label, cloudId) {
 
 export function openAdmin() {
   $('admin-modal').classList.remove('hidden');
+  // 이미 PIN을 푼 뒤라면 다시 묻지 않는다 (학생 화면을 여러 번 드나들 수 있게)
+  if (unlocked) {
+    $('adm-pin-gate').classList.add('hidden');
+    $('adm-content').classList.remove('hidden');
+    renderWorks(); renderRosterSummary();
+    clearInterval(worksTimer);
+    worksTimer = setInterval(() => {
+      if (!$('admin-modal').classList.contains('hidden')) renderWorks();
+    }, 20000);
+    return;
+  }
   $('adm-pin-gate').classList.remove('hidden');
   $('adm-content').classList.add('hidden');
   $('adm-pin').value = '';
@@ -1303,6 +1335,8 @@ export function initAdmin() {
     saveAll(false);                 // 닫기 전에 이 기기에 저장
     $('admin-modal').classList.add('hidden');
     clearInterval(worksTimer);
+    // 학생 자료를 띄운 채로 나가지 않게 — 처음 화면으로 되돌린다
+    if (readOnly) location.replace(location.pathname);
   });
   $('adm-works-reload').addEventListener('click', renderWorks);
   $('adm-csv').addEventListener('click', exportCsv);
