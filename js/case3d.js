@@ -1,6 +1,6 @@
 // 케이스 탭: 조각 치수 입력 → 3D 조립. 겹침(빨강)·틈(노랑)을 보여주되 수치는 알려주지 않는다.
-import * as THREE from '../vendor/three.module.min.js?v=26';
-import { config, work, addLog, touch, readOnly, attemptCount, student, logArea } from './state.js?v=26';
+import * as THREE from '../vendor/three.module.min.js?v=27';
+import { config, work, addLog, touch, readOnly, attemptCount, logArea, demoAccount } from './state.js?v=27';
 
 let scene, camera, renderer, root, el3d;
 let theta = 0.55, phi = 0.5, radius = 42; // 카메라 궤도
@@ -362,12 +362,7 @@ function attemptNotice(area) {
 }
 
 // 시연 계정(00000)으로 여러 반을 돌면 일지가 끝없이 쌓인다 — 그 계정에만 비우기 버튼
-function isDemoNow() {
-  if (!student) return false;
-  const bd = config.banDigits || 2, nd = config.numDigits || 2;
-  const sid = `${student.grade}${String(student.ban).padStart(bd, '0')}${String(student.num).padStart(nd, '0')}`;
-  return String(config.demoSids || '').split(',').map(v => v.trim()).includes(sid);
-}
+function isDemoNow() { return demoAccount; }
 
 export function renderLogList() {
   const fill = (id, area, pred, empty) => {

@@ -474,6 +474,8 @@ export function blankWork() {
 export let student = null;   // {grade, ban, num}
 export let work = blankWork();
 export let readOnly = false; // 관리자가 학생 작업을 열람할 때
+export let demoAccount = false;   // 교사 시연용 학번으로 들어왔는지
+export function setDemoAccount(v) { demoAccount = !!v; }
 
 // 고유 키: 4자리(2204) 또는 5자리(20204) 설정 연동 순수 숫자
 export function studentKey(s) { 

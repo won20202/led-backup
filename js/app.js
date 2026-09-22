@@ -2,14 +2,14 @@
 import { config, login, student, onCloudStatus, sheetLog, todayCode,
          sessionCodeValid, studentDayCode, sidInList, parseSid, makeSid, sidLength,
          rosterActive, rosterStatus, BLOCKED_STATUS, work, touch, allowedGrades,
-         checkAdminPin } from './state.js?v=26';
-import { initCase, refreshFromWork } from './case3d.js?v=26';
-import { initCircuit, refreshCircuit } from './circuit.js?v=26';
-import { initDesign, refreshDesign } from './design.js?v=26';
-import { initAssembly, refreshAssembly } from './assembly.js?v=26';
-import { initPreview, drawPreview } from './preview.js?v=26';
-import { initFaq } from './faq.js?v=26';
-import { initAdmin, openAdmin } from './admin.js?v=26';
+         checkAdminPin, setDemoAccount } from './state.js?v=27';
+import { initCase, refreshFromWork } from './case3d.js?v=27';
+import { initCircuit, refreshCircuit } from './circuit.js?v=27';
+import { initDesign, refreshDesign } from './design.js?v=27';
+import { initAssembly, refreshAssembly } from './assembly.js?v=27';
+import { initPreview, drawPreview } from './preview.js?v=27';
+import { initFaq } from './faq.js?v=27';
+import { initAdmin, openAdmin } from './admin.js?v=27';
 
 const $ = id => document.getElementById(id);
 
@@ -101,6 +101,7 @@ function setupLogin() {
       codeOk = v.ok || entered === studentDayCode(sid);
       errMsg = '지금 시간, 이 수업의 입장 코드가 아닙니다. 학번과 코드를 다시 확인해 보세요.';
     }
+    setDemoAccount(isDemo);
     if (isDemo) {
       // 학생이 이 학번을 알아내도 못 들어오게, 관리자 PIN을 확인한다
       codeOk = await checkAdminPin(entered);
@@ -156,7 +157,7 @@ onCloudStatus(s => {
 });
 
 // 개발·수업 중 문제 진단용 (학생 화면에는 영향 없음)
-import * as state from './state.js?v=26';
+import * as state from './state.js?v=27';
 window.__lps = state;
 
 setupLogin();
