@@ -1,6 +1,6 @@
 // 케이스 탭: 조각 치수 입력 → 3D 조립. 겹침(빨강)·틈(노랑)을 보여주되 수치는 알려주지 않는다.
-import * as THREE from '../vendor/three.module.min.js?v=25';
-import { config, work, addLog, touch, readOnly, attemptCount } from './state.js?v=25';
+import * as THREE from '../vendor/three.module.min.js?v=26';
+import { config, work, addLog, touch, readOnly, attemptCount, student, logArea } from './state.js?v=26';
 
 let scene, camera, renderer, root, el3d;
 let theta = 0.55, phi = 0.5, radius = 42; // 카메라 궤도
@@ -342,8 +342,8 @@ const ATTEMPT_MSG = [
   '바로 전과 비교해서 <b>무엇을 얼마나 바꿨는지</b>, 그래서 결과가 <b>어느 쪽으로 움직였는지</b> 살펴보세요. 같은 값을 반복하고 있지는 않나요?',
   '숫자만 바꿔 보는 것으로는 잘 풀리지 않을 수 있어요. <b>왜 그런 결과가 나오는지</b> 종이에 그려서 계산해 본 다음 다시 해 보세요.',
 ];
-function attemptNotice() {
-  const n = attemptCount();
+function attemptNotice(area) {
+  const n = attemptCount(area);
   const steps = String(config.attemptSteps || '20,40,60').split(',')
     .map(v => parseInt(v, 10)).filter(v => v > 0).sort((a, b) => a - b);
   const warnFrom = Number(config.attemptWarnFrom) || 80;
@@ -361,21 +361,36 @@ function attemptNotice() {
   return `<div class="attempt-notice">벌써 <b>${n}번</b> 해 봤네요. ${ATTEMPT_MSG[Math.min(idx, ATTEMPT_MSG.length - 1)]}</div>`;
 }
 
+// 시연 계정(00000)으로 여러 반을 돌면 일지가 끝없이 쌓인다 — 그 계정에만 비우기 버튼
+function isDemoNow() {
+  if (!student) return false;
+  const bd = config.banDigits || 2, nd = config.numDigits || 2;
+  const sid = `${student.grade}${String(student.ban).padStart(bd, '0')}${String(student.num).padStart(nd, '0')}`;
+  return String(config.demoSids || '').split(',').map(v => v.trim()).includes(sid);
+}
+
 export function renderLogList() {
-  const notice = attemptNotice();
-  const fill = (id, pred, empty) => {
+  const fill = (id, area, pred, empty) => {
     const el = $(id);
     if (!el) return;
     const rows = work.log.filter(l => pred(String(l)));
-    el.innerHTML = notice + (rows.length
+    el.innerHTML = attemptNotice(area) + (rows.length
       ? rows.slice(-12).map(l => `<div>${l}</div>`).join('')
-      : `<div class="muted">${empty}</div>`);
+      : `<div class="muted">${empty}</div>`)
+      + (isDemoNow() ? `<button class="small-btn log-clear" data-area="${area}">이 일지 비우기</button>` : '');
+    el.querySelectorAll('.log-clear').forEach(b => b.addEventListener('click', () => {
+      const a = b.dataset.area;
+      work.log = work.log.filter(l => logArea(String(l)) !== a);
+      if (work.tries) work.tries[a] = 0;
+      touch();
+      renderLogList();
+    }));
   };
-  fill('case-log', l => !l.includes('회로 —') && !l.includes('조립 순서 —'),
+  fill('case-log', 'case', l => !l.includes('회로 —') && !l.includes('조립 순서 —'),
     '조립할 때마다 기록이 쌓입니다. 포트폴리오 자기 평가에 활용하세요.');
-  fill('circuit-log', l => l.includes('회로 —'),
+  fill('circuit-log', 'circuit', l => l.includes('회로 —'),
     '스위치를 켤 때마다 점등 결과가 기록됩니다.');
-  fill('order-log', l => l.includes('조립 순서 —'),
+  fill('order-log', 'order', l => l.includes('조립 순서 —'),
     '조립 순서를 끝까지 진행하면 결과가 기록됩니다.');
 }
 

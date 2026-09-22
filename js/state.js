@@ -555,9 +555,24 @@ function reportProgress() {
   sheetLog('진도', key || '없음');
 }
 
-export function attemptCount() { return work.logSeq || work.log.length || 0; }
+// 일지 한 줄이 어느 영역인지 — 안내를 그 탭에만 띄우기 위해
+export function logArea(line) {
+  const s = String(line);
+  if (s.includes('회로 —')) return 'circuit';
+  if (s.includes('조립 순서 —')) return 'order';
+  return 'case';
+}
+// 영역별 시도 횟수 (케이스만 24번 했는데 회로 탭에 24번이라 뜨면 안 된다)
+export function attemptCount(area) {
+  const t = work.tries || {};
+  if (!area) return work.logSeq || work.log.length || 0;
+  return t[area] || 0;
+}
 export function addLog(line) {
   if (readOnly) return;
+  const area = logArea(line);
+  work.tries = work.tries || {};
+  work.tries[area] = (work.tries[area] || 0) + 1;
   // 회차 번호는 일지가 가득 차도 계속 올라간다 (예전에는 61차에서 멈췄다)
   work.logSeq = (work.logSeq || work.log.length) + 1;
   work.log.push(`${work.logSeq}차 · ${line}`);

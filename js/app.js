@@ -2,14 +2,14 @@
 import { config, login, student, onCloudStatus, sheetLog, todayCode,
          sessionCodeValid, studentDayCode, sidInList, parseSid, makeSid, sidLength,
          rosterActive, rosterStatus, BLOCKED_STATUS, work, touch, allowedGrades,
-         checkAdminPin } from './state.js?v=25';
-import { initCase, refreshFromWork } from './case3d.js?v=25';
-import { initCircuit, refreshCircuit } from './circuit.js?v=25';
-import { initDesign, refreshDesign } from './design.js?v=25';
-import { initAssembly, refreshAssembly } from './assembly.js?v=25';
-import { initPreview, drawPreview } from './preview.js?v=25';
-import { initFaq } from './faq.js?v=25';
-import { initAdmin, openAdmin } from './admin.js?v=25';
+         checkAdminPin } from './state.js?v=26';
+import { initCase, refreshFromWork } from './case3d.js?v=26';
+import { initCircuit, refreshCircuit } from './circuit.js?v=26';
+import { initDesign, refreshDesign } from './design.js?v=26';
+import { initAssembly, refreshAssembly } from './assembly.js?v=26';
+import { initPreview, drawPreview } from './preview.js?v=26';
+import { initFaq } from './faq.js?v=26';
+import { initAdmin, openAdmin } from './admin.js?v=26';
 
 const $ = id => document.getElementById(id);
 
@@ -18,7 +18,7 @@ const $ = id => document.getElementById(id);
 function isDemoSid(v) { return sidInList(config.demoSids, String(v || '').trim()); }
 // 제작자 표시 — 로그인 화면과 작업 화면 머리글에 같은 문구로
 // 제작자 표시는 설정이 아니라 코드에 고정한다 — 공유받은 사람이 자기 것처럼 바꾸지 못하게
-const MADE_BY = 'won 선생님';
+const MADE_BY = 'won';
 function showCredit() {
   const sub = $('login-subtitle');
   if (sub) {
@@ -156,7 +156,7 @@ onCloudStatus(s => {
 });
 
 // 개발·수업 중 문제 진단용 (학생 화면에는 영향 없음)
-import * as state from './state.js?v=25';
+import * as state from './state.js?v=26';
 window.__lps = state;
 
 setupLogin();

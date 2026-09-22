@@ -1,13 +1,13 @@
 // 완성 미리보기: 케이스 + 회로 + 도안을 합친 최종 모습.
 // 어느 위치에 어떤 색 빛이 나오는지, 전체 완성본이 어떨지를 보여준다.
-import { config, work } from './state.js?v=25';
-import { getLighting, drawAssembled } from './circuit.js?v=25';
-import { getDesignMask } from './design.js?v=25';
+import { config, work } from './state.js?v=26';
+import { getLighting, drawAssembled } from './circuit.js?v=26';
+import { getDesignMask } from './design.js?v=26';
 
 const $ = id => document.getElementById(id);
 
 let cv, ctx;
-const DARK = 0.62; // 실내 어둡기 — 너무 깜깜하면 작품이 안 보인다
+const DARK = 0.12; // 배경은 밝게 두고 작품(검정 판 + 빛나는 글자)이 도드라지게
 let pvOn = true;                       // 미리보기 스위치 (회로 상태와 별개로 껐다 켜 볼 수 있다)
 let pv3d = false;                      // 입체로 보기
 let pvYaw = -0.62, pvPitch = 0.40;     // 입체 회전 각도 — 끌어서 돌린다
@@ -108,22 +108,22 @@ export function drawPreview() {
   // 판 크기(A4·정사각형 등)에 맞춰 화면에 들어오게 — 캔버스가 커지면 판도 같이 커진다
   const S = Math.min(W / 30, (W - 44) / d.bw, (H * 0.80 - 16) / d.bh);   // 작품을 크게
   const g = ctx.createLinearGradient(0, 0, 0, H);
-  // 회색빛이 돌면 칙칙해 보인다 — 푸른 기가 도는 깔끔한 어둠으로
-  const bgTop = [lerp(215, 26, dark), lerp(221, 31, dark), lerp(228, 44, dark)];
-  const bgBot = [lerp(190, 14, dark), lerp(196, 18, dark), lerp(205, 28, dark)];
+  // 배경은 밝고 깨끗하게 — 회색 필터가 낀 듯한 느낌을 없앤다
+  const bgTop = [lerp(238, 26, dark), lerp(242, 31, dark), lerp(250, 44, dark)];
+  const bgBot = [lerp(222, 14, dark), lerp(228, 18, dark), lerp(238, 28, dark)];
   g.addColorStop(0, `rgb(${bgTop.join(',')})`);
   g.addColorStop(1, `rgb(${bgBot.join(',')})`);
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = `rgb(${lerp(160, 20, dark)},${lerp(150, 23, dark)},${lerp(135, 32, dark)})`;
+  ctx.fillStyle = `rgb(${lerp(206, 20, dark)},${lerp(210, 23, dark)},${lerp(218, 32, dark)})`;
   ctx.fillRect(0, H * 0.80, W, H * 0.20);
 
   const pw = d.bw * S, ph = d.bh * S;
   const px = (W - pw) / 2, py = H * 0.80 - ph;
 
   ctx.save();
-  ctx.fillStyle = `rgb(${lerp(70, 25, dark)},${lerp(72, 26, dark)},${lerp(78, 30, dark)})`;
+  ctx.fillStyle = 'rgb(58,60,68)';   // 케이스 옆면 그림자
   ctx.fillRect(px - 6, py + 4, pw + 12, ph + 2);
-  ctx.fillStyle = `rgb(${lerp(38, 10, dark)},${lerp(39, 11, dark)},${lerp(44, 14, dark)})`;
+  ctx.fillStyle = 'rgb(20,21,26)';   // 검정 도화지 — 배경이 밝아도 판은 어둡게
   ctx.fillRect(px, py, pw, ph);
 
   if (light.lit.length && mask.anyCut) {
@@ -133,7 +133,7 @@ export function drawPreview() {
     lc.width = lw; lc.height = lh;
     const c2 = lc.getContext('2d');
     c2.globalCompositeOperation = 'lighter';
-    const boost = 0.45 + 0.55 * dark;
+    const boost = 1;   // 배경이 밝아도 빛은 또렷하게
     paintAmbient(c2, light.lit, boost);
     for (const L of light.lit) paintGlow(c2, L, d, depth, RA, boost);
     // 트레이싱지 확산: 저해상도 → 확대가 자연스러운 번짐이 된다
