@@ -569,8 +569,7 @@ export function initDesign() {
 // 글자 입력칸: 설정된 글자 수(또는 자유 모드의 현재 개수)만큼 동적으로 만든다
 function renderLetterRows() {
   // 업로드 안내와 상태 (앞면 크기는 관리자 설정을 따른다)
-  $('d-img-hint').innerHTML = 'PNG 또는 JPG 파일로 올려 주세요.' +
-    ' 흰 바탕에 검정으로 그린 글씨·그림이 오려낼 부분이 됩니다. 그대로 인쇄해 검정 도화지에 대고 파내면 돼요.';
+  $('d-img-hint').textContent = '만든 도안을 이미지 파일로 올려 주세요.';
   const stat = $('d-img-status');
   if (hasImage()) {
     stat.innerHTML = `<p class="ok">도안 이미지 사용 중 (${D().image.srcW}×${D().image.srcH}px) <button id="d-img-del" class="small-btn">이미지 지우기</button></p>` +

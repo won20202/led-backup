@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LED 플래카드 설계 시뮬레이터</title>
-<link rel="stylesheet" href="css/style.css?v=11">
+<link rel="stylesheet" href="css/style.css?v=12">
 </head>
 <body>
 
@@ -157,9 +157,12 @@
     <aside class="panel-left">
       <h3>도안 <button class="faq-btn" data-faqtab="design">?</button></h3>
       <div class="dim-group">
-        <label>도안 이미지 올리기</label>
-        <p class="muted small" id="d-img-hint"></p>
-        <input type="file" id="d-img-file" accept="image/png,image/jpeg,image/webp">
+        <div class="upload-box">
+          <div class="upload-title">이미지 파일 업로드</div>
+          <label class="upload-btn" for="d-img-file">파일 선택하기</label>
+          <input type="file" id="d-img-file" accept="image/png,image/jpeg,image/webp" hidden>
+          <p class="upload-hint" id="d-img-hint"></p>
+        </div>
         <div id="d-img-status"></div>
         <div id="d-letter-list"></div>
         <button id="d-letter-add" class="small-btn hidden">+ 글자 추가</button>
@@ -354,6 +357,6 @@
   </div>
 </div>
 
-<script type="module" src="js/app.js?v=11"></script>
+<script type="module" src="js/app.js?v=12"></script>
 </body>
 </html>
