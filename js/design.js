@@ -364,8 +364,13 @@ function updatePanel() {
     if (b && (b.x < ax - 0.05 || b.y < ay - 0.05 || b.x + b.w > ax + config.areaW + 0.05 || b.y + b.h > ay + config.areaH + 0.05))
       warns.push(`도안이 작업 영역(${config.areaW}×${config.areaH}cm)을 벗어났어요. 가장자리 여백을 확인해 보세요.`);
     warns.forEach(w => html += `<p class="hint">${w}</p>`);
-    if (!warns.length && b) html += `<p class="ok">도안이 앞면에 잘 맞습니다. [미리보기] 탭에서 빛이 새어 나오는 모습을 확인하세요.</p>`;
+    if (!warns.length && b)
+      html += `<p class="ok">도안이 작업 영역 안에 잘 들어갔습니다. [미리보기] 탭에서 빛이 어떻게 새어 나오는지 확인해 보세요.</p>`;
     el.innerHTML = html;
+    work.design.ok = !warns.length && !!b;      // 진도 체크리스트 — 이미지로 올린 경우도 잡는다
+    const ikey = 'img|' + warns.join('|') + (a.islandCount ? `|섬${a.islandCount}` : '');
+    if (ikey !== lastFeedbackKey) sheetLog('도안 피드백', warns.join(' / ') || `안쪽 조각 ${a.islandCount}개`);
+    lastFeedbackKey = ikey;
     return;
   }
   const L = letters().length;
@@ -402,7 +407,9 @@ function updatePanel() {
   });
   warns.forEach(w => html += `<p class="hint">${w}</p>`);
   if (!warns.length && letters().some(l => l.text))
-    html += `<p class="ok">조건에 잘 맞습니다. 빛이 어떻게 새어 나올지는 [미리보기] 탭에서 확인하세요.</p>`;
+    html += config.dFree
+      ? `<p class="ok">[미리보기] 탭에서 빛이 어떻게 새어 나오는지 확인해 보세요.</p>`
+      : `<p class="ok">조건에 잘 맞습니다. 빛이 어떻게 새어 나올지는 [미리보기] 탭에서 확인하세요.</p>`;
   el.innerHTML = html;
   work.design.ok = !warns.length && letters().some(l => l.text);   // 진도 체크리스트용
   // 교사 분석용: 어떤 피드백이 떴는지 기록 (같은 내용 반복 기록 방지)
