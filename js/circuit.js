@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=27';
-import { renderLogList } from './case3d.js?v=27';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=28';
+import { renderLogList } from './case3d.js?v=28';
 
 const $ = id => document.getElementById(id);
 
@@ -707,10 +707,12 @@ function draw() {
     const avail = (host ? host.clientWidth : 760) - 40;
     // 플래카드 기본은 뒷면이 크게 보이는 배율 (띠 전체는 가로 스크롤) — [화면 맞춤]을 누르면 전체가 보이게
     // 기기 화면(노트북·크롬북·모니터)에 맞춰 폭·높이 중 여유 있는 만큼 최대로 키운다
-    const cmW = (mode === 'lab' ? LAB.w
+    // 실험실도 [전체 보기] ↔ [크게 보기]가 실제로 동작해야 한다 (예전에는 라벨만 바뀌었다)
+    const labZoom = zFitAll ? 1 : 0.55;
+    const cmW = (mode === 'lab' ? LAB.w * labZoom
       : zFitAll ? d.sh * 2 + d.tw * 2
       : d.bw + d.sh) + MARGIN * 2;
-    const cmH = (mode === 'lab' ? LAB.h : d.sw + NET_GAP + d.bh + 0.4) + MARGIN * 2;
+    const cmH = (mode === 'lab' ? LAB.h * labZoom : d.sw + NET_GAP + d.bh + 0.4) + MARGIN * 2;
     const availH = (window.innerHeight || 800) - 170;
     Z = Math.max(8, Math.min(Math.floor(avail / cmW), Math.floor(availH / cmH), 44));
   }
