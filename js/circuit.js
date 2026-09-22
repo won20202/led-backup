@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=34';
-import { renderLogList } from './case3d.js?v=34';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=35';
+import { renderLogList } from './case3d.js?v=35';
 
 const $ = id => document.getElementById(id);
 
@@ -19,6 +19,15 @@ export const KINDS = {
 function vthOf(l) { const k = KINDS[l.kind || 'white']; return k.vth ?? config.vf; }
 // 저항 색띠 (실물 4띠: 앞 두 자리 + 10의 거듭제곱 + 오차 금색)
 const BAND_COLOR = ['#1b1b1b', '#7a4a1e', '#d23b2e', '#e2892c', '#e8d23a', '#3fa14b', '#3b6fd1', '#8a4baf', '#9aa1a8', '#f4f4f4'];
+// 부품마다 다른 값을 가질 수 있다 — 안 정했으면 설정의 기본값
+function ohmOf(r) { const v = Number(r && r.ohm); return v > 0 ? v : Number(config.resistorOhm) || 220; }
+// 관리자가 정한 고를 수 있는 값 목록
+function ohmChoices() {
+  const raw = String(config.resistorSet || '').split(',').map(t => Math.round(Number(t.trim()))).filter(v => v > 0);
+  const list = raw.length ? raw : [Number(config.resistorOhm) || 220];
+  return [...new Set(list)].sort((a, b) => a - b);
+}
+function ohmLabel(v) { return v >= 1000 && v % 1000 === 0 ? (v / 1000) + 'kΩ' : v + 'Ω'; }
 function ohmBands(ohm) {
   const v = Math.round(Number(ohm) || 0);
   const s = String(v);
@@ -463,8 +472,8 @@ function solveInner(C, lab, forceOn) {
     reach(minus, false).forEach(c => res.energizedMinus.add(c));
 
     const paths = [];
-    const dfs = (c, used, ledList, nRes) => {
-      if (c === minus) { if (ledList.length) paths.push({ leds: [...ledList], nRes }); return; }
+    const dfs = (c, used, ledList, nRes, rSum) => {
+      if (c === minus) { if (ledList.length) paths.push({ leds: [...ledList], nRes, rSum }); return; }
       if (paths.length > 300) return;
       for (const e of edges) {
         if (e.a < 0 || e.k < 0 || used.has(e.type + e.i)) continue;
@@ -474,18 +483,19 @@ function solveInner(C, lab, forceOn) {
         if (next === null) continue;
         used.add(e.type + e.i);
         if (e.type === 'led') ledList.push(e.i);
-        dfs(next, used, ledList, nRes + (e.type === 'res' ? 1 : 0));
+        dfs(next, used, ledList, nRes + (e.type === 'res' ? 1 : 0),
+          rSum + (e.type === 'res' ? ohmOf(C.resistors[e.i]) : 0));
         if (e.type === 'led') ledList.pop();
         used.delete(e.type + e.i);
       }
     };
-    dfs(plus, new Set(), [], 0);
+    dfs(plus, new Set(), [], 0, 0);
 
     const conducting = [];
     for (const p of paths) {
       const k = p.leds.length;
       const sumVth = p.leds.reduce((a, i) => a + vthOf(C.leds[i]), 0);
-      const I = (Vs - sumVth) / (config.rint + k * config.ledRd + config.resistorOhm * p.nRes) * 1000;
+      const I = (Vs - sumVth) / (config.rint + k * config.ledRd + p.rSum) * 1000;
       if (I <= 0.2) { if (k >= 2) res.hasBlockedSeries = true; continue; }
       conducting.push({ leds: p.leds, nRes: p.nRes, I });
     }
@@ -863,7 +873,8 @@ function draw() {
     ctx.fillStyle = '#c8a26a';
     ctx.strokeStyle = selected && selected.type === 'res' && selected.i === i ? '#2b6cb0' : '#8a6d3f';
     ctx.beginPath(); ctx.roundRect(-0.55 * Z, -0.25 * Z, 1.1 * Z, 0.5 * Z, 4); ctx.fill(); ctx.stroke();
-    const bands = ohmBands(config.resistorOhm);
+    const ohm = ohmOf(r);
+    const bands = ohmBands(ohm);
     if (bands) {
       bands.forEach((col, bi) => {
         ctx.fillStyle = col;
@@ -871,7 +882,7 @@ function draw() {
       });
     }
     ctx.fillStyle = '#5a4a2f'; ctx.font = `${Math.max(9, Z * 0.5)}px sans-serif`; ctx.textAlign = 'center';
-    ctx.fillText(config.resistorOhm + 'Ω', 0, bands ? 0.62 * Z : 0.13 * Z);
+    ctx.fillText(ohmLabel(ohm), 0, bands ? 0.62 * Z : 0.13 * Z);
     ctx.restore();
     ctx.textAlign = 'left';
   });
@@ -1019,6 +1030,27 @@ function drawHolder(h, hi) {
   ctx.textAlign = 'left';
 }
 
+// 심화 모드 도우미 — 계산하는 방법과 재료(전압)는 주되, 답(저항값)은 주지 않는다
+function advancedNote(C, R) {
+  if (!config.advanced) return '';
+  if (C.tested) {
+    const rows = C.leds.map((l, i) =>
+      `<span class="mrow">${i + 1}. ${KINDS[l.kind || 'white'].label} <b>${(R.iOf[i] || 0).toFixed(1)}mA</b></span>`).join('');
+    if (!rows) return '';
+    return `<div class="calc-card"><b>측정 — LED마다 흐르는 전류</b><div class="mlist">${rows}</div>` +
+      `<p class="small">계산해 둔 값과 비슷한가요? 다르다면 어느 단계를 다시 볼까요?</p></div>`;
+  }
+  const vs = mode === 'lab'
+    ? ([...new Set((C.holders || []).map(h => ((h.cells || 2) * 1.5).toFixed(1)))].join(' · ') || '3.0')
+    : Number(config.voltage).toFixed(1);
+  const kinds = Object.values(KINDS).map(v => `${v.label} ${Number(v.vth ?? config.vf).toFixed(1)}V`).join(' · ');
+  return `<div class="calc-card"><b>저항 고르기 — 계산해 봅시다</b>` +
+    `<p>전지 ${vs}V · LED가 켜지는 데 필요한 전압: ${kinds}</p>` +
+    `<p>① 저항이 받는 전압 = 전지 전압 − LED 전압<br>② 그 전압으로 원하는 전류를 흘리려면? <b>V = I × R</b></p>` +
+    `<p>LED는 보통 10~20mA에서 밝고 안전하게 켜집니다. 색이 바뀌면 ①이 달라지는데, ②는 어떻게 달라질까요?</p>` +
+    `<p class="small">이 시뮬레이터는 전지 자체의 저항 ${config.rint}Ω과 LED 자체의 저항 ${config.ledRd}Ω도 함께 계산해요 — 그래서 실제로 흐르는 전류는 손으로 계산한 값보다 조금 작게 나옵니다.</p></div>`;
+}
+
 // ---------- 결과 패널 ----------
 function updatePanel() {
   const C = am(), R = solveResult;
@@ -1050,7 +1082,11 @@ function updatePanel() {
       if (unlit > 0) html += `<p class="hint">안 켜진 LED가 ${unlit}개 있습니다. 긴 다리(+)가 어느 줄에 붙어 있는지, 두 다리가 서로 다른 줄에 있는지, 전압이 충분한지 살펴볼까요?</p>`;
       if (R.dimSeries) html += `<p class="hint">유난히 어둡게 켜진 LED가 보이나요? 전류가 LED를 몇 개나 거쳐 가는지, 전지의 전압이 얼마인지 생각해 보세요.</p>`;
       if (R.hasBlockedSeries) html += `<p class="hint">LED를 여러 개 거쳐 가는 길이 있네요. LED가 늘어날수록 각 LED가 나눠 받는 전압은 어떻게 될까요?</p>`;
-      if (litN > 0 && litN === C.leds.length && !R.dimSeries && !R.over.size)
+      // 켜지긴 했지만 전류가 너무 적어 실제로는 흐릿한 경우 — '안정적'이라고 말하면 오개념이 된다
+      const faint = Object.keys(R.lit).some(i => (R.iOf[i] || 0) < 3);
+      if (faint)
+        html += `<p class="hint">켜지긴 했지만 유난히 희미한 LED가 있어요. 그 LED에 흐르는 전류가 얼마인지, 무엇이 전류를 줄이고 있는지 살펴볼까요?</p>`;
+      else if (litN > 0 && litN === C.leds.length && !R.dimSeries && !R.over.size)
         html += mode === 'placard'
           ? `<p class="ok">모두 켜졌습니다. [입체로 보기]와 [미리보기] 탭에서 완성 모습을 확인해 보세요.</p>`
           : `<p class="ok">모두 안정적으로 켜졌습니다. 이 연결 방법을 플래카드에도 써 볼까요?</p>`;
@@ -1067,6 +1103,7 @@ function updatePanel() {
     : '<p class="muted">스위치가 꺼져 있어요. 홀더의 스위치를 눌러 보세요.</p>';
   if (!R.noHolder && mode === 'placard')
     html += '<p class="muted small">테이프 위 가는 색선은 몇 번째 줄인지 구분하는 표시예요 — [입체로 보기]에서 같은 색을 따라가면 그 줄이 어떻게 둘러지는지 보여요.</p>';
+  if (!R.noHolder && !R.short) html += advancedNote(C, R);
   el.innerHTML = html;
 }
 
@@ -1688,7 +1725,11 @@ function updateFloatProps() {
     }
     html += `<span class="fp-sep"></span><button class="fp fp-del" title="삭제 (Delete)">${TRASH_ICON}</button>`;
   } else if (selected.type === 'res') {
-    html += `<button class="fp fp-rot" title="회전 (R)">${ROT_ICON}</button><button class="fp fp-del" title="삭제 (Delete)">${TRASH_ICON}</button>`;
+    html += `<button class="fp fp-rot" title="회전 (R)">${ROT_ICON}</button>`;
+    const cur = ohmOf(C.resistors[selected.i]);
+    html += `<span class="fp-sep"></span><span class="fp-label">저항값</span>` + ohmChoices().map(v =>
+      `<button class="fp fp-ohm ${cur === v ? 'on' : ''}" data-v="${v}">${ohmLabel(v)}</button>`).join('');
+    html += `<span class="fp-sep"></span><button class="fp fp-del" title="삭제 (Delete)">${TRASH_ICON}</button>`;
   } else if (selected.type === 'holder') {
     const h = C.holders[selected.i];
     html += `<button class="fp fp-rot" title="회전 (R)">${ROT_ICON}</button>`;
@@ -1715,6 +1756,9 @@ function updateFloatProps() {
     l.kind = b.dataset.k;
     if (l.kind !== 'white') l.color = 'none';
     afterChange();
+  }));
+  el.querySelectorAll('.fp-ohm').forEach(b => b.addEventListener('click', () => {
+    pushUndo(); C.resistors[selected.i].ohm = +b.dataset.v; afterChange();
   }));
   el.querySelectorAll('.fp-cell').forEach(b => b.addEventListener('click', () => {
     pushUndo(); C.holders[selected.i].cells = +b.dataset.n; afterChange();

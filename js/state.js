@@ -72,7 +72,8 @@ export const DEFAULT_CONFIG = {
   iOver: 25,    // 이보다 크면 과전류 경고 (mA)
   iBurn: 50,    // 이보다 크면 LED가 타버림 (mA)
   advanced: false,     // 심화 모드: 저항 부품 + 실제 색 LED (기본은 백색 LED + 매직 색칠)
-  resistorOhm: 220,
+  resistorOhm: 220,               // 기본 저항값
+  resistorSet: '100, 220, 330, 470, 1000',  // 심화 모드에서 고를 수 있는 값 (Ω)
   frontW: 25, frontH: 10,   // 앞면 종이
   areaW: 23, areaH: 8,      // 도안 작업 영역
   strokeMin: 0.7,
@@ -437,7 +438,7 @@ export function rosterActive() { return Object.keys(config.roster || {}).length 
 // 수업마다 달라지는 '수업 내용' 설정만 담는다.
 // 서버 연결·PIN·입장 코드·시간표·학번 체계·명단은 절대 담지도, 바꾸지도 않는다.
 const PRESET_KEYS = [
-  'advanced', 'resistorOhm', 'voltage', 'vf', 'ledRd', 'rint', 'iOver', 'iBurn', 'imax',
+  'advanced', 'resistorOhm', 'resistorSet', 'voltage', 'vf', 'ledRd', 'rint', 'iOver', 'iBurn', 'imax',
   'ledCount', 'overLimit', 'showSupply', 'showMeasure', 'askPredict', 'questionFeedback',
   'thickness', 'targetW', 'targetH', 'targetD', 'showTarget', 'boardW', 'boardH',
   'frontW', 'frontH', 'areaW', 'areaH', 'strokeMin',

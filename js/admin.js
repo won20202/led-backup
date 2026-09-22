@@ -5,9 +5,9 @@ import { config, saveConfig, exportConfigCode, importConfigCode, getMisses, clea
          checkAdminPin, syncAdminPin,
          makeSid, parseSid, weekKeyOf, timetableForWeek, runsOf, todayRuns,
          rosterActive, readOnly, presetNames, savePreset, loadPreset, deletePreset,
-         BLOCKED_STATUS } from './state.js?v=34';
-import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=34';
-import { switchTab } from './app.js?v=34';
+         BLOCKED_STATUS } from './state.js?v=35';
+import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=35';
+import { switchTab } from './app.js?v=35';
 
 const $ = id => document.getElementById(id);
 
@@ -28,7 +28,8 @@ const FIELDS = [
   ['showTarget', '완성 목표 치수를 학생 화면에 표시', 'checkbox'],
   ['ledCount', 'LED 지급 개수', 'number'],
   ['advanced', '심화 모드 (저항 부품 + 실제 색 LED)', 'checkbox'],
-  ['resistorOhm', '저항값 (Ω)', 'number'],
+  ['resistorOhm', '저항 기본값 (Ω)', 'number'],
+  ['resistorSet', '고를 수 있는 저항값 (Ω, 쉼표로 — 심화 모드)', 'text'],
   ['voltage', '전원 전압 (V)', 'number'],
   ['vf', 'LED 점등 문턱 전압 (V) — 직렬 소등 기준', 'number'],
   ['rint', '내부 저항 (Ω) — 밝기 계산용', 'number'],

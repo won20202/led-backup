@@ -400,3 +400,16 @@ button.link:hover { color: #4a5561; background: transparent; }
   display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px;
   background: #fdecea; color: #c1362e; font-size: 12px; font-weight: 700;
 }
+
+/* 심화 모드 계산 도우미 */
+.calc-card {
+  background: #f2f7ff; border: 1px solid #cddcf3; border-radius: 10px;
+  padding: 10px 12px; margin-top: 10px; font-size: 14px; line-height: 1.65; color: #24405e;
+}
+.calc-card b { color: #16324e; }
+.calc-card p { margin: 6px 0 0; }
+.calc-card .small { font-size: 12.5px; color: #55688a; }
+.mlist { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; }
+.mrow { white-space: nowrap; }
+.mrow b { color: #14304f; }
+.fp-ohm { font-size: 13px; padding: 4px 8px; }
