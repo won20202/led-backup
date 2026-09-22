@@ -24,14 +24,29 @@ function getPieces() {
 }
 
 // 접힌 상태의 각 조각 AABB (해석적으로 계산)
+// 조립 방식은 학생이 넣은 옆면 높이로 읽는다. 둘 다 올바른 목공 방식이다.
+//  A 방식 — 위·아랫면이 전체 폭을 덮고, 옆면이 그 사이에 낀다 (옆면 높이 = 뒷면 높이 - 두께 2장)
+//  B 방식 — 옆면이 전체 높이를 덮고, 위·아랫면이 그 사이에 낀다 (옆면 높이 = 뒷면 높이)
+function joinery(p, t) {
+  const bh = p.back.h, sh = p.side.h;
+  const sideFull = Math.abs(sh - bh) <= Math.abs(sh - (bh - 2 * t));
+  return {
+    sideFull,
+    tbLeft: sideFull ? -p.back.w / 2 + t : -p.back.w / 2,
+    tbSpan: sideFull ? p.back.w - 2 * t : p.back.w,
+    sideSpan: sideFull ? bh : bh - 2 * t,
+  };
+}
+
 function foldedBoxes(p, t) {
   const bw = p.back.w, bh = p.back.h, sw = p.side.w, sh = p.side.h, tw = p.topbot.w, td = p.topbot.h;
+  const j = joinery(p, t);
   return {
     back: [[-bw / 2, bw / 2], [-bh / 2, bh / 2], [0, t]],
     left: [[-bw / 2, -bw / 2 + t], [-sh / 2, sh / 2], [t, t + sw]],
     right: [[bw / 2 - t, bw / 2], [-sh / 2, sh / 2], [t, t + sw]],
-    top: [[-bw / 2 + t, -bw / 2 + t + tw], [bh / 2 - t, bh / 2], [t, t + td]],
-    bottom: [[-bw / 2 + t, -bw / 2 + t + tw], [-bh / 2, -bh / 2 + t], [t, t + td]],
+    top: [[j.tbLeft, j.tbLeft + tw], [bh / 2 - t, bh / 2], [t, t + td]],
+    bottom: [[j.tbLeft, j.tbLeft + tw], [-bh / 2, -bh / 2 + t], [t, t + td]],
   };
 }
 
@@ -190,7 +205,7 @@ function assemble(logIt) {
   pivots.right = mkSide(1);
 
   // 위·아랫면 (경첩: 뒷면 위아래 모서리, 왼쪽 옆면 안쪽에 맞춰 배치)
-  const xc = -back.w / 2 + t + topbot.w / 2;
+  const xc = joinery(p, t).tbLeft + topbot.w / 2;
   const mkTB = (sign) => {
     const pv = new THREE.Group();
     pv.position.set(xc, sign * back.h / 2, t);
@@ -221,18 +236,28 @@ function assemble(logIt) {
       }
     }
   }
-  // ---- 틈 검출: 위·아랫면 오른쪽 끝 ↔ 오른쪽 옆면 안쪽 ----
+  // ---- 틈 검출: 위·아랫면(가로)과 옆면(세로)이 채워야 할 만큼 채웠는가 ----
+  const j = joinery(p, t);
   let gapN = 0;
-  const tbRight = -back.w / 2 + t + topbot.w;
-  const sideInner = back.w / 2 - t;
-  const gap = sideInner - tbRight;
-  if (gap > 0.05) {
-    gapN = 2;
+  const gapX = j.tbSpan - topbot.w;
+  if (gapX > 0.05) {
+    gapN += 2;
     for (const sign of [1, -1]) {
       const m = new THREE.Mesh(
-        new THREE.BoxGeometry(gap, config.thickness + 0.1, topbot.h + 0.1),
+        new THREE.BoxGeometry(gapX, config.thickness + 0.1, topbot.h + 0.1),
         new THREE.MeshBasicMaterial({ color: 0xf5c518, transparent: true, opacity: 0.55 }));
-      m.position.set((tbRight + sideInner) / 2, sign * (back.h / 2 - t / 2), t + topbot.h / 2);
+      m.position.set(j.tbLeft + topbot.w + gapX / 2, sign * (back.h / 2 - t / 2), t + topbot.h / 2);
+      markerGroup.add(m);
+    }
+  }
+  const gapY = j.sideSpan - side.h;
+  if (gapY > 0.05) {
+    gapN += 2;
+    for (const sign of [1, -1]) {
+      const m = new THREE.Mesh(
+        new THREE.BoxGeometry(config.thickness + 0.1, gapY, side.w + 0.1),
+        new THREE.MeshBasicMaterial({ color: 0xf5c518, transparent: true, opacity: 0.55 }));
+      m.position.set(sign * (back.w / 2 - t / 2), side.h / 2 + gapY / 2, t + side.w / 2);
       markerGroup.add(m);
     }
   }
