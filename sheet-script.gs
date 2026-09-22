@@ -47,6 +47,7 @@ function rememberCfg(cfg) {
   ['grade', 'banCount', 'numCount', 'banDigits', 'numDigits'].forEach(function (k) {
     if (cfg[k] !== undefined && cfg[k] !== null && cfg[k] !== '') props.setProperty(k, String(cfg[k]));
   });
+  if (cfg.groups) props.setProperty('groups', JSON.stringify(cfg.groups));
 }
 var MISC = '기록(원본)';                      // 모든 활동 기록이 시간순으로 쌓이는 곳
 var TIMELINE_HEAD = ['시각', '학년', '반', '번호', '학번', '학적', '활동 단계',
@@ -86,6 +87,9 @@ function autoTidyOnce() {
   if (!one || String(one.getRange('A1').getValue()) !== BOARD_HEAD[0] || 반탭수 !== banCount()) {
     makeBanBoards(true);   // 학년·반 수 설정이 바뀌면 그에 맞게 다시 만든다
   }
+  // 그룹 명단이 등록돼 있는데 보드가 없으면 만든다
+  var gs = Object.keys(savedGroups());
+  if (gs.length && !ss.getSheetByName(gs[0])) makeGroupBoards(true);
 
   var dash = ss.getSheetByName(DASH);
   if (!dash || dash.getLastRow() < 2) rebuildFromTimeline(true); // 표가 비어 있으면 원본에서 되살린다
@@ -95,7 +99,9 @@ function buildMenu() {
   SpreadsheetApp.getUi().createMenu('LED 수업')
     .addItem('지금 상태로 백업 사본 만들기', 'makeBackupCopy')
     .addSeparator()
-    .addItem('반별 보드 만들기 (1~10반)', 'makeBanBoards')
+    .addItem('반별 보드 만들기', 'makeBanBoards')
+    .addSeparator()
+    .addItem('그룹 수업 보드 만들기 (영재반·동아리 등)', 'makeGroupBoards')
     .addSeparator()
     .addItem('탭 정리 (반 순서대로)', 'tidySheets')
     .addSeparator()
@@ -669,6 +675,7 @@ function makeBanBoards(quiet) {
 function orderTabs(ss) {
   var order = [DASH, NEED];
   for (var b = 1; b <= banCount(); b++) order.push(banTabName(b));
+  Object.keys(savedGroups()).forEach(function (n) { order.push(n); });   // 그룹 수업 보드
   order.push(MISC);
   var pos = 1;
   order.forEach(function (n) {
@@ -678,4 +685,59 @@ function orderTabs(ss) {
     ss.moveActiveSheet(pos++);
   });
   ss.setActiveSheet(ss.getSheetByName(DASH));
+}
+
+
+// ── 그룹 수업 보드 (영재반·동아리 등 반이 섞인 수업) ─────────────
+// 웹앱 [학생 관리]의 그룹 명단을 받아, 그 명단 학생만 모아 보여 준다.
+var GROUP_HEAD = ['반', '번호', '학번', '상태', '진도', '남은 것', '최근 활동 · 막힌 곳', '교사가 할 일',
+                  '도안 시도', '케이스 시도', '회로 시도', '조립 시도', '마지막 활동'];
+
+function savedGroups() {
+  try {
+    var raw = PropertiesService.getDocumentProperties().getProperty('groups');
+    var g = raw ? JSON.parse(raw) : {};
+    return (g && typeof g === 'object') ? g : {};
+  } catch (e) { return {}; }
+}
+
+function groupBoardSheet(ss, name, sids) {
+  var sh = ss.getSheetByName(name) || ss.insertSheet(name);
+  sh.clear();
+  sh.getRange(1, 1, 1, GROUP_HEAD.length).setValues([GROUP_HEAD])
+    .setBackground('#2b6cb0').setFontColor('#ffffff').setFontWeight('bold').setHorizontalAlignment('center');
+  var pattern = sids.map(function (x) { return String(x).trim(); }).filter(Boolean).join('|');
+  sh.getRange('A2').setFormula(pattern
+    ? "=IFERROR(QUERY('" + DASH + "'!A2:S, \"select A,B,C,D,E,F,G,H,M,N,O,P,S where C matches '" +
+      pattern + "' order by A,B\", 0), \"아직 이 수업의 기록이 없습니다\")"
+    : '"명단이 비어 있습니다 — 웹앱 [학생 관리]에서 그룹 명단을 등록하세요"');
+  [45, 50, 70, 95, 140, 190, 290, 280, 68, 74, 68, 68, 125]
+    .forEach(function (w, i) { sh.setColumnWidth(i + 1, w); });
+  sh.setFrozenRows(1);
+  sh.setFrozenColumns(3);
+  var body = sh.getRange(2, 1, sh.getMaxRows() - 1, GROUP_HEAD.length);
+  sh.setConditionalFormatRules([
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenFormulaSatisfied('=REGEXMATCH($D2,"도움 필요")').setBackground('#fff0f0').setRanges([body]).build(),
+    SpreadsheetApp.newConditionalFormatRule()
+      .whenFormulaSatisfied('=REGEXMATCH($D2,"완료")').setBackground('#f2fbf4').setRanges([body]).build(),
+  ]);
+  return sh;
+}
+
+/** 시트 메뉴: 그룹 수업 보드를 만든다 */
+function makeGroupBoards(quiet) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var groups = savedGroups();
+  var names = Object.keys(groups);
+  if (!names.length) {
+    var m0 = '등록된 그룹 명단이 없습니다. 웹앱 관리자 모드 [학생 관리]에서 그룹을 만들고 학번을 넣은 뒤, 학생이 한 번 접속하면 시트가 명단을 받아 옵니다.';
+    try { if (!quiet) SpreadsheetApp.getUi().alert(m0); } catch (e) {}
+    return m0;
+  }
+  names.forEach(function (n) { groupBoardSheet(ss, n, groups[n] || []); });
+  orderTabs(ss);
+  var msg = '그룹 보드를 만들었습니다: ' + names.join(', ');
+  try { if (!quiet) SpreadsheetApp.getUi().alert(msg); } catch (e) {}
+  return msg;
 }

@@ -600,6 +600,7 @@ function flushSheet() {
   rows[0] = { ...rows[0], cfg: {
     grade: config.grade, banCount: config.banCount, numCount: config.numCount,
     banDigits: config.banDigits, numDigits: config.numDigits,
+    groups: config.groups || {},   // 영재반·동아리 등 섞인 반 명단 → 시트가 그룹 보드를 만든다
   } };
   const body = JSON.stringify(rows);
   try {
