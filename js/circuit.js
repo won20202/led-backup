@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=33';
-import { renderLogList } from './case3d.js?v=33';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=34';
+import { renderLogList } from './case3d.js?v=34';
 
 const $ = id => document.getElementById(id);
 
@@ -22,8 +22,11 @@ const BAND_COLOR = ['#1b1b1b', '#7a4a1e', '#d23b2e', '#e2892c', '#e8d23a', '#3fa
 function ohmBands(ohm) {
   const v = Math.round(Number(ohm) || 0);
   const s = String(v);
-  if (v < 10 || s.length - 2 > 9) return null;
-  return [BAND_COLOR[+s[0]], BAND_COLOR[+s[1]], BAND_COLOR[s.length - 2], '#c9a227'];
+  const mult = s.length - 2;
+  if (v < 10 || mult > 9) return null;
+  // 4색띠로 정확히 나타낼 수 있는 값일 때만 띠를 그린다 (앞 두 자리 × 10의 거듭제곱)
+  if ((+s[0] * 10 + +s[1]) * Math.pow(10, mult) !== v) return null;
+  return [BAND_COLOR[+s[0]], BAND_COLOR[+s[1]], BAND_COLOR[mult], '#c9a227'];
 }
 function rgbOf(l) {
   if ((l.kind || 'white') !== 'white') return KINDS[l.kind].rgb;
