@@ -5,9 +5,9 @@ import { config, saveConfig, exportConfigCode, importConfigCode, getMisses, clea
          checkAdminPin, syncAdminPin,
          makeSid, parseSid, weekKeyOf, timetableForWeek, runsOf, todayRuns,
          rosterActive, readOnly, presetNames, savePreset, loadPreset, deletePreset,
-         BLOCKED_STATUS } from './state.js?v=32';
-import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=32';
-import { switchTab } from './app.js?v=32';
+         BLOCKED_STATUS } from './state.js?v=33';
+import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=33';
+import { switchTab } from './app.js?v=33';
 
 const $ = id => document.getElementById(id);
 
@@ -1263,8 +1263,7 @@ export function initAdmin() {
 
     $('adm-preset-save').addEventListener('click', () => {
       const name = ($('adm-preset-name').value || '').trim();
-      if (!name) { alert('꾸러미 이름을 먼저 적어 주세요.
-예: 제조 실습용, 영재 심화용'); return; }
+      if (!name) { alert('꾸러미 이름을 먼저 적어 주세요. 예: 제조 실습용, 영재 심화용'); return; }
       if (presetNames().includes(name) && !confirm(`'${name}' 꾸러미를 지금 설정으로 덮어쓸까요?`)) return;
       collectSettings();
       savePreset(name);
