@@ -4,9 +4,9 @@ import { config, saveConfig, exportConfigCode, importConfigCode, getMisses, clea
          sheetLogFor, sheetFlushNow, todayCode, classSessionCode, codeKeyOf, autoSessionCode, studentDayCode,
          checkAdminPin, syncAdminPin,
          makeSid, parseSid, weekKeyOf, timetableForWeek, runsOf, todayRuns,
-         rosterActive, BLOCKED_STATUS } from './state.js?v=24';
-import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=24';
-import { switchTab } from './app.js?v=24';
+         rosterActive, BLOCKED_STATUS } from './state.js?v=25';
+import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=25';
+import { switchTab } from './app.js?v=25';
 
 const $ = id => document.getElementById(id);
 
@@ -20,7 +20,6 @@ const FIELDS = [
   ['extraSids', '추가 학번 (전입생 등 — 번호 범위 밖이어도 입장 허용)', 'text'],
   ['demoSids', '교사 시연용 학번 (관리자 PIN으로 아무 때나 입장, 쉼표로)', 'text'],
   ['subtitle', '로그인 화면 부제 (학년·수행 이름 등, 비우면 숨김)', 'text'],
-  ['madeBy', '제작자 표시 (로그인 화면 아래, 비우면 숨김)', 'text'],
   ['thickness', '재료(우드락) 두께 (cm)', 'number'],
   ['targetW', '완성 목표 가로 (cm)', 'number'],
   ['targetH', '완성 목표 높이 (cm)', 'number'],

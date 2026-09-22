@@ -2,14 +2,14 @@
 import { config, login, student, onCloudStatus, sheetLog, todayCode,
          sessionCodeValid, studentDayCode, sidInList, parseSid, makeSid, sidLength,
          rosterActive, rosterStatus, BLOCKED_STATUS, work, touch, allowedGrades,
-         checkAdminPin } from './state.js?v=24';
-import { initCase, refreshFromWork } from './case3d.js?v=24';
-import { initCircuit, refreshCircuit } from './circuit.js?v=24';
-import { initDesign, refreshDesign } from './design.js?v=24';
-import { initAssembly, refreshAssembly } from './assembly.js?v=24';
-import { initPreview, drawPreview } from './preview.js?v=24';
-import { initFaq } from './faq.js?v=24';
-import { initAdmin, openAdmin } from './admin.js?v=24';
+         checkAdminPin } from './state.js?v=25';
+import { initCase, refreshFromWork } from './case3d.js?v=25';
+import { initCircuit, refreshCircuit } from './circuit.js?v=25';
+import { initDesign, refreshDesign } from './design.js?v=25';
+import { initAssembly, refreshAssembly } from './assembly.js?v=25';
+import { initPreview, drawPreview } from './preview.js?v=25';
+import { initFaq } from './faq.js?v=25';
+import { initAdmin, openAdmin } from './admin.js?v=25';
 
 const $ = id => document.getElementById(id);
 
@@ -17,6 +17,8 @@ const $ = id => document.getElementById(id);
 // 시연 학번을 입력하면 코드 칸이 '관리자 PIN' 칸으로 바뀐다 (입력값은 가려진다)
 function isDemoSid(v) { return sidInList(config.demoSids, String(v || '').trim()); }
 // 제작자 표시 — 로그인 화면과 작업 화면 머리글에 같은 문구로
+// 제작자 표시는 설정이 아니라 코드에 고정한다 — 공유받은 사람이 자기 것처럼 바꾸지 못하게
+const MADE_BY = 'won 선생님';
 function showCredit() {
   const sub = $('login-subtitle');
   if (sub) {
@@ -24,8 +26,7 @@ function showCredit() {
     sub.textContent = t;
     sub.style.display = t ? '' : 'none';
   }
-  const by = String(config.madeBy || '').trim();
-  const html = by ? `made by <b>${by.replace(/[<>&]/g, '')}</b>` : '';
+  const html = `made by <b>${MADE_BY}</b>`;
   ['login-credit', 'header-credit'].forEach(id => { const el = $(id); if (el) el.innerHTML = html; });
 }
 function refreshCodeField() {
@@ -155,7 +156,7 @@ onCloudStatus(s => {
 });
 
 // 개발·수업 중 문제 진단용 (학생 화면에는 영향 없음)
-import * as state from './state.js?v=24';
+import * as state from './state.js?v=25';
 window.__lps = state;
 
 setupLogin();
