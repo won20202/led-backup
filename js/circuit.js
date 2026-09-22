@@ -1445,7 +1445,7 @@ export function initCircuit() {
       } else {
         C.holders.push({
           ...clampNet({ x: snap(p.x), y: snap(p.y) }),
-          dir: 0, cells: 2, on: false,
+          dir: 0, cells: 2, on: false, g7: 1,
           wires: [{ dock: true }, { dock: true }],
         });
         selected = { type: 'holder', i: C.holders.length - 1 };
