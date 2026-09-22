@@ -1,6 +1,6 @@
 // 케이스 탭: 조각 치수 입력 → 3D 조립. 겹침(빨강)·틈(노랑)을 보여주되 수치는 알려주지 않는다.
-import * as THREE from '../vendor/three.module.min.js';
-import { config, work, addLog, touch, readOnly, attemptCount } from './state.js';
+import * as THREE from '../vendor/three.module.min.js?v=19';
+import { config, work, addLog, touch, readOnly, attemptCount } from './state.js?v=19';
 
 let scene, camera, renderer, root, el3d;
 let theta = 0.55, phi = 0.5, radius = 42; // 카메라 궤도
@@ -300,12 +300,26 @@ function assemble(logIt) {
   if (!overlapN && !gapN) html += `<p class="hint">케이스를 돌려서 여러 방향에서 살펴보세요. 실측값이 여러분이 목표한 완성 크기와 같은가요? 포트폴리오의 전개도 치수와도 비교해 보세요.</p>`;
 
   // 예측 비교
+  // 실측 숫자를 그대로 보여주면 '0.5 크네, 0.5 빼자'로 역산해 버린다.
+  // 크다·작다 방향만 알려 주어 두께가 어디에 쌓이는지 따지게 한다.
+  // (관리자 설정 [실측값 표시]를 켜면 숫자를 보여준다)
   const pr = work.caseTab.predict;
   if (config.askPredict && num(pr.w) && num(pr.h) && num(pr.d)) {
-    const cmp = (a, b) => Math.abs(a - b) < 0.05 ? '<span class="ok">●</span>' : '<span class="warn">●</span>';
+    const goal = { w: num(config.targetW), h: num(config.targetH), d: num(config.targetD) };
+    const mark = (actual, target, predicted) => {
+      const base = target > 0 ? target : predicted;    // 목표가 없으면 예측과 견준다
+      if (Math.abs(actual - base) < 0.05) return '<span class="cmp ok">●</span>';
+      return actual > base
+        ? '<span class="cmp big">▲</span>'             // 목표보다 크다
+        : '<span class="cmp small">▼</span>';          // 목표보다 작다
+    };
+    const cell = (actual, target, predicted) => config.showMeasure
+      ? `${f(actual)} ${mark(actual, target, predicted)}`
+      : mark(actual, target, predicted);
     html += `<table class="predict-table"><tr><th></th><th>가로</th><th>높이</th><th>깊이</th></tr>` +
       `<tr><td>내 예측</td><td>${num(pr.w)}</td><td>${num(pr.h)}</td><td>${num(pr.d)}</td></tr>` +
-      `<tr><td>실제</td><td>${f(W)} ${cmp(num(pr.w), W)}</td><td>${f(H)} ${cmp(num(pr.h), H)}</td><td>${f(D)} ${cmp(num(pr.d), D)}</td></tr></table>`;
+      `<tr><td>실제</td><td>${cell(W, goal.w, num(pr.w))}</td><td>${cell(H, goal.h, num(pr.h))}</td><td>${cell(D, goal.d, num(pr.d))}</td></tr></table>` +
+      (config.showMeasure ? '' : '<p class="muted small">▲ 목표보다 큼 · ▼ 목표보다 작음 · ● 맞음</p>');
   }
   info.innerHTML = html;
 
