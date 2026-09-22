@@ -4,9 +4,9 @@ import { config, saveConfig, exportConfigCode, importConfigCode, getMisses, clea
          sheetLogFor, sheetFlushNow, todayCode, classSessionCode, codeKeyOf, autoSessionCode, studentDayCode,
          checkAdminPin, syncAdminPin,
          makeSid, parseSid, weekKeyOf, timetableForWeek, runsOf, todayRuns,
-         rosterActive, BLOCKED_STATUS } from './state.js?v=29';
-import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=29';
-import { switchTab } from './app.js?v=29';
+         rosterActive, BLOCKED_STATUS } from './state.js?v=30';
+import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=30';
+import { switchTab } from './app.js?v=30';
 
 const $ = id => document.getElementById(id);
 
