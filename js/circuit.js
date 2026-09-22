@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=28';
-import { renderLogList } from './case3d.js?v=28';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=29';
+import { renderLogList } from './case3d.js?v=29';
 
 const $ = id => document.getElementById(id);
 
@@ -156,7 +156,8 @@ function rotV(px, py, dir) {
   const a = (dir || 0) * Math.PI / 2;
   return { x: px * Math.cos(a) - py * Math.sin(a), y: px * Math.sin(a) + py * Math.cos(a) };
 }
-const HOLDER_W = 4.4, HOLDER_H = 5.0; // 몸체 (dir 0 기준: 세로)
+// 실물 홀더 치수: 가로 7 × 높이 3 × 깊이 2cm (dir 0 = 세로로 세운 모습)
+const HOLDER_W = 3, HOLDER_H = 7;
 // 단자 간격을 넉넉히(2.8cm) — 두 단자에서 나가는 테이프가 나란히 가도 서로 닿지 않게
 function holderGeom(h) {
   // 단자: 위쪽 좁은 면. 왼쪽 (−), 오른쪽 (+) — 실제 홀더·팅커캐드와 같은 배치
@@ -282,6 +283,7 @@ function normalize(C) {
     h.dir = h.dir || 0;
     h.cells = h.cells || 2;
     h.on = !!h.on;
+    if (!h.g7) { const v = rotV(0, 1.0, h.dir); h.x += v.x; h.y += v.y; h.g7 = 1; } // 홀더 실측 반영 전 데이터: 단자 위치 유지
     if (!h.wires) h.wires = [{ dock: true }, { dock: true }];
     h.wires.forEach(w => {
       if (w.surf === 'dock' || (w.x === undefined && !w.dock)) { w.dock = true; }
@@ -569,7 +571,8 @@ export function drawAssembled(tctx, rx, ry, rw, rh, opts = {}) {
       quad([P3(0, 0, depth), P3(d.bw, 0, depth), P3(d.bw, d.bh, depth), P3(0, d.bh, depth)], null, '#a8b2bd', true);
   }
   // 완성 미리보기용: 앞면(트레이싱지 면)에 도안 화면을 그대로 입힌다 — 회전해도 따라간다
-  if (opts.frontCanvas && show({ x: 0, y: 0, z: 1 })) {
+  const paintFront = () => {
+    if (!opts.frontCanvas || !show({ x: 0, y: 0, z: 1 })) return;
     const s0 = pj(P3(0, d.bh, depth)), s1 = pj(P3(d.bw, d.bh, depth)), s2 = pj(P3(0, 0, depth));
     const fw = opts.frontCanvas.width, fh = opts.frontCanvas.height;
     tctx.save();
@@ -577,7 +580,10 @@ export function drawAssembled(tctx, rx, ry, rw, rh, opts = {}) {
       (s2[0] - s0[0]) / fh, (s2[1] - s0[1]) / fh, s0[0], s0[1]);
     tctx.drawImage(opts.frontCanvas, 0, 0);
     tctx.restore();
-  }
+  };
+  // 앞면이 카메라를 향하면 홀더(뒷면·옆면 바깥에 붙음)는 케이스에 가려야 한다 → 앞면을 나중에 덮어 그린다
+  const frontToward = pj.facing({ x: 0, y: 0, z: 1 });
+  if (!frontToward) paintFront();
   // 건전지 홀더 — 조립 순서에서 정한 위치(뒷면/옆면, 가로/세로)에 실물처럼 붙는다.
   // 붙은 면이 카메라 반대편이면 케이스에 가려지므로 그리지 않는다 (깜빡임 방지)
   opts._switchRect = null;
@@ -587,7 +593,7 @@ export function drawAssembled(tctx, rx, ry, rw, rh, opts = {}) {
     const faceN = face === 'back' ? { x: 0, y: 0, z: -1 } : face === 'left' ? { x: -1, y: 0, z: 0 } : { x: 1, y: 0, z: 0 };
     if (!opts.opaque || pj.facing(faceN)) {
       const rot = hp.rot ? 1 : 0;
-      const hw = rot ? 3.4 : 6.4, hh = rot ? 6.4 : 3.4, th = 1.7; // 면 위 가로×세로, 돌출 두께
+      const hw = rot ? 3 : 7, hh = rot ? 7 : 3, th = 2; // 실물 7×3×2cm
       const toP = (u, v, o) =>
         face === 'back' ? P3(u, d.bh - v, -o)
         : face === 'left' ? P3(-o, d.bh - v, u)
@@ -602,7 +608,7 @@ export function drawAssembled(tctx, rx, ry, rw, rh, opts = {}) {
       const lg = rot ? [0, 1] : [1, 0];   // 몸체 긴 축 (면 좌표 u,v 방향)
       const s2 = rot ? [1, 0] : [0, 1];   // 몸체 짧은 축
       const ew = rot ? [0, -1] : [-1, 0]; // 전선이 나가는 짧은 끝 방향
-      const HL = 6.4;
+      const HL = 7;
       const scu = hp.x + ew[0] * HL * 0.22, scv = hp.y + ew[1] * HL * 0.22;
       // 홈: 짧은 축을 따라 길게(±0.85), 긴 축으로 좁게(±0.3)
       const gpt = (a, b, o) => toP(scu + s2[0] * a + lg[0] * b, scv + s2[1] * a + lg[1] * b, o);
@@ -629,6 +635,8 @@ export function drawAssembled(tctx, rx, ry, rw, rh, opts = {}) {
       });
     }
   }
+
+  if (frontToward) paintFront();
 
   if (opts.circuit !== false) {
     C.tapes.forEach((t, i) => {
@@ -1425,8 +1433,8 @@ export function initCircuit() {
     // 배치 도구: 빈 곳이면 놓고, 부품 위면 그 부품을 선택 (놓은 뒤엔 바로 이동·옵션 가능)
     if ((tool === 'led' || tool === 'res' || tool === 'holder') && !pre) {
       pushUndo();
-      // 실험실은 홀더 단자가 좌우라 LED도 가로 방향이 자연스럽다 (플래카드는 가로 두 줄 사이 세로)
-      const defDir = mode === 'lab' ? 1 : 0;
+      // 어디서든 가로로 눕혀 놓는다 — 방향은 학생이 정한다 (세로로 놓아 주면 답을 알려 주는 셈)
+      const defDir = 1;
       if (tool === 'led') {
         if (C.leds.length >= config.ledCount && config.overLimit === 'block') return;
         C.leds.push({ ...clampPart({ x: snap(p.x), y: snap(p.y) }, defDir), dir: defDir, color: 'none' });

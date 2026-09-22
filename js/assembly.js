@@ -1,11 +1,11 @@
 // 조립 순서 탭: 카드를 배열하고, 배열한 카드를 "눌러서" 그 단계의 모습을 본다.
 // 순서가 잘못되면 그 단계에서 무슨 일이 생기는지 보여주고, 그 뒤 단계는 볼 수 없다.
 // 건전지 홀더를 어디에 붙일지도 여기서 정한다. 정답 순서는 알려주지 않는다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=28';
-import { renderLogList } from './case3d.js?v=28';
-import { drawAssembled, getLighting } from './circuit.js?v=28';
-import { drawLitFront } from './preview.js?v=28';
-import { getDesignMask } from './design.js?v=28';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=29';
+import { renderLogList } from './case3d.js?v=29';
+import { drawAssembled, getLighting } from './circuit.js?v=29';
+import { drawLitFront } from './preview.js?v=29';
+import { getDesignMask } from './design.js?v=29';
 
 const $ = id => document.getElementById(id);
 
@@ -179,7 +179,7 @@ function sceneCase(opts) {
   drawAssembled(ctx, 10, 26, cv.width - 20, cv.height - 36, opts);
 }
 // 홀더 실물 크기 (cm) — 가로 배치 기준. 옆면(폭 5cm)에 가로로 놓으면 삐져나가는 걸 눈으로 보게 된다
-const HOLDER_W = 6.4, HOLDER_H = 3.4;
+const HOLDER_W = 7, HOLDER_H = 3; // 실물 홀더 가로 7 × 높이 3cm (깊이 2cm)
 function holderSize(hp) { return hp && hp.rot ? [HOLDER_H, HOLDER_W] : [HOLDER_W, HOLDER_H]; }
 function scenePlace() {
   clearCanvas();
@@ -261,17 +261,18 @@ function scenePlace() {
   placing = true;
   cv.style.touchAction = 'none'; // 터치로 끌 때 화면이 같이 스크롤되지 않게
 }
+// 무게중심 판정: 뒷면에 붙이면 홀더가 뒤로 튀어나와, 높이 붙일수록 뒤로 기우뚱한다.
+// 옆면은 튀어나오는 방향이 좌우여서 넓은 바닥 안에 머무른다 — 실제로도 높이와 상관없이 잘 선다.
+function isStable(hp, d) {
+  if (!hp) return false;
+  if ((hp.face || 'back') !== 'back') return true;
+  return hp.y > d.bh * 0.55 && hp.x > 2.5 && hp.x < d.bw - 2.5;
+}
 function sceneFinal() {
   clearCanvas();
   const d = dims();
   const hp = work.assembly.holderPos;
-  // 안정 판정: 어느 면이든 낮게(바닥 가까이) 붙어야 무게중심이 낮아 안 넘어진다.
-  // 옆면 부착은 무게가 한쪽으로 쏠리므로 뒷면보다 더 아래여야 안정적이다.
-  const face = hp && (hp.face || 'back');
-  const stable = hp && (
-    face === 'back'
-      ? hp.y > d.bh * 0.55 && hp.x > 2.5 && hp.x < d.bw - 2.5
-      : hp.y > d.sh * 0.7);
+  const stable = isStable(hp, d);
   const light = getLighting();
   const pw = Math.min(cv.width - 120, (cv.height - 90) * d.bw / d.bh), ph = pw * d.bh / d.bw;
   const floorY = cv.height - 40;
@@ -295,6 +296,7 @@ function renderBatteryPanel() {
     ? '<p class="muted">홀더를 누른 채 끌면 위치를 옮기고, 홀더 옆 파란 동그라미를 누르면 가로 ↔ 세로로 돌아가요.</p>'
     : '<p class="muted">뒷면·옆면 그림에서 홀더를 붙일 곳을 누르세요. 누른 채 끌면 자리를 옮길 수 있어요.</p>') +
     '<p class="hint">전지가 든 홀더는 제법 무거워요. 붙이는 위치에 따라 무게중심이 달라져서, 자칫하면 완성품이 뒤로 넘어질 수 있어요 — 어디에 붙여야 든든하게 설지 생각해 보세요.</p>' +
+    (hp && !isStable(hp, dims()) ? '<p class="warn">지금 자리라면 완성품이 뒤로 기우뚱할 것 같아요 — 무엇을 바꿔 보면 좋을까요?</p>' : '') +
     (hp ? '<button id="hp-rot" class="small-btn">홀더 돌리기 (가로 ↔ 세로)</button>' : '');
   const rb = $('hp-rot');
   if (rb) rb.addEventListener('click', () => {
