@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=21';
-import { renderLogList } from './case3d.js?v=21';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=22';
+import { renderLogList } from './case3d.js?v=22';
 
 const $ = id => document.getElementById(id);
 
@@ -542,7 +542,7 @@ export function drawAssembled(tctx, rx, ry, rw, rh, opts = {}) {
   const wallFill = c => walls === 'dashed' || walls === 'none' ? null : c;
   const line = walls === 'dashed' ? '#8a94a0' : '#7a8794';
 
-  if (lit) { tctx.fillStyle = 'rgba(16,19,30,0.92)'; tctx.fillRect(rx, ry, rw, rh); }
+  // 켜졌다고 장면 전체를 어둡게 덮지 않는다 — 앞면만 빛나게 해야 작품이 잘 보인다
 
   // 불투명(완성품) 모드에서는 카메라를 향한 면만 그린다 — 어느 각도로 돌려도 속이 비치지 않는다
   const show = n => !opts.opaque || pj.facing(n);
@@ -551,12 +551,12 @@ export function drawAssembled(tctx, rx, ry, rw, rh, opts = {}) {
     quad([P3(0, 0, 0), P3(d.bw, 0, 0), P3(d.bw, d.bh, 0), P3(0, d.bh, 0)], null, '#a8b2bd', true);
   } else if (show({ x: 0, y: 0, z: -1 })) {
     quad([P3(0, 0, 0), P3(d.bw, 0, 0), P3(d.bw, d.bh, 0), P3(0, d.bh, 0)],
-      wallFill(opts.opaque ? (lit ? 'rgb(52,54,62)' : 'rgb(240,236,226)') : lit ? 'rgba(60,58,50,0.9)' : 'rgba(247,243,232,0.95)'), line, walls === 'dashed');
+      wallFill(opts.opaque ? 'rgb(240,236,226)' : 'rgba(247,243,232,0.95)'), line, walls === 'dashed');
   }
   if (walls !== 'none') {
     const wallC = opts.opaque
-      ? (lit ? 'rgb(58,62,72)' : 'rgb(232,238,244)')
-      : lit ? `rgba(70,74,86,${wallAlpha})` : `rgba(228,238,247,${wallAlpha})`;
+      ? 'rgb(232,238,244)'
+      : `rgba(228,238,247,${wallAlpha})`;
     if (show({ x: 0, y: 1, z: 0 }))
       quad([P3(0.5, d.bh, 0), P3(0.5 + d.tw, d.bh, 0), P3(0.5 + d.tw, d.bh, depth), P3(0.5, d.bh, depth)], wallFill(wallC), line, walls === 'dashed');
     if (show({ x: 0, y: -1, z: 0 }))

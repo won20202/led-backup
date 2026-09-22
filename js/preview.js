@@ -1,13 +1,13 @@
 // 완성 미리보기: 케이스 + 회로 + 도안을 합친 최종 모습.
 // 어느 위치에 어떤 색 빛이 나오는지, 전체 완성본이 어떨지를 보여준다.
-import { config, work } from './state.js?v=21';
-import { getLighting, drawAssembled } from './circuit.js?v=21';
-import { getDesignMask } from './design.js?v=21';
+import { config, work } from './state.js?v=22';
+import { getLighting, drawAssembled } from './circuit.js?v=22';
+import { getDesignMask } from './design.js?v=22';
 
 const $ = id => document.getElementById(id);
 
 let cv, ctx;
-const DARK = 0.78; // 고정된 실내 어둡기 — 빛 색이 잘 보이는 정도
+const DARK = 0.62; // 실내 어둡기 — 너무 깜깜하면 작품이 안 보인다
 let pvOn = true;                       // 미리보기 스위치 (회로 상태와 별개로 껐다 켜 볼 수 있다)
 let pv3d = false;                      // 입체로 보기
 let pvYaw = -0.62, pvPitch = 0.40;     // 입체 회전 각도 — 끌어서 돌린다
@@ -81,7 +81,7 @@ export function drawPreview() {
   if (pv3d) { // 입체로 보기 — 끌어서 돌리면 완성품을 사방에서 볼 수 있다
     const W = cv.width = CW, H = cv.height = CH;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = pvOn && light.lit.length ? '#101420' : '#eef1f6';
+    ctx.fillStyle = '#eef1f6';   // 켜도 배경은 그대로 — 불만 켜진다
     ctx.fillRect(0, 0, W, H);
     const fc = document.createElement('canvas');
     fc.width = Math.round(d.bw * 24); fc.height = Math.round(d.bh * 24);
@@ -106,18 +106,19 @@ export function drawPreview() {
 
   const W = cv.width = CW, H = cv.height = CH;
   // 판 크기(A4·정사각형 등)에 맞춰 화면에 들어오게 — 캔버스가 커지면 판도 같이 커진다
-  const S = Math.min(W / 34.5, (W - 80) / d.bw, (H * 0.72 - 24) / d.bh);
+  const S = Math.min(W / 30, (W - 44) / d.bw, (H * 0.80 - 16) / d.bh);   // 작품을 크게
   const g = ctx.createLinearGradient(0, 0, 0, H);
-  const bgTop = [lerp(215, 12, dark), lerp(221, 14, dark), lerp(228, 20, dark)];
-  const bgBot = [lerp(190, 6, dark), lerp(196, 8, dark), lerp(205, 12, dark)];
+  // 회색빛이 돌면 칙칙해 보인다 — 푸른 기가 도는 깔끔한 어둠으로
+  const bgTop = [lerp(215, 26, dark), lerp(221, 31, dark), lerp(228, 44, dark)];
+  const bgBot = [lerp(190, 14, dark), lerp(196, 18, dark), lerp(205, 28, dark)];
   g.addColorStop(0, `rgb(${bgTop.join(',')})`);
   g.addColorStop(1, `rgb(${bgBot.join(',')})`);
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-  ctx.fillStyle = `rgb(${lerp(160, 18, dark)},${lerp(150, 15, dark)},${lerp(135, 12, dark)})`;
-  ctx.fillRect(0, H * 0.72, W, H * 0.28);
+  ctx.fillStyle = `rgb(${lerp(160, 20, dark)},${lerp(150, 23, dark)},${lerp(135, 32, dark)})`;
+  ctx.fillRect(0, H * 0.80, W, H * 0.20);
 
   const pw = d.bw * S, ph = d.bh * S;
-  const px = (W - pw) / 2, py = H * 0.72 - ph;
+  const px = (W - pw) / 2, py = H * 0.80 - ph;
 
   ctx.save();
   ctx.fillStyle = `rgb(${lerp(70, 25, dark)},${lerp(72, 26, dark)},${lerp(78, 30, dark)})`;

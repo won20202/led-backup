@@ -69,9 +69,9 @@ header nav { display: flex; gap: 6px; flex: 1; }
 .panel-center.scrollable { overflow: auto; padding: 14px; display: block; }
 /* 작업면을 위아래 가운데로 — 아래에 빈 공간이 크게 남던 것을 없앤다
    (조립 순서 탭은 단계가 세로로 쌓이므로 그대로 둔다) */
-.panel-center.scrollable:not(.order-center) {
-  display: flex; align-items: center; justify-content: center;
-}
+.panel-center.scrollable:not(.order-center) { display: flex; }
+/* margin auto 로 가운데 정렬 — justify-content 를 쓰면 넘친 왼쪽을 스크롤로 못 잡는다 */
+.panel-center.scrollable:not(.order-center) > * { margin: auto; }
 #case-canvas { width: 100%; height: 100%; flex: 1; }
 #case-canvas canvas { display: block; }
 
