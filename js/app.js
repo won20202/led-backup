@@ -2,14 +2,14 @@
 import { config, login, student, onCloudStatus, sheetLog, todayCode,
          sessionCodeValid, studentDayCode, sidInList, parseSid, makeSid, sidLength,
          rosterActive, rosterStatus, BLOCKED_STATUS, work, touch, allowedGrades,
-         checkAdminPin } from './state.js?v=23';
-import { initCase, refreshFromWork } from './case3d.js?v=23';
-import { initCircuit, refreshCircuit } from './circuit.js?v=23';
-import { initDesign, refreshDesign } from './design.js?v=23';
-import { initAssembly, refreshAssembly } from './assembly.js?v=23';
-import { initPreview, drawPreview } from './preview.js?v=23';
-import { initFaq } from './faq.js?v=23';
-import { initAdmin, openAdmin } from './admin.js?v=23';
+         checkAdminPin } from './state.js?v=24';
+import { initCase, refreshFromWork } from './case3d.js?v=24';
+import { initCircuit, refreshCircuit } from './circuit.js?v=24';
+import { initDesign, refreshDesign } from './design.js?v=24';
+import { initAssembly, refreshAssembly } from './assembly.js?v=24';
+import { initPreview, drawPreview } from './preview.js?v=24';
+import { initFaq } from './faq.js?v=24';
+import { initAdmin, openAdmin } from './admin.js?v=24';
 
 const $ = id => document.getElementById(id);
 
@@ -18,6 +18,12 @@ const $ = id => document.getElementById(id);
 function isDemoSid(v) { return sidInList(config.demoSids, String(v || '').trim()); }
 // 제작자 표시 — 로그인 화면과 작업 화면 머리글에 같은 문구로
 function showCredit() {
+  const sub = $('login-subtitle');
+  if (sub) {
+    const t = String(config.subtitle || '').trim();
+    sub.textContent = t;
+    sub.style.display = t ? '' : 'none';
+  }
   const by = String(config.madeBy || '').trim();
   const html = by ? `made by <b>${by.replace(/[<>&]/g, '')}</b>` : '';
   ['login-credit', 'header-credit'].forEach(id => { const el = $(id); if (el) el.innerHTML = html; });
@@ -149,7 +155,7 @@ onCloudStatus(s => {
 });
 
 // 개발·수업 중 문제 진단용 (학생 화면에는 영향 없음)
-import * as state from './state.js?v=23';
+import * as state from './state.js?v=24';
 window.__lps = state;
 
 setupLogin();
