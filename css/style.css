@@ -86,7 +86,7 @@ h4 { font-size: 13px; margin: 12px 0 6px; color: #4a5561; }
 .predict-table { border-collapse: collapse; margin-top: 8px; width: 100%; }
 .predict-table td, .predict-table th { border: 1px solid #d7dee6; padding: 4px 6px; text-align: center; font-size: 13px; }
 /* 실측 비교 표시 — 숫자 대신 방향만 (역산을 막고 공간 추론으로 보낸다) */
-.cmp { font-size: 16px; font-weight: 800; line-height: 1; }
+.cmp { font-size: 13px; font-weight: 800; line-height: 1; }
 .cmp.ok { color: #1f9d55; }      /* 맞음 */
 .cmp.big { color: #d92d20; }     /* 목표보다 큼 */
 .cmp.small { color: #2563eb; }   /* 목표보다 작음 */
