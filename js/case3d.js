@@ -250,6 +250,25 @@ function assemble(logIt) {
       markerGroup.add(m);
     }
   }
+  // 앞쪽 가장자리: 옆면과 위·아랫면의 깊이가 다르면 한쪽이 모자라 어긋난다
+  const gapZ = Math.abs(side.w - topbot.h);
+  if (gapZ > 0.05) {
+    gapN += 2;
+    const near = Math.min(side.w, topbot.h), far = Math.max(side.w, topbot.h);
+    const shortIsSide = side.w < topbot.h;
+    for (const sign of [1, -1]) {
+      const m = new THREE.Mesh(
+        shortIsSide
+          ? new THREE.BoxGeometry(config.thickness + 0.1, side.h + 0.1, gapZ)
+          : new THREE.BoxGeometry(topbot.w + 0.1, config.thickness + 0.1, gapZ),
+        new THREE.MeshBasicMaterial({ color: 0xf5c518, transparent: true, opacity: 0.55 }));
+      m.position.set(
+        shortIsSide ? sign * (back.w / 2 - t / 2) : j.tbLeft + topbot.w / 2,
+        shortIsSide ? 0 : sign * (back.h / 2 - t / 2),
+        t + near + gapZ / 2);
+      markerGroup.add(m);
+    }
+  }
   const gapY = j.sideSpan - side.h;
   if (gapY > 0.05) {
     gapN += 2;
