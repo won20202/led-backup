@@ -4,9 +4,9 @@ import { config, saveConfig, exportConfigCode, importConfigCode, getMisses, clea
          sheetLogFor, sheetFlushNow, todayCode, classSessionCode, codeKeyOf, autoSessionCode, studentDayCode,
          checkAdminPin, syncAdminPin,
          makeSid, parseSid, weekKeyOf, timetableForWeek, runsOf, todayRuns,
-         rosterActive, BLOCKED_STATUS } from './state.js?v=20';
-import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=20';
-import { switchTab } from './app.js?v=20';
+         rosterActive, BLOCKED_STATUS } from './state.js?v=21';
+import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=21';
+import { switchTab } from './app.js?v=21';
 
 const $ = id => document.getElementById(id);
 
@@ -84,6 +84,14 @@ function renderSettings() {
       return `<label class="adm-row"><span>${label}</span><input type="checkbox" data-k="${k}" ${config[k] ? 'checked' : ''}></label>`;
     return `<label class="adm-row"><span>${label}</span><input type="${type}" data-k="${k}" value="${esc(config[k] ?? '')}" step="any"></label>`;
   }).join('') +
+  `<label class="adm-row"><span>처음 열리는 탭</span>
+     <select data-k="startTab">
+       <option value="case" ${config.startTab === 'case' ? 'selected' : ''}>케이스</option>
+       <option value="circuit" ${config.startTab === 'circuit' ? 'selected' : ''}>회로</option>
+       <option value="design" ${config.startTab === 'design' ? 'selected' : ''}>도안</option>
+       <option value="order" ${config.startTab === 'order' ? 'selected' : ''}>조립 순서</option>
+       <option value="preview" ${config.startTab === 'preview' ? 'selected' : ''}>미리보기</option>
+     </select></label>` +
   `<label class="adm-row"><span>초과 시 동작</span>
      <select data-k="overLimit">
        <option value="warn" ${config.overLimit === 'warn' ? 'selected' : ''}>경고만 (권장)</option>

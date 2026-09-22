@@ -1,8 +1,8 @@
 // 완성 미리보기: 케이스 + 회로 + 도안을 합친 최종 모습.
 // 어느 위치에 어떤 색 빛이 나오는지, 전체 완성본이 어떨지를 보여준다.
-import { config, work } from './state.js?v=20';
-import { getLighting, drawAssembled } from './circuit.js?v=20';
-import { getDesignMask } from './design.js?v=20';
+import { config, work } from './state.js?v=21';
+import { getLighting, drawAssembled } from './circuit.js?v=21';
+import { getDesignMask } from './design.js?v=21';
 
 const $ = id => document.getElementById(id);
 
@@ -26,7 +26,7 @@ function paintAmbient(c2, litArr, alphaScale) {
   }
   if (!n || sum <= 0) return;
   // 트레이싱지 산란: 하나만 켜져도 글자 전체가 어느 정도는 빛난다 (위치에 따라 밝기 차이만)
-  const a = Math.min(0.55, 0.16 + 0.07 * sum) * alphaScale;
+  const a = Math.min(0.78, 0.24 + 0.09 * sum) * alphaScale;   // 작품이 잘 보이게 넉넉히
   c2.fillStyle = `rgba(${Math.round(r / n)},${Math.round(g / n)},${Math.round(b / n)},${a})`;
   c2.fillRect(0, 0, c2.canvas.width, c2.canvas.height);
 }
@@ -43,8 +43,8 @@ function paintGlow(c2, L, d, depth, RA, alphaScale) {
   const grad = c2.createRadialGradient(cx, cy, 1, cx, cy, rad);
   if (back) {
     grad.addColorStop(0, `rgba(${r},${g},${b},${a})`);
-    grad.addColorStop(0.5, `rgba(${r},${g},${b},${a * 0.6})`);
-    grad.addColorStop(0.82, `rgba(${r},${g},${b},${a * 0.22})`);
+    grad.addColorStop(0.5, `rgba(${r},${g},${b},${a * 0.78})`);
+    grad.addColorStop(0.82, `rgba(${r},${g},${b},${a * 0.38})`);
   } else { // 옆·위아래 면에서 스며드는 은은한 빛
     grad.addColorStop(0, `rgba(${r},${g},${b},${a * 0.55})`);
     grad.addColorStop(0.55, `rgba(${r},${g},${b},${a * 0.25})`);
@@ -55,7 +55,7 @@ function paintGlow(c2, L, d, depth, RA, alphaScale) {
   if (back) {
     // 깊이가 5cm 정도라 트레이싱지가 있어도 LED 바로 앞은 위치 티가 난다 — 밝은 핫스팟
     const hot = c2.createRadialGradient(cx, cy, 0, cx, cy, Math.max(2, depth * 0.55 * RA));
-    hot.addColorStop(0, `rgba(255,255,255,${a * 0.65})`);
+    hot.addColorStop(0, `rgba(255,255,255,${a * 0.75})`);
     hot.addColorStop(1, 'rgba(255,255,255,0)');
     c2.fillStyle = hot;
     c2.fillRect(0, 0, c2.canvas.width, c2.canvas.height);

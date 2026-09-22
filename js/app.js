@@ -2,14 +2,14 @@
 import { config, login, student, onCloudStatus, sheetLog, todayCode,
          sessionCodeValid, studentDayCode, sidInList, parseSid, makeSid, sidLength,
          rosterActive, rosterStatus, BLOCKED_STATUS, work, touch, allowedGrades,
-         checkAdminPin } from './state.js?v=20';
-import { initCase, refreshFromWork } from './case3d.js?v=20';
-import { initCircuit, refreshCircuit } from './circuit.js?v=20';
-import { initDesign, refreshDesign } from './design.js?v=20';
-import { initAssembly, refreshAssembly } from './assembly.js?v=20';
-import { initPreview, drawPreview } from './preview.js?v=20';
-import { initFaq } from './faq.js?v=20';
-import { initAdmin, openAdmin } from './admin.js?v=20';
+         checkAdminPin } from './state.js?v=21';
+import { initCase, refreshFromWork } from './case3d.js?v=21';
+import { initCircuit, refreshCircuit } from './circuit.js?v=21';
+import { initDesign, refreshDesign } from './design.js?v=21';
+import { initAssembly, refreshAssembly } from './assembly.js?v=21';
+import { initPreview, drawPreview } from './preview.js?v=21';
+import { initFaq } from './faq.js?v=21';
+import { initAdmin, openAdmin } from './admin.js?v=21';
 
 const $ = id => document.getElementById(id);
 
@@ -113,7 +113,8 @@ function setupLogin() {
     $('login-modal').classList.add('hidden');
     $('app').classList.remove('hidden');
     document.dispatchEvent(new CustomEvent('work-loaded'));
-    switchTab('design');   // 수업 순서: 도안부터
+    const tabs = ['case', 'circuit', 'design', 'order', 'preview'];
+    switchTab(tabs.includes(config.startTab) ? config.startTab : 'case');
   });
 }
 
@@ -148,7 +149,7 @@ onCloudStatus(s => {
 });
 
 // 개발·수업 중 문제 진단용 (학생 화면에는 영향 없음)
-import * as state from './state.js?v=20';
+import * as state from './state.js?v=21';
 window.__lps = state;
 
 setupLogin();
