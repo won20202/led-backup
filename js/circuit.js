@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=35';
-import { renderLogList } from './case3d.js?v=35';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=36';
+import { renderLogList } from './case3d.js?v=36';
 
 const $ = id => document.getElementById(id);
 
@@ -1734,7 +1734,7 @@ function updateFloatProps() {
     const h = C.holders[selected.i];
     html += `<button class="fp fp-rot" title="회전 (R)">${ROT_ICON}</button>`;
     if (mode === 'lab') {
-      html += `<span class="fp-sep"></span><span class="fp-label">전지</span>` + [1, 2, 3, 4].map(nn =>
+      html += `<span class="fp-sep"></span><span class="fp-label">전지</span>` + [1, 2, 3, 4, 5, 6].map(nn =>
         `<button class="fp fp-cell ${(h.cells || 2) === nn ? 'on' : ''}" data-n="${nn}">${nn}개<small>${(nn * 1.5).toFixed(1)}V</small></button>`).join('');
     }
     html += `<span class="fp-sep"></span><button class="fp fp-del" title="삭제 (Delete)">${TRASH_ICON}</button>`;
