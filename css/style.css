@@ -382,3 +382,21 @@ button.link:hover { color: #4a5561; background: transparent; }
 /* 예측 표: 점이 숫자 옆에 오도록 */
 .predict-table td { white-space: nowrap; font-size: 12.5px; padding: 4px 4px; }
 .predict-table .ok, .predict-table .warn { background: none; padding: 0; }
+
+/* 설정 꾸러미 (수업별 설정 묶음) */
+#preset-row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  background: #f4f7fd; border: 1px solid #dbe3f2; border-radius: 10px;
+  padding: 10px 12px; margin-bottom: 12px;
+}
+#preset-row select, #preset-row input { padding: 6px 8px; }
+#preset-row input { min-width: 210px; }
+#preset-row .sep { flex: 1 1 14px; }
+#preset-row p { flex-basis: 100%; margin: 2px 0 0; }
+
+/* 아직 안 한 단계 — 그냥 지나치지 않게 */
+.order-card.need { color: #c1362e; box-shadow: inset 0 0 0 2px #edb4ad; }
+.need-tag {
+  display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px;
+  background: #fdecea; color: #c1362e; font-size: 12px; font-weight: 700;
+}

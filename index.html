@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LED 플래카드 설계 시뮬레이터</title>
-<link rel="stylesheet" href="css/style.css?v=31">
+<link rel="stylesheet" href="css/style.css?v=32">
 </head>
 <body>
 
@@ -301,6 +301,16 @@
         <div id="adm-entry"></div>
       </div>
       <div class="adm-panel" id="ap-set">
+        <div id="preset-row">
+          <b>설정 꾸러미</b>
+          <select id="adm-preset"></select>
+          <button id="adm-preset-load">불러오기</button>
+          <button id="adm-preset-del" class="small-btn">삭제</button>
+          <span class="sep"></span>
+          <input id="adm-preset-name" type="text" placeholder="예: 제조 실습용 / 영재 심화용">
+          <button id="adm-preset-save">지금 설정을 이 이름으로 저장</button>
+          <p class="muted small">아래 수업 설정만 담고 불러옵니다. 입장 코드·시간표·명단·관리자 PIN·서버 연결은 그대로 둡니다.</p>
+        </div>
         <div id="adm-settings"></div>
         <h4>설정 코드 (다른 기기에 복사)</h4>
         <textarea id="adm-code" rows="3" placeholder="내보내기를 누르면 코드가 생깁니다. 다른 크롬북에서는 이 칸에 붙여넣고 [불러오기]"></textarea>
@@ -356,6 +366,6 @@
   </div>
 </div>
 
-<script type="module" src="js/app.js?v=31"></script>
+<script type="module" src="js/app.js?v=32"></script>
 </body>
 </html>

@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=31';
-import { renderLogList } from './case3d.js?v=31';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=32';
+import { renderLogList } from './case3d.js?v=32';
 
 const $ = id => document.getElementById(id);
 
@@ -17,6 +17,14 @@ export const KINDS = {
   blue: { label: '파랑', vth: 2.6, rgb: [95, 155, 255] },
 };
 function vthOf(l) { const k = KINDS[l.kind || 'white']; return k.vth ?? config.vf; }
+// 저항 색띠 (실물 4띠: 앞 두 자리 + 10의 거듭제곱 + 오차 금색)
+const BAND_COLOR = ['#1b1b1b', '#7a4a1e', '#d23b2e', '#e2892c', '#e8d23a', '#3fa14b', '#3b6fd1', '#8a4baf', '#9aa1a8', '#f4f4f4'];
+function ohmBands(ohm) {
+  const v = Math.round(Number(ohm) || 0);
+  const s = String(v);
+  if (v < 10 || s.length - 2 > 9) return null;
+  return [BAND_COLOR[+s[0]], BAND_COLOR[+s[1]], BAND_COLOR[s.length - 2], '#c9a227'];
+}
 function rgbOf(l) {
   if ((l.kind || 'white') !== 'white') return KINDS[l.kind].rgb;
   return (MAGIC[l.color || 'none'] || MAGIC.none).rgb;
@@ -852,8 +860,15 @@ function draw() {
     ctx.fillStyle = '#c8a26a';
     ctx.strokeStyle = selected && selected.type === 'res' && selected.i === i ? '#2b6cb0' : '#8a6d3f';
     ctx.beginPath(); ctx.roundRect(-0.55 * Z, -0.25 * Z, 1.1 * Z, 0.5 * Z, 4); ctx.fill(); ctx.stroke();
-    ctx.fillStyle = '#5a4a2f'; ctx.font = `${Math.max(9, Z * 0.55)}px sans-serif`; ctx.textAlign = 'center';
-    ctx.fillText(config.resistorOhm + 'Ω', 0, 0.13 * Z);
+    const bands = ohmBands(config.resistorOhm);
+    if (bands) {
+      bands.forEach((col, bi) => {
+        ctx.fillStyle = col;
+        ctx.fillRect((-0.36 + bi * 0.21) * Z - 0.045 * Z, -0.25 * Z, 0.09 * Z, 0.5 * Z);
+      });
+    }
+    ctx.fillStyle = '#5a4a2f'; ctx.font = `${Math.max(9, Z * 0.5)}px sans-serif`; ctx.textAlign = 'center';
+    ctx.fillText(config.resistorOhm + 'Ω', 0, bands ? 0.62 * Z : 0.13 * Z);
     ctx.restore();
     ctx.textAlign = 'left';
   });

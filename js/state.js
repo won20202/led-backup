@@ -107,6 +107,7 @@ export const DEFAULT_CONFIG = {
   extraSids: '',      // 전입생 등 추가 학번 — 번호 범위 밖이어도 입장 허용
   subtitle: '',        // 로그인 화면 부제 (학교·학년·수행 이름 등). 비우면 안 보인다
   startTab: 'design',  // 로그인하면 먼저 열리는 탭 — 수행마다 다르므로 설정으로 둔다
+  presets: [],        // 설정 꾸러미 (수업별 설정 묶음)
   demoSids: '00000',  // 교사 시연용 학번 — 관리자 PIN만 있으면 아무 때나 입장
   roster: {},         // 명단(학적): { "20321": "재학" } — CSV 일괄 등록. 비어 있으면 검사 안 함
   groups: {},         // 섞인 반(그룹 수업) 명단: { "메이커반": ["10821","20321"] }
@@ -431,6 +432,38 @@ export function rosterStatus(sid) {
   return r[sid] || null;
 }
 export function rosterActive() { return Object.keys(config.roster || {}).length > 0; }
+
+// ---- 설정 꾸러미 ----
+// 수업마다 달라지는 '수업 내용' 설정만 담는다.
+// 서버 연결·PIN·입장 코드·시간표·학번 체계·명단은 절대 담지도, 바꾸지도 않는다.
+const PRESET_KEYS = [
+  'advanced', 'resistorOhm', 'voltage', 'vf', 'ledRd', 'rint', 'iOver', 'iBurn', 'imax',
+  'ledCount', 'overLimit', 'showSupply', 'showMeasure', 'askPredict', 'questionFeedback',
+  'thickness', 'targetW', 'targetH', 'targetD', 'showTarget', 'boardW', 'boardH',
+  'frontW', 'frontH', 'areaW', 'areaH', 'strokeMin',
+  'letterMin', 'letterMax', 'pictoMin', 'pictoMax', 'dLetters', 'dDrawing', 'dFree',
+  'rubric', 'materials', 'orderTips', 'orderSafety', 'faq',
+  'subtitle', 'startTab', 'attemptSteps', 'attemptWarnFrom', 'attemptGuide',
+];
+export function presetNames() { return (config.presets || []).map(p => p.n); }
+export function savePreset(name) {
+  const c = {};
+  PRESET_KEYS.forEach(k => { if (config[k] !== undefined) c[k] = config[k]; });
+  config.presets = (config.presets || []).filter(p => p.n !== name).concat([{ n: name, c }]);
+  saveConfig();
+}
+export function loadPreset(name) {
+  const p = (config.presets || []).find(x => x.n === name);
+  if (!p) return false;
+  // 꾸러미에 들어 있는 항목만 덮어쓴다 — 나중에 생긴 설정이 비워지지 않게
+  PRESET_KEYS.forEach(k => { if (p.c[k] !== undefined) config[k] = JSON.parse(JSON.stringify(p.c[k])); });
+  saveConfig();
+  return true;
+}
+export function deletePreset(name) {
+  config.presets = (config.presets || []).filter(p => p.n !== name);
+  saveConfig();
+}
 
 export function exportConfigCode() {
   return btoa(unescape(encodeURIComponent(JSON.stringify(config))));

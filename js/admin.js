@@ -4,9 +4,10 @@ import { config, saveConfig, exportConfigCode, importConfigCode, getMisses, clea
          sheetLogFor, sheetFlushNow, todayCode, classSessionCode, codeKeyOf, autoSessionCode, studentDayCode,
          checkAdminPin, syncAdminPin,
          makeSid, parseSid, weekKeyOf, timetableForWeek, runsOf, todayRuns,
-         rosterActive, readOnly, BLOCKED_STATUS } from './state.js?v=31';
-import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=31';
-import { switchTab } from './app.js?v=31';
+         rosterActive, readOnly, presetNames, savePreset, loadPreset, deletePreset,
+         BLOCKED_STATUS } from './state.js?v=32';
+import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=32';
+import { switchTab } from './app.js?v=32';
 
 const $ = id => document.getElementById(id);
 
@@ -1139,8 +1140,30 @@ async function exportCsv() {
   URL.revokeObjectURL(a.href);
 }
 
+function renderPresets() {
+  const sel = $('adm-preset');
+  if (!sel) return;
+  const names = presetNames();
+  const keep = sel.value;
+  sel.innerHTML = names.length
+    ? names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('')
+    : '<option value="">(저장된 꾸러미가 없습니다)</option>';
+  if (names.includes(keep)) sel.value = keep;
+  $('adm-preset-load').disabled = !names.length;
+  $('adm-preset-del').disabled = !names.length;
+}
+
 let liveTimer = null, worksTimer = null;
 let roFollow = true;    // 학생이 보는 탭을 따라간다 — 교사가 탭을 누르면 멈춘다
+// 열람 배너는 화면 맨 위에 떠 있다 — 그만큼 본문을 내려서 탭 줄이 가리지 않게 한다
+function fitBanner() {
+  const bn = $('readonly-banner');
+  if (!bn || bn.classList.contains('hidden')) return;
+  const h = bn.offsetHeight;
+  $('app').style.marginTop = h + 'px';
+  $('app').style.height = `calc(100vh - ${h}px)`;
+}
+window.addEventListener('resize', fitBanner);
 let roTabsWired = false;
 // 열람 중에는 입력칸을 잠근다 (캔버스·버튼은 각 탭에서 이미 막고 있다)
 function lockInputs() {
@@ -1153,13 +1176,15 @@ function openReadOnly(w, label, cloudId) {
   $('app').classList.remove('hidden');
   $('readonly-banner').classList.remove('hidden');
   $('readonly-banner').innerHTML = `관리자 열람 중 — ${esc(label)}` +
-    (cloudId ? ' (실시간 갱신)' : '') + ' · 편집 불가 · 위 탭을 눌러 케이스·회로·도안·조립 순서·미리보기를 볼 수 있어요' +
+    (cloudId ? ' (실시간 갱신)' : '') + ' · 편집 불가 · 위 탭을 눌러 다른 작업도 보세요' +
     ' <button id="ro-exit" class="small-btn">학생 목록으로</button>';
+  fitBanner();
   // PIN을 다시 묻지 않도록 새로고침 없이 관리자 창만 다시 연다
   $('ro-exit').addEventListener('click', () => {
     clearInterval(liveTimer);
     $('readonly-banner').classList.add('hidden');
     $('app').classList.add('hidden');
+    $('app').style.marginTop = ''; $('app').style.height = '';
     openAdmin();
   });
   roFollow = true;
@@ -1196,7 +1221,7 @@ export function openAdmin() {
   if (unlocked) {
     $('adm-pin-gate').classList.add('hidden');
     $('adm-content').classList.remove('hidden');
-    renderWorks(); renderRosterSummary();
+    renderWorks(); renderRosterSummary(); renderPresets();
     clearInterval(worksTimer);
     worksTimer = setInterval(() => {
       if (!$('admin-modal').classList.contains('hidden')) renderWorks();
@@ -1217,7 +1242,7 @@ export function initAdmin() {
     $('adm-pin-gate').classList.add('hidden');
     $('adm-content').classList.remove('hidden');
     renderSettings(); renderEntry(); renderRubric(); renderFaqEditor(); renderMatEditor(); renderOrderTextEditor(); renderMisses(); renderWorks();
-    renderRosterSummary(); renderGroups();
+    renderRosterSummary(); renderGroups(); renderPresets();
     unlocked = true;
     saveStatus('바꾸면 자동으로 저장됩니다. 학생 기기에 반영하려면 [설정 저장]을 누르세요.');
 
@@ -1236,6 +1261,33 @@ export function initAdmin() {
     if (wired) return;  // 아래 버튼들은 한 번만 연결한다 (다시 열 때마다 쌓이면 오동작)
     wired = true;
 
+    $('adm-preset-save').addEventListener('click', () => {
+      const name = ($('adm-preset-name').value || '').trim();
+      if (!name) { alert('꾸러미 이름을 먼저 적어 주세요.
+예: 제조 실습용, 영재 심화용'); return; }
+      if (presetNames().includes(name) && !confirm(`'${name}' 꾸러미를 지금 설정으로 덮어쓸까요?`)) return;
+      collectSettings();
+      savePreset(name);
+      $('adm-preset-name').value = '';
+      renderPresets();
+      $('adm-preset').value = name;
+      saveStatus(`'${name}' 꾸러미에 지금 수업 설정을 담았습니다.`, 'ok');
+    });
+    $('adm-preset-load').addEventListener('click', () => {
+      const n = $('adm-preset').value;
+      if (!n) return;
+      if (!confirm(`'${n}' 꾸러미의 수업 설정을 지금 설정으로 불러올까요?
+입장 코드·시간표·명단·관리자 PIN·서버 연결은 그대로 둡니다.`)) return;
+      loadPreset(n);
+      renderSettings(); renderRubric(); renderFaqEditor(); renderMatEditor(); renderOrderTextEditor();
+      saveStatus(`'${n}' 불러왔습니다 — 학생 기기에 반영하려면 [설정 저장]을 누르세요.`, 'ok');
+    });
+    $('adm-preset-del').addEventListener('click', () => {
+      const n = $('adm-preset').value;
+      if (!n || !confirm(`'${n}' 꾸러미를 지울까요? (지금 설정은 그대로입니다)`)) return;
+      deletePreset(n);
+      renderPresets();
+    });
     $('adm-roster-template').addEventListener('click', rosterTemplate);
     $('adm-roster-file').addEventListener('change', e => {
       const f = e.target.files[0];

@@ -1,11 +1,11 @@
 // 조립 순서 탭: 카드를 배열하고, 배열한 카드를 "눌러서" 그 단계의 모습을 본다.
 // 순서가 잘못되면 그 단계에서 무슨 일이 생기는지 보여주고, 그 뒤 단계는 볼 수 없다.
 // 건전지 홀더를 어디에 붙일지도 여기서 정한다. 정답 순서는 알려주지 않는다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=31';
-import { renderLogList } from './case3d.js?v=31';
-import { drawAssembled, getLighting } from './circuit.js?v=31';
-import { drawLitFront } from './preview.js?v=31';
-import { getDesignMask } from './design.js?v=31';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=32';
+import { renderLogList } from './case3d.js?v=32';
+import { drawAssembled, getLighting } from './circuit.js?v=32';
+import { drawLitFront } from './preview.js?v=32';
+import { getDesignMask } from './design.js?v=32';
 
 const $ = id => document.getElementById(id);
 
@@ -20,6 +20,7 @@ const CARDS = [
   { id: 'finalcheck', label: '최종 점등 확인' },
   { id: 'backclose', label: '뒷면 조립' },
 ];
+const BATTERY_STEP = '[건전지 홀더 부착·전선 연결]';
 const SHUFFLED = ['front', 'battery', 'cut', 'backclose', 'lightcheck', 'glue5', 'dryfit', 'finalcheck', 'wire'];
 
 export const TIPS = {
@@ -282,10 +283,11 @@ function sceneFinal() {
   if (stable) {
     caption('완성품을 세워 봅니다');
   } else {
-    caption('완성품을 세워 봅니다 — 균형이 아슬아슬해요');
+    caption(hp ? '완성품을 세워 봅니다 — 균형이 아슬아슬해요' : '완성품을 세워 봅니다 — 아직 전지가 없어요');
     const fs = Math.min(24, Math.max(16, Math.round(cv.width * 0.018)));
     ctx.fillStyle = '#c1362e'; ctx.font = `bold ${fs}px sans-serif`;
-    ctx.fillText('⚠️ 지금 홀더 위치는 무게중심이 높아 작은 충격에도 넘어질 수 있어요.', 20, cv.height - 12);
+    ctx.fillText(hp ? '⚠️ 지금 홀더 위치는 무게중심이 높아 작은 충격에도 넘어질 수 있어요.'
+                    : '⚠️ 건전지 홀더를 아직 붙이지 않았어요.', 20, cv.height - 12);
   }
   return stable;
 }
@@ -320,9 +322,11 @@ function render() {
   $('order-seq').innerHTML = seq.length
     ? seq.map((id, i) => {
         const state = v.step === i ? 'fail' : (v.step !== undefined && i > v.step) ? 'blocked' : 'okstep';
+        // 홀더 붙일 자리를 아직 안 정한 학생이 그냥 지나치지 않게 빨갛게 표시
+        const need = id === 'battery' && !work.assembly.holderPos;
         return `<div class="order-row">
-          <button class="order-card placed ${state} ${curStep === i ? 'current' : ''}" data-i="${i}">
-            <span class="num">${i + 1}</span> ${card(id).label}</button>
+          <button class="order-card placed ${state} ${need ? 'need' : ''} ${curStep === i ? 'current' : ''}" data-i="${i}">
+            <span class="num">${i + 1}</span> ${card(id).label}${need ? '<span class="need-tag">눌러서 붙일 자리를 정하세요</span>' : ''}</button>
           <button class="order-x" data-i="${i}" title="빼기">✕</button></div>`;
       }).join('')
     : '<p class="muted">왼쪽 카드를 눌러 순서대로 배치하세요.<br>배치한 카드를 누르면 그 단계의 모습이 보입니다.</p>';
@@ -401,6 +405,9 @@ function selectStep(i) {
             if (stable) {
               out.innerHTML = `<p class="ok">끝까지 진행되었습니다! 실제 제작도 이 순서대로 해 보세요.</p>`;
               addLog('조립 순서 — 끝까지 진행됨, 완성품이 잘 섬');
+            } else if (!work.assembly.holderPos) {
+              out.innerHTML = `<p class="warn">건전지 홀더를 아직 붙이지 않았어요. ${BATTERY_STEP} 카드를 눌러 붙일 자리를 정해 주세요.</p>`;
+              addLog('조립 순서 — 완성, 홀더 미부착');
             } else {
               out.innerHTML = `<p class="hint">완성은 했지만, 지금 홀더 위치라면 무게중심이 높아 플래카드가 넘어질 수 있어요. 전지가 든 홀더가 든든한 받침이 되려면 어디에 붙이는 게 좋을까요? (건전지 홀더 카드를 눌러 위치를 바꿔 보세요)</p>`;
               addLog('조립 순서 — 완성, 홀더 위치가 불안정 (무게중심)');
@@ -409,7 +416,9 @@ function selectStep(i) {
           } else {
             out.innerHTML = stable
               ? `<p class="ok">끝까지 진행되었습니다!</p>`
-              : `<p class="hint">지금 홀더 위치라면 무게중심이 높아 플래카드가 넘어질 수 있어요. 건전지 홀더 카드를 눌러 위치를 바꿔 보세요.</p>`;
+              : !work.assembly.holderPos
+                ? `<p class="warn">건전지 홀더를 아직 붙이지 않았어요. ${BATTERY_STEP} 카드를 눌러 붙일 자리를 정해 주세요.</p>`
+                : `<p class="hint">지금 홀더 위치라면 무게중심이 높아 플래카드가 넘어질 수 있어요. 건전지 홀더 카드를 눌러 위치를 바꿔 보세요.</p>`;
           }
           v.notes.forEach(n => out.innerHTML += `<p class="hint">${n}</p>`);
         } else {
