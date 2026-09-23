@@ -1,6 +1,6 @@
 // 케이스 탭: 조각 치수 입력 → 3D 조립. 겹침(빨강)·틈(노랑)을 보여주되 수치는 알려주지 않는다.
-import * as THREE from '../vendor/three.module.min.js?v=36';
-import { config, work, addLog, touch, readOnly, attemptCount, logArea, demoAccount } from './state.js?v=36';
+import * as THREE from '../vendor/three.module.min.js?v=37';
+import { config, work, addLog, touch, readOnly, attemptCount, logArea, demoAccount } from './state.js?v=37';
 
 let scene, camera, renderer, root, el3d;
 let theta = 0.55, phi = 0.5, radius = 42; // 카메라 궤도
@@ -306,7 +306,15 @@ function assemble(logIt) {
   const pr = work.caseTab.predict;
   if (config.askPredict && num(pr.w) && num(pr.h) && num(pr.d)) {
     const goal = { w: num(config.targetW), h: num(config.targetH), d: num(config.targetD) };
-    const mark = (actual, target, predicted) => {
+    // 겉 크기는 뒷면이 정한다 — 그래서 옆면·위아랫면이 어긋나도 겉 치수만으로는 '맞음'이 되어 버린다.
+    // 그 방향의 조각끼리 맞물리지 않으면 크기 비교 대신 '안 맞음'으로 말한다.
+    const off = {
+      w: Math.abs(j.tbSpan - topbot.w) > 0.05,   // 위·아랫면이 옆면 사이를 못 채움(또는 넘침)
+      h: Math.abs(j.sideSpan - side.h) > 0.05,   // 옆면 높이가 안 맞음
+      d: Math.abs(side.w - topbot.h) > 0.05,     // 앞쪽 가장자리에서 깊이가 어긋남
+    };
+    const mark = (actual, target, predicted, bad) => {
+      if (bad) return '<span class="cmp bad">안 맞음</span>';
       const base = target > 0 ? target : predicted;    // 목표가 없으면 예측과 견준다
       // 화살표는 '크다'인지 '키워라'인지 헷갈린다 — 지금 상태를 글자로 말한다
       if (Math.abs(actual - base) < 0.05) return '<span class="cmp ok">맞음</span>';
@@ -314,13 +322,13 @@ function assemble(logIt) {
         ? '<span class="cmp big">큼</span>'
         : '<span class="cmp small">작음</span>';
     };
-    const cell = (actual, target, predicted) => config.showMeasure
-      ? `${f(actual)} ${mark(actual, target, predicted)}`
-      : mark(actual, target, predicted);
+    const cell = (actual, target, predicted, bad) => config.showMeasure
+      ? `${f(actual)} ${mark(actual, target, predicted, bad)}`
+      : mark(actual, target, predicted, bad);
     html += `<table class="predict-table"><tr><th></th><th>가로</th><th>높이</th><th>깊이</th></tr>` +
       `<tr><td>내 예측</td><td>${num(pr.w)}</td><td>${num(pr.h)}</td><td>${num(pr.d)}</td></tr>` +
-      `<tr><td>실제</td><td>${cell(W, goal.w, num(pr.w))}</td><td>${cell(H, goal.h, num(pr.h))}</td><td>${cell(D, goal.d, num(pr.d))}</td></tr></table>` +
-      '<p class="muted small">지금 만들어진 케이스가 목표한 크기보다 어떤지 알려 줍니다.</p>';
+      `<tr><td>실제</td><td>${cell(W, goal.w, num(pr.w), off.w)}</td><td>${cell(H, goal.h, num(pr.h), off.h)}</td><td>${cell(D, goal.d, num(pr.d), off.d)}</td></tr></table>` +
+      '<p class="muted small">지금 만들어진 케이스가 목표한 크기보다 어떤지 알려 줍니다. 그 방향의 조각끼리 맞물리지 않으면 <b>안 맞음</b>으로 표시됩니다.</p>';
   }
   info.innerHTML = html;
 
