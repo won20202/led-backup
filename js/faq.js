@@ -1,5 +1,5 @@
 // 도움말: AI가 아니라 교사가 작성한 FAQ. 검색 + 탭별 필터. 못 찾은 검색어는 수집한다.
-import { config, recordMiss } from './state.js?v=37';
+import { config, recordMiss } from './state.js?v=38';
 
 const $ = id => document.getElementById(id);
 

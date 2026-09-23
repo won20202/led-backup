@@ -1,6 +1,6 @@
 // 케이스 탭: 조각 치수 입력 → 3D 조립. 겹침(빨강)·틈(노랑)을 보여주되 수치는 알려주지 않는다.
-import * as THREE from '../vendor/three.module.min.js?v=37';
-import { config, work, addLog, touch, readOnly, attemptCount, logArea, demoAccount } from './state.js?v=37';
+import * as THREE from '../vendor/three.module.min.js?v=38';
+import { config, work, addLog, touch, readOnly, attemptCount, logArea, demoAccount } from './state.js?v=38';
 
 let scene, camera, renderer, root, el3d;
 let theta = 0.55, phi = 0.5, radius = 42; // 카메라 궤도
@@ -431,8 +431,17 @@ function updateAssembleButton() {
   const preOk = !config.askPredict || (num(pr.w) && num(pr.h) && num(pr.d));
   const btn = $('btn-assemble');
   btn.disabled = readOnly || !dimsOk || !preOk;
+  // 선생님이 완성 치수를 설정에 적어 두었으면, 잘못 적었을 때 알려만 준다 (막지는 않는다)
+  const NAME = { w: '가로', h: '높이', d: '깊이' };
+  const wrong = ['w', 'h', 'd'].filter(k => {
+    const goal = num(config['target' + k.toUpperCase()]);
+    return goal > 0 && num(pr[k]) && Math.abs(num(pr[k]) - goal) > 0.05;
+  });
   $('predict-hint').textContent = dimsOk && !preOk
-    ? '먼저 예측을 적어야 조립할 수 있습니다. 머릿속으로 계산해 보세요!' : '';
+    ? '먼저 예측을 적어야 조립할 수 있습니다. 머릿속으로 계산해 보세요!'
+    : wrong.length
+      ? `완성 크기 중 ${wrong.map(k => NAME[k]).join('·')}가 선생님이 알려 준 치수와 달라요. 다시 확인해 보세요.`
+      : '';
 }
 
 export function refreshFromWork() {
