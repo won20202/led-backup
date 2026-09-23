@@ -1,6 +1,6 @@
 // 케이스 탭: 조각 치수 입력 → 3D 조립. 겹침(빨강)·틈(노랑)을 보여주되 수치는 알려주지 않는다.
-import * as THREE from '../vendor/three.module.min.js?v=38';
-import { config, work, addLog, touch, readOnly, attemptCount, logArea, demoAccount } from './state.js?v=38';
+import * as THREE from '../vendor/three.module.min.js?v=39';
+import { config, work, addLog, touch, readOnly, attemptCount, logArea, demoAccount } from './state.js?v=39';
 
 let scene, camera, renderer, root, el3d;
 let theta = 0.55, phi = 0.5, radius = 42; // 카메라 궤도
@@ -291,7 +291,7 @@ function assemble(logIt) {
 
   let html = '';
   if (config.showMeasure)
-    html += `<p class="measure">지금 만들어진 케이스<br><b>가로 ${f(W)} · 높이 ${f(H)} · 깊이 ${f(D)} cm</b></p>`;
+    html += `<p class="measure">지금 만들어진 케이스<br><b>가로 ${f(W)} · 높이 ${f(H)} · 깊이(세로) ${f(D)} cm</b></p>`;
   if (config.showTarget)
     html += `<p class="muted">완성 목표 — ${config.targetW} × ${config.targetH} × ${config.targetD} cm</p>`;
   if (overlapN) html += `<p class="warn"><span class="dot red"></span> 판이 겹쳐 튀어나온 곳이 ${overlapN}군데 있습니다. 어느 조각을 얼마나 줄여야 할까요?</p>`;
@@ -325,7 +325,7 @@ function assemble(logIt) {
     const cell = (actual, target, predicted, bad) => config.showMeasure
       ? `${f(actual)} ${mark(actual, target, predicted, bad)}`
       : mark(actual, target, predicted, bad);
-    html += `<table class="predict-table"><tr><th></th><th>가로</th><th>높이</th><th>깊이</th></tr>` +
+    html += `<table class="predict-table"><tr><th></th><th>가로</th><th>높이</th><th>깊이<br><small>(세로)</small></th></tr>` +
       `<tr><td>내 예측</td><td>${num(pr.w)}</td><td>${num(pr.h)}</td><td>${num(pr.d)}</td></tr>` +
       `<tr><td>실제</td><td>${cell(W, goal.w, num(pr.w), off.w)}</td><td>${cell(H, goal.h, num(pr.h), off.h)}</td><td>${cell(D, goal.d, num(pr.d), off.d)}</td></tr></table>` +
       '<p class="muted small">지금 만들어진 케이스가 목표한 크기보다 어떤지 알려 줍니다. 그 방향의 조각끼리 맞물리지 않으면 <b>안 맞음</b>으로 표시됩니다.</p>';
@@ -432,7 +432,7 @@ function updateAssembleButton() {
   const btn = $('btn-assemble');
   btn.disabled = readOnly || !dimsOk || !preOk;
   // 선생님이 완성 치수를 설정에 적어 두었으면, 잘못 적었을 때 알려만 준다 (막지는 않는다)
-  const NAME = { w: '가로', h: '높이', d: '깊이' };
+  const NAME = { w: '가로', h: '높이', d: '깊이(세로)' };
   const wrong = ['w', 'h', 'd'].filter(k => {
     const goal = num(config['target' + k.toUpperCase()]);
     return goal > 0 && num(pr[k]) && Math.abs(num(pr[k]) - goal) > 0.05;

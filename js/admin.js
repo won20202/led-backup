@@ -5,9 +5,9 @@ import { config, saveConfig, exportConfigCode, importConfigCode, getMisses, clea
          checkAdminPin, syncAdminPin,
          makeSid, parseSid, weekKeyOf, timetableForWeek, runsOf, todayRuns,
          rosterActive, readOnly, presetNames, savePreset, loadPreset, deletePreset,
-         BLOCKED_STATUS } from './state.js?v=38';
-import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=38';
-import { switchTab } from './app.js?v=38';
+         BLOCKED_STATUS } from './state.js?v=39';
+import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=39';
+import { switchTab } from './app.js?v=39';
 
 const $ = id => document.getElementById(id);
 
@@ -22,9 +22,11 @@ const FIELDS = [
   ['demoSids', '교사 시연용 학번 (관리자 PIN으로 아무 때나 입장, 쉼표로)', 'text'],
   ['subtitle', '로그인 화면 부제 (학년·수행 이름 등, 비우면 숨김)', 'text'],
   ['thickness', '재료(우드락) 두께 (cm)', 'number'],
+  ['gridMajor', '모눈 굵은 선 한 칸 (cm) — 학생 모눈종이와 같게', 'number'],
+  ['gridMinor', '모눈 얇은 선 한 칸 (cm)', 'number'],
   ['targetW', '완성 목표 가로 (cm)', 'number'],
   ['targetH', '완성 목표 높이 (cm)', 'number'],
-  ['targetD', '완성 목표 깊이 (cm)', 'number'],
+  ['targetD', '완성 목표 깊이(세로) (cm)', 'number'],
   ['showTarget', '완성 목표 치수를 학생 화면에 표시', 'checkbox'],
   ['ledCount', 'LED 지급 개수', 'number'],
   ['advanced', '심화 모드 (저항 부품 + 실제 색 LED)', 'checkbox'],

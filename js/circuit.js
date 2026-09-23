@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=38';
-import { renderLogList } from './case3d.js?v=38';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=39';
+import { renderLogList } from './case3d.js?v=39';
 
 const $ = id => document.getElementById(id);
 
@@ -380,7 +380,7 @@ function solveInner(C, lab, forceOn) {
     voltage: lab ? ((C.holders[0] && C.holders[0].cells) || 2) * 1.5 : config.voltage,
     tapeComp: C.tapes.map((_, i) => find(i)), energizedPlus: new Set(), energizedMinus: new Set(),
     netPlus: new Set(), netMinus: new Set(),
-    hasBlockedSeries: false, dimSeries: false, noResistorLit: false, anyLit: false };
+    hasBlockedSeries: false, dimSeries: false, noResistorLit: false, anyLit: false, faintLit: false };
   if (!H) return res;
 
   // 가장 가까운 테이프에 붙는다 (스치듯 지나가는 다른 줄에 잘못 붙지 않게)
@@ -491,12 +491,20 @@ function solveInner(C, lab, forceOn) {
     };
     dfs(plus, new Set(), [], 0, 0);
 
-    const conducting = [];
+    const conducting = [], faintPaths = [];
     for (const p of paths) {
       const k = p.leds.length;
       const sumVth = p.leds.reduce((a, i) => a + vthOf(C.leds[i]), 0);
       const I = (Vs - sumVth) / (config.rint + k * config.ledRd + p.rSum) * 1000;
-      if (I <= 0.2) { if (k >= 2) res.hasBlockedSeries = true; continue; }
+      if (I <= 0.2) {
+        // 문턱 전압에 못 미쳐도 실물 LED는 겨우 보일 만큼 빛난다.
+        // 전압이 모자랄수록 급격히 어두워지고, 절반도 안 되면 정말 안 켜진다.
+        const ratio = sumVth > 0 ? Vs / sumVth : 0;
+        // 밝기는 전압이 오를수록 커져야 한다 — 문턱을 갓 넘은 밝기(약 0.07)와 이어지게 맞춘다
+        if (ratio > 0.5) faintPaths.push({ leds: p.leds, b: Math.max(0.02, 0.07 * (ratio - 0.5) / 0.5) });
+        else if (k >= 2) res.hasBlockedSeries = true;
+        continue;
+      }
       conducting.push({ leds: p.leds, nRes: p.nRes, I });
     }
     const total = conducting.reduce((a, p) => a + p.I, 0);
@@ -512,6 +520,12 @@ function solveInner(C, lab, forceOn) {
         res.lit[i] = Math.max(res.lit[i] || 0, b * fOf(C.leds[i]));
         if (p.nRes === 0) res.noResistorLit = true;
       }
+    }
+    for (const p of faintPaths) for (const i of p.leds) {
+      if (res.lit[i] !== undefined || res.burnt.has(i)) continue;  // 밝게 켜진 길이 따로 있으면 그쪽이 우선
+      res.lit[i] = p.b * fOf(C.leds[i]);
+      res.iOf[i] = Math.max(res.iOf[i] || 0, 0.05);
+      res.faintLit = true;
     }
   }
   res.burnt.forEach(i => delete res.lit[i]);
@@ -795,12 +809,17 @@ function draw() {
     });
     ctx.stroke(); ctx.setLineDash([]);
 
-    // 1cm 격자 (뒷면)
-    ctx.strokeStyle = 'rgba(0,0,0,0.05)';
-    ctx.beginPath();
-    for (let x = 1; x < d.bw; x++) { ctx.moveTo(x * Z, 0); ctx.lineTo(x * Z, d.bh * Z); }
-    for (let y = 1; y < d.bh; y++) { ctx.moveTo(0, y * Z); ctx.lineTo(d.bw * Z, y * Z); }
-    ctx.stroke();
+    // 모눈 (뒷면) — 학생이 받은 모눈종이와 같은 간격으로 (설정: 굵은 선·얇은 선)
+    const gridLines = (step, color) => {
+      if (!(step > 0.02) || step * Z < 5) return;   // 너무 촘촘하면 그리지 않는다
+      ctx.strokeStyle = color; ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let i = 1; i * step < d.bw; i++) { ctx.moveTo(i * step * Z, 0); ctx.lineTo(i * step * Z, d.bh * Z); }
+      for (let i = 1; i * step < d.bh; i++) { ctx.moveTo(0, i * step * Z); ctx.lineTo(d.bw * Z, i * step * Z); }
+      ctx.stroke();
+    };
+    gridLines(Number(config.gridMinor) || 0, 'rgba(0,0,0,0.04)');
+    gridLines(Number(config.gridMajor) || 1, 'rgba(0,0,0,0.11)');
   }
 
   // 테이프
@@ -1000,15 +1019,18 @@ function drawHolder(h, hi) {
     ctx.fillStyle = col;
     ctx.beginPath(); ctx.roundRect((tx - 0.22) * Z, (-hh / 2 - 0.45) * Z, 0.44 * Z, 0.5 * Z, 2); ctx.fill();
   });
-  // 전지 칸
+  // 전지 칸 — 실물처럼 개수대로 늘어놓는다 (2개씩 줄지어 쌓인다)
   const cells = h.cells || 2;
-  const cw = Math.min(1.25, (hw - 0.6) / Math.min(cells, 2));
-  for (let ci = 0; ci < Math.min(cells, 2); ci++) {
-    const cx = (ci - (Math.min(cells, 2) - 1) / 2) * (cw + 0.15);
+  const cols = Math.min(cells, 2), rows = Math.ceil(cells / cols);
+  const cw = Math.min(1.25, (hw - 0.6) / cols);
+  const cy0 = -hh / 2 + 0.5, zoneH = hh - 1.7, rowH = zoneH / rows, ch = rowH - 0.12;
+  for (let ci = 0; ci < cells; ci++) {
+    const cx = (ci % cols - (cols - 1) / 2) * (cw + 0.15);
+    const cy = cy0 + Math.floor(ci / cols) * rowH;
     ctx.fillStyle = '#2e8f8f';
-    ctx.beginPath(); ctx.roundRect((cx - cw / 2) * Z, (-hh / 2 + 0.5) * Z, cw * Z, (hh - 1.7) * Z, 5); ctx.fill();
-    ctx.fillStyle = '#57c6c0';
-    ctx.beginPath(); ctx.roundRect((cx - cw / 2) * Z, (-hh / 2 + 0.5) * Z, cw * Z, 1.1 * Z, 5); ctx.fill();
+    ctx.beginPath(); ctx.roundRect((cx - cw / 2) * Z, cy * Z, cw * Z, ch * Z, 5); ctx.fill();
+    ctx.fillStyle = '#57c6c0';   // (+) 쪽 머리
+    ctx.beginPath(); ctx.roundRect((cx - cw / 2) * Z, cy * Z, cw * Z, Math.min(1.1, ch * 0.34) * Z, 5); ctx.fill();
   }
   // 스위치 (아래쪽)
   ctx.beginPath(); ctx.arc(0, (hh / 2 - 0.75) * Z, 0.55 * Z, 0, 7);
@@ -1081,7 +1103,8 @@ function updatePanel() {
       const unlit = C.leds.length - litN - R.burnt.size;
       if (unlit > 0) html += `<p class="hint">안 켜진 LED가 ${unlit}개 있습니다. 긴 다리(+)가 어느 줄에 붙어 있는지, 두 다리가 서로 다른 줄에 있는지, 전압이 충분한지 살펴볼까요?</p>`;
       if (R.dimSeries) html += `<p class="hint">유난히 어둡게 켜진 LED가 보이나요? 전류가 LED를 몇 개나 거쳐 가는지, 전지의 전압이 얼마인지 생각해 보세요.</p>`;
-      if (R.hasBlockedSeries) html += `<p class="hint">LED를 여러 개 거쳐 가는 길이 있네요. LED가 늘어날수록 각 LED가 나눠 받는 전압은 어떻게 될까요?</p>`;
+      if (R.faintLit) html += `<p class="hint">겨우 보일 만큼 <b>희미하게</b> 켜진 LED가 있어요. 전류가 지나는 길 하나에 LED가 몇 개 있는지, 전지의 전압이 그 LED들에게 어떻게 나뉘는지 살펴볼까요? 같은 전지로 더 밝게 하려면 연결을 어떻게 바꿔 볼 수 있을까요?</p>`;
+      else if (R.hasBlockedSeries) html += `<p class="hint">LED를 여러 개 거쳐 가는 길이 있네요. LED가 늘어날수록 각 LED가 나눠 받는 전압은 어떻게 될까요?</p>`;
       // 켜지긴 했지만 전류가 너무 적어 실제로는 흐릿한 경우 — '안정적'이라고 말하면 오개념이 된다
       const faint = Object.keys(R.lit).some(i => (R.iOf[i] || 0) < 3);
       if (faint)
@@ -1240,7 +1263,7 @@ function toggleSwitch(hi) {
     const R = solve();
     const litN = Object.keys(R.lit).length;
     const summary = `LED ${C.leds.length}개 중 ${litN}개 켜짐` +
-      (R.short ? ', 합선' : '') + (R.dimSeries ? ', 직렬로 어두움' : '') + (R.hasBlockedSeries ? ', 전압 부족 소등' : '') +
+      (R.short ? ', 합선' : '') + (R.faintLit ? ', 희미하게만 켜짐' : '') + (R.dimSeries ? ', 직렬로 어두움' : '') + (R.hasBlockedSeries ? ', 전압 부족 소등' : '') +
       (R.over.size ? ', 과전류' : '') + (R.burnt.size ? `, ${R.burnt.size}개 소손` : '');
     if (mode === 'placard') {
       C.lastLit = { n: litN, total: C.leds.length };   // 진도 체크리스트용

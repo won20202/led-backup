@@ -1,12 +1,12 @@
 // 전역 상태: 관리자 설정 + 학생 작업 데이터. localStorage 저장, 선택적으로 Supabase 동기화.
 
 export const DEFAULT_FAQ = [
-  { q: '완성 크기가 얼마인가요?', k: '완성 크기 규격 치수', a: '완성 크기는 가로 25cm × 높이 10cm × 깊이 5cm입니다. 우드락 두께는 0.5cm입니다. 조각별 재단 치수는 여러분이 두께를 반영해서 직접 계산해야 합니다.', tab: 'case' },
+  { q: '완성 크기가 얼마인가요?', k: '완성 크기 규격 치수', a: '완성 크기는 가로 25cm × 높이 10cm × 깊이(세로) 5cm입니다. 우드락 두께는 0.5cm입니다. 조각별 재단 치수는 여러분이 두께를 반영해서 직접 계산해야 합니다.', tab: 'case' },
   { q: '재료는 무엇을 얼마나 받나요?', k: '재료 지급 수량 준비물', a: '1인당: 검은 도화지(앞면) A4 1장, 트레이싱지(속지) A4 1장, 우드락(두께 0.5cm) 1/4장, 백색 LED 8개, 전도성 직물 테이프 약 90cm, AA 2구 스위치 내장 건전지 홀더 1개, AA 건전지 2개. 커터칼·커팅매트·자는 모둠당 지급.', tab: 'all' },
   { q: '도안 조건이 무엇인가요?', k: '도안 조건 글자 그림 크기 굵기', a: '작업 영역 23×8cm(앞면 가장자리 1cm 제외) 안에 글자 2개(각 가로 7~8cm, 세로 5~8cm)와 그림 1개(4~5cm)를 간격 0.5cm 이상 두고 배치합니다. 모든 획·선 굵기는 0.7cm 이상이어야 합니다.', tab: 'design' },
   { q: '배점이 어떻게 되나요?', k: '배점 점수 채점 기준', a: '제조 기술 내용 이해도 25점 + 설계 포트폴리오 35점 + 제작 실습 40점 = 100점. 포트폴리오 4조건(①도안 ②전개도 두께 반영 ③등각투상도 ④회로도 극성)을 모두 충족하면 35점, 하나 빠질 때마다 5점씩 내려갑니다.', tab: 'all' },
   { q: '확인 단계는 어떻게 통과하나요?', k: '확인 단계 검사 통과', a: '확인① 전개도·등각투상도(치수·척도·두께 반영) → 재단 도면 승인. 확인② 도안·회로도(조건·극성) → 앞면 재료 지급. 확인③ 가공·점등(빛이 고르게) → 우드락 지급. 확인④ 조립·마감. 재확인 횟수는 감점하지 않으니 틀려도 다시 도전하세요.', tab: 'all' },
-  { q: '등각투상도는 어떻게 그리나요?', k: '등각투상도 척도 그리기', a: '척도 1:2, 모눈 1칸=1cm로 그리고 각 면의 치수를 반드시 기입합니다. 가로·세로·깊이 세 방향 모서리가 120°를 이루도록 그립니다. 케이스 탭의 3D 화면을 돌려 보며 참고하되, 도면은 반드시 손으로 그려야 합니다.', tab: 'case' },
+  { q: '등각투상도는 어떻게 그리나요?', k: '등각투상도 척도 그리기', a: '척도 1:2, 모눈종이는 굵은 선 1칸=0.5cm(얇은 선 1칸=0.25cm)입니다. 각 면의 치수를 반드시 기입하고, 가로·높이·깊이(세로) 세 방향 모서리가 120°를 이루도록 그립니다. 케이스 탭의 3D 화면을 돌려 보며 참고하되, 도면은 반드시 손으로 그려야 합니다.', tab: 'case' },
   { q: 'LED가 안 켜져요', k: 'LED 안켜짐 점등 불량 고장', a: '전류는 전지에서 나와 LED를 지나 다시 전지로 돌아옵니다. 그 길을 손가락으로 따라가 보세요. 끊긴 곳은 없나요? 길이 아닌 곳으로 새고 있지는 않나요? LED에는 방향이 있다는 것도 기억하세요.', tab: 'circuit' },
   { q: 'LED를 직렬로 연결하면 안 되나요?', k: '직렬 병렬 연결 방법 밝기', a: '회로 탭에서 두 가지 방법으로 직접 이어 보고 밝기를 비교해 보세요. LED 개수를 늘리면서 하나가 받는 전압이 어떻게 달라지는지 관찰해 보면 이유를 찾을 수 있어요. 과학 시간에 배운 직렬·병렬을 떠올려 보세요.', tab: 'circuit' },
   { q: 'ㅇ, ㅁ처럼 안쪽이 떨어지는 글자는 어떻게 하나요?', k: '안쪽 조각 글자 오리기 떨어짐', a: '잘라낸 안쪽 조각을 버리지 말고 보관했다가, 트레이싱지를 붙인 뒤 그 위에 다시 붙이는 방법이 있습니다. 포트폴리오에 자신이 정한 처리 방법을 반드시 적어야 합니다.', tab: 'design' },
@@ -59,6 +59,8 @@ export const DEFAULT_RUBRIC = [
 export const DEFAULT_CONFIG = {
   rubric: DEFAULT_RUBRIC,
   thickness: 0.5,           // 재료(우드락) 두께 cm
+  gridMajor: 0.5,           // 모눈 굵은 선 한 칸 (cm) — 학생이 받은 모눈종이 기준
+  gridMinor: 0.25,          // 모눈 얇은 선 한 칸 (cm)
   targetW: 25, targetH: 10, targetD: 5,
   showTarget: false,        // 완성 목표 치수 화면 표시 (기본 숨김)
   boardW: 45, boardH: 30,   // 우드락 판 (600×900 판을 4등분 = 450×300mm)
@@ -440,7 +442,7 @@ export function rosterActive() { return Object.keys(config.roster || {}).length 
 const PRESET_KEYS = [
   'advanced', 'resistorOhm', 'resistorSet', 'voltage', 'vf', 'ledRd', 'rint', 'iOver', 'iBurn', 'imax',
   'ledCount', 'overLimit', 'showSupply', 'showMeasure', 'askPredict', 'questionFeedback',
-  'thickness', 'targetW', 'targetH', 'targetD', 'showTarget', 'boardW', 'boardH',
+  'thickness', 'gridMajor', 'gridMinor', 'targetW', 'targetH', 'targetD', 'showTarget', 'boardW', 'boardH',
   'frontW', 'frontH', 'areaW', 'areaH', 'strokeMin',
   'letterMin', 'letterMax', 'pictoMin', 'pictoMax', 'dLetters', 'dDrawing', 'dFree',
   'rubric', 'materials', 'orderTips', 'orderSafety', 'faq',
