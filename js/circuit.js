@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=39';
-import { renderLogList } from './case3d.js?v=39';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=40';
+import { renderLogList } from './case3d.js?v=40';
 
 const $ = id => document.getElementById(id);
 
@@ -1107,7 +1107,7 @@ function updatePanel() {
       else if (R.hasBlockedSeries) html += `<p class="hint">LED를 여러 개 거쳐 가는 길이 있네요. LED가 늘어날수록 각 LED가 나눠 받는 전압은 어떻게 될까요?</p>`;
       // 켜지긴 했지만 전류가 너무 적어 실제로는 흐릿한 경우 — '안정적'이라고 말하면 오개념이 된다
       const faint = Object.keys(R.lit).some(i => (R.iOf[i] || 0) < 3);
-      if (faint)
+      if (faint && !R.faintLit && !R.dimSeries)   // 같은 이야기를 두 번 하지 않는다
         html += `<p class="hint">켜지긴 했지만 유난히 희미한 LED가 있어요. 그 LED에 흐르는 전류가 얼마인지, 무엇이 전류를 줄이고 있는지 살펴볼까요?</p>`;
       else if (litN > 0 && litN === C.leds.length && !R.dimSeries && !R.over.size)
         html += mode === 'placard'
