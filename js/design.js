@@ -1,6 +1,6 @@
 // 도안 탭: 검은 앞면에 글자 2개 + 직접 그리는 그림. 오려낼 부분과 떨어져 나가는 안쪽 조각을 보여준다.
 // 처리 방법(다리 만들기·재부착)은 알려주지 않는다 — 학생이 정한다.
-import { config, work, touch, readOnly, sheetLog } from './state.js?v=55';
+import { config, work, touch, readOnly, sheetLog } from './state.js?v=56';
 
 const $ = id => document.getElementById(id);
 let S = 24;     // 표시용 px/cm — 화면 폭에 맞춰 자동 조정

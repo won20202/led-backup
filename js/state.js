@@ -80,6 +80,7 @@ export const DEFAULT_CONFIG = {
   coinVolt: 3.0,       // 1개 전압 (V)
   coinRint: 30,        // 1개 내부 저항 (Ω) — 얇아서 AA보다 훨씬 크다 (모든 길이 함께 쓴다)
   coinImax: 60,        // 감당할 수 있는 최대 전류 (mA)
+  coinRev: 2,          // 동전 전지 값 보정 판 번호 (아래 한 번만 적용)
   coinCells: 3,        // 쌓을 수 있는 최대 개수
   advanced: false,     // 심화 모드: 저항 부품 + 실제 색 LED (기본은 백색 LED + 매직 색칠)
   resistorOhm: 220,               // 기본 저항값
@@ -164,6 +165,14 @@ const OTHER_SUPABASE = 'gakrtbuicpruxjaqalec'; // 다른 버전(led)이 쓰는 �
 const MISS_KEY = 'lps_faq_miss';
 
 export let config = loadConfig();
+// 동전 전지를 처음 넣을 때 쓴 임시값이 저장된 기기가 있다 — 실측 기준값으로 한 번만 맞춘다.
+// (동전 전지 설정만 건드리고 다른 설정은 그대로 둔다)
+if (config.coinRev !== 2) {
+  config.coinRint = 30;
+  config.coinImax = 60;
+  config.coinRev = 2;
+  saveConfig();
+}
 
 function loadConfig() {
   try {
