@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=47';
-import { renderLogList } from './case3d.js?v=47';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=48';
+import { renderLogList } from './case3d.js?v=48';
 
 const $ = id => document.getElementById(id);
 
@@ -1137,6 +1137,48 @@ function drawCoin(h, hi) {
     h.x * Z, (h.y + COIN_R + 1.65) * Z);
   ctx.fillStyle = '#98a1ab'; ctx.font = `${Math.max(8, Z * 0.38)}px sans-serif`;
   ctx.fillText(`바닥 ${h.flip ? '+' : '−'} 는 테이프에 닿아 있음`, h.x * Z, (h.y + COIN_R + 2.35) * Z);
+  // 옆에서 본 모습 — 테이프가 전지 '위'에 올라온다는 걸 평면 화면에서도 알 수 있게
+  const sx = h.x + COIN_R + 1.6, sy = h.y;          // 단면 그림 자리
+  const sw = 2.4, cellH = 0.32, stackH = cells * cellH;
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,255,255,0.92)';
+  ctx.strokeStyle = '#dbe1e8'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.roundRect((sx - 0.3) * Z, (sy - 1.7) * Z, (sw + 0.6) * Z, 3.1 * Z, 5); ctx.fill(); ctx.stroke();
+  // 바닥 테이프
+  ctx.fillStyle = '#c3c9d2';
+  ctx.fillRect(sx * Z, (sy + stackH / 2 + 0.06) * Z, sw * Z, 0.22 * Z);
+  // 전지 (옆에서 본 원판 더미)
+  for (let i = 0; i < cells; i++) {
+    ctx.fillStyle = i % 2 ? '#c8cfd7' : '#dee3e9';
+    ctx.fillRect((sx + 0.45) * Z, (sy - stackH / 2 + i * cellH) * Z, (sw - 0.9) * Z, cellH * Z);
+    ctx.strokeStyle = '#98a1ab'; ctx.lineWidth = 0.8;
+    ctx.strokeRect((sx + 0.45) * Z, (sy - stackH / 2 + i * cellH) * Z, (sw - 0.9) * Z, cellH * Z);
+  }
+  // 위·아래 면 극성
+  ctx.textAlign = 'right';
+  ctx.font = `bold ${Math.max(9, Z * 0.45)}px sans-serif`;
+  ctx.fillStyle = h.flip ? '#2f3640' : '#d64545';
+  ctx.fillText(h.flip ? '−' : '+', (sx + 0.35) * Z, (sy - stackH / 2 + 0.28) * Z);
+  ctx.fillStyle = h.flip ? '#d64545' : '#2f3640';
+  ctx.fillText(h.flip ? '+' : '−', (sx + 0.35) * Z, (sy + stackH / 2 + 0.22) * Z);
+  // 두겹 테이프 — 댔으면 윗면에 닿고, 뗐으면 위에 떠 있다
+  const gap = cg.touching ? 0.02 : 0.5;
+  const tapeY = sy - stackH / 2 - 0.22 - gap;
+  ctx.fillStyle = cg.touching ? '#9fb0c2' : '#c3c9d2';
+  ctx.fillRect((sx + 0.2) * Z, tapeY * Z, (sw - 0.4) * Z, 0.22 * Z);
+  ctx.strokeStyle = '#7d848d'; ctx.lineWidth = 0.8;
+  ctx.strokeRect((sx + 0.2) * Z, tapeY * Z, (sw - 0.4) * Z, 0.22 * Z);
+  if (!cg.touching) {   // 떨어져 있다는 표시
+    ctx.strokeStyle = '#b6bdc6'; ctx.setLineDash([2, 3]); ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo((sx + sw / 2) * Z, (tapeY + 0.24) * Z);
+    ctx.lineTo((sx + sw / 2) * Z, (sy - stackH / 2 - 0.02) * Z);
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#98a1ab'; ctx.font = `${Math.max(8, Z * 0.36)}px sans-serif`;
+  ctx.fillText('옆에서 본 모습', (sx + sw / 2) * Z, (sy + 1.35) * Z);
+  ctx.restore();
   ctx.textAlign = 'left';
 }
 
@@ -1488,6 +1530,7 @@ function setCircuitMode(m) {
   $('btn-3d').style.display = m === 'placard' ? '' : 'none';
   $('circuit-predict-row').style.display = (m === 'placard' && config.askPredict) ? '' : 'none';
   $('lab-guide').style.display = m === 'lab' ? '' : 'none';
+  if ($('tool-coin')) $('tool-coin').style.display = m === 'lab' ? '' : 'none';   // 동전 전지는 실험실에서만
   $('net-hint').style.display = m === 'placard' ? '' : 'none';
   updateFloatProps();
   updateSwitchButton();
@@ -1694,7 +1737,7 @@ export function initCircuit() {
       return;
     }
     // 배치 도구: 빈 곳이면 놓고, 부품 위면 그 부품을 선택 (놓은 뒤엔 바로 이동·옵션 가능)
-    if ((tool === 'led' || tool === 'res' || tool === 'holder') && !pre) {
+    if ((tool === 'led' || tool === 'res' || tool === 'holder' || tool === 'coin') && !pre) {
       pushUndo();
       // 어디서든 가로로 눕혀 놓는다 — 방향은 학생이 정한다 (세로로 놓아 주면 답을 알려 주는 셈)
       const defDir = 1;
@@ -1705,6 +1748,13 @@ export function initCircuit() {
       } else if (tool === 'res') {
         C.resistors.push({ ...clampPart({ x: snap(p.x), y: snap(p.y) }, defDir), dir: defDir });
         selected = { type: 'res', i: C.resistors.length - 1 };
+      } else if (tool === 'coin') {
+        const q = clampNet({ x: snap(p.x), y: snap(p.y) });
+        C.holders.push({
+          ...q, dir: 0, pack: 'coin', cells: 1, on: false, g7: 1, flip: false,
+          wires: [{ x: q.x + 3.4, y: q.y - 2.6 }, { x: q.x + 6.4, y: q.y - 2.6 }],
+        });
+        selected = { type: 'holder', i: C.holders.length - 1 };
       } else {
         C.holders.push({
           ...clampNet({ x: snap(p.x), y: snap(p.y) }),
