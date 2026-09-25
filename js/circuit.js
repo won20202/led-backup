@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=49';
-import { renderLogList } from './case3d.js?v=49';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=50';
+import { renderLogList } from './case3d.js?v=50';
 
 const $ = id => document.getElementById(id);
 
@@ -1130,7 +1130,10 @@ function drawCoin(h, hi) {
   }
   ctx.fillStyle = '#4a5561'; ctx.font = `${Math.max(9, Z * 0.45)}px sans-serif`;
   ctx.fillText(`CR2032×${cells} ${holderVolt(h).toFixed(1)}V`, h.x * Z, (h.y + COIN_R + 0.85) * Z);
-  // 옆에서 본 모습 — 테이프가 전지 '위'에 올라온다는 걸 평면 화면에서도 알 수 있게
+  // 옆에서 본 모습 — 테이프가 전지 '위'에 올라온다는 걸 평면 화면에서도 알 수 있게.
+  // 동전이 여러 개면 화면이 복잡해지므로, 하나뿐일 때 또는 고른 전지에만 그린다.
+  const coinCount = am().holders.filter(isCoin).length;
+  if (coinCount > 1 && !isSel) { ctx.textAlign = 'left'; return; }
   const sx = h.x + COIN_R + 2.1, sy = h.y;          // 단면 그림 자리
   const sw = 2.4, cellH = 0.32, stackH = cells * cellH;
   ctx.save();
