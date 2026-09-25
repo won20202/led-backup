@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=44';
-import { renderLogList } from './case3d.js?v=44';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=45';
+import { renderLogList } from './case3d.js?v=45';
 
 const $ = id => document.getElementById(id);
 
@@ -1276,7 +1276,9 @@ function updatePanel() {
       html += `<p class="hint">지금은 LED에 전류가 그대로 흐르고 있어요. 실제 제작에서는 LED가 뜨거워져 수명이 빨리 닳을 수 있습니다. 전류를 알맞게 줄이려면 회로에 무엇이 더 있어야 할까요?</p>`;
   } else html += mode === 'placard'
     ? '<p class="muted">스위치가 꺼져 있어요. 몇 개가 켜질지 예측을 적고 스위치를 켜 보세요.</p>'
-    : '<p class="muted">스위치가 꺼져 있어요. 홀더의 스위치를 눌러 보세요.</p>';
+    : (C.holders.some(isCoin)
+      ? '<p class="muted">두겹 테이프의 <b>자유 끝(동그라미)</b>을 끌어 동전 전지 위에 올려 보세요. 대면 켜지고 떼면 꺼집니다.</p>'
+      : '<p class="muted">스위치가 꺼져 있어요. 홀더의 스위치를 눌러 보세요.</p>');
   if (!R.noHolder && mode === 'placard')
     html += '<p class="muted small">테이프 위 가는 색선은 몇 번째 줄인지 구분하는 표시예요 — [입체로 보기]에서 같은 색을 따라가면 그 줄이 어떻게 둘러지는지 보여요.</p>';
   if (!R.noHolder && !R.short) html += advancedNote(C, R);
@@ -1315,6 +1317,13 @@ function inHolderBody(p, h) {
   const ly = dx * Math.sin(a) + dy * Math.cos(a);
   return Math.abs(lx) < HOLDER_W / 2 + 0.3 && Math.abs(ly) < HOLDER_H / 2 + 0.3;
 }
+// 전선·두겹 테이프 끝을 제자리로 (동전 전지는 전지에서 떨어진 기본 자리로 되돌린다)
+function resetWire(h, wi) {
+  if (!h) return;
+  if (h.pack === 'coin') h.wires[wi] = wi === 0 ? { x: h.x + 3.4, y: h.y - 2.6 } : { x: h.x + 6.4, y: h.y - 2.6 };
+  else h.wires[wi] = { dock: true };
+}
+
 function hitTest(p) {
   const C = am();
   for (let hi = C.holders.length - 1; hi >= 0; hi--) {
@@ -1747,8 +1756,9 @@ export function initCircuit() {
       applyAttach(selected, dragOff.attach);
     } else if (selected.type === 'wire') {
       const h = C.holders[selected.hi];
-      // 홀더 몸체 위로 가져가면 전지에 도로 꽂힌다
-      if (h && inHolderBody(p, h))
+      // 홀더 몸체 위로 가져가면 전지에 도로 꽂힌다.
+      // 동전 전지는 전지 위에 대는 것이 곧 스위치라서 그대로 둔다.
+      if (h && !isCoin(h) && inHolderBody(p, h))
         h.wires[selected.wi] = { dock: true };
       else if (h)
         h.wires[selected.wi] = { ...clampNet({ x: snap(p.x), y: snap(p.y) }) };
@@ -1783,7 +1793,7 @@ export function initCircuit() {
       if (selected.type === 'led') C.leds.splice(selected.i, 1);
       else if (selected.type === 'res') C.resistors.splice(selected.i, 1);
       else if (selected.type === 'tape') C.tapes.splice(selected.i, 1);
-      else if (selected.type === 'wire') C.holders[selected.hi].wires[selected.wi] = { dock: true };
+      else if (selected.type === 'wire') resetWire(C.holders[selected.hi], selected.wi);
       else if (selected.type === 'holder') C.holders.splice(selected.i, 1);
       selected = null; syncTested(C); afterChange();
     }
@@ -1873,7 +1883,7 @@ function deleteSelected() {
   if (selected.type === 'led') C.leds.splice(selected.i, 1);
   else if (selected.type === 'res') C.resistors.splice(selected.i, 1);
   else if (selected.type === 'tape') C.tapes.splice(selected.i, 1);
-  else if (selected.type === 'wire') C.holders[selected.hi].wires[selected.wi] = { dock: true };
+  else if (selected.type === 'wire') resetWire(C.holders[selected.hi], selected.wi);
   else if (selected.type === 'holder') C.holders.splice(selected.i, 1);
   selected = null;
   afterChange();
