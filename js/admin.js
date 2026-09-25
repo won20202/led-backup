@@ -5,9 +5,9 @@ import { config, saveConfig, exportConfigCode, importConfigCode, getMisses, clea
          checkAdminPin, syncAdminPin,
          makeSid, parseSid, weekKeyOf, timetableForWeek, runsOf, todayRuns,
          rosterActive, readOnly, presetNames, savePreset, loadPreset, deletePreset,
-         BLOCKED_STATUS } from './state.js?v=42';
-import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=42';
-import { switchTab } from './app.js?v=42';
+         BLOCKED_STATUS } from './state.js?v=43';
+import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=43';
+import { switchTab } from './app.js?v=43';
 
 const $ = id => document.getElementById(id);
 
@@ -37,7 +37,11 @@ const FIELDS = [
   ['coinRint', '동전 전지 1개 내부 저항 (Ω)', 'number'],
   ['coinImax', '동전 전지 최대 공급 전류 (mA)', 'number'],
   ['coinCells', '동전 전지 최대 개수', 'number'],
-  ['vf', 'LED 점등 문턱 전압 (V) — 직렬 소등 기준', 'number'],
+  ['vf', '백색 LED 문턱 전압 (V) — 직렬 소등 기준', 'number'],
+  ['vfRed', '빨강 LED 문턱 전압 (V) — 심화 모드', 'number'],
+  ['vfYellow', '노랑 LED 문턱 전압 (V)', 'number'],
+  ['vfGreen', '초록 LED 문턱 전압 (V)', 'number'],
+  ['vfBlue', '파랑 LED 문턱 전압 (V)', 'number'],
   ['rint', '내부 저항 (Ω) — 밝기 계산용', 'number'],
   ['imax', '전지 최대 공급 전류 (mA)', 'number'],
   ['frontW', '앞면 종이 가로 (cm)', 'number'],

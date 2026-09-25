@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=42';
-import { renderLogList } from './case3d.js?v=42';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=43';
+import { renderLogList } from './case3d.js?v=43';
 
 const $ = id => document.getElementById(id);
 
@@ -16,7 +16,14 @@ export const KINDS = {
   green: { label: '초록', vth: 2.0, rgb: [90, 230, 120] },
   blue: { label: '파랑', vth: 2.6, rgb: [95, 155, 255] },
 };
-function vthOf(l) { const k = KINDS[l.kind || 'white']; return k.vth ?? config.vf; }
+// 색마다 문턱 전압이 다르고, 같은 색이라도 제품마다 다르다 — 설정에서 실제 값으로 바꿀 수 있다
+const VF_KEY = { white: 'vf', red: 'vfRed', yellow: 'vfYellow', green: 'vfGreen', blue: 'vfBlue' };
+function vthOfKind(kind) {
+  const k = KINDS[kind] || KINDS.white;
+  const v = Number(config[VF_KEY[kind] || 'vf']);
+  return v > 0 ? v : (k.vth ?? (Number(config.vf) || 2.2));
+}
+function vthOf(l) { return vthOfKind(l.kind || 'white'); }
 // 저항 색띠 (실물 4띠: 앞 두 자리 + 10의 거듭제곱 + 오차 금색)
 const BAND_COLOR = ['#1b1b1b', '#7a4a1e', '#d23b2e', '#e2892c', '#e8d23a', '#3fa14b', '#3b6fd1', '#8a4baf', '#9aa1a8', '#f4f4f4'];
 // 부품마다 다른 값을 가질 수 있다 — 안 정했으면 설정의 기본값
@@ -487,7 +494,11 @@ function solveInner(C, lab, forceOn) {
     const plus = find(term(hi, 0)), minus = find(term(hi, 1));
     if (plus === minus) { res.short = true; continue; } // 이 홀더가 합선
     const Vs = lab ? holderVolt(h) : config.voltage;
-    const rint = lab ? rintOf(h) : (Number(config.rint) || 10);
+    // 전지 안쪽 저항은 모든 길이 '함께' 쓰고(동전 전지는 이게 크다),
+    // 테이프·접촉 저항은 길마다 '따로' 겪는다(AA는 안쪽 저항이 거의 없어 이쪽만 본다).
+    const coinNow = lab && isCoin(h);
+    const rShared = coinNow ? rintOf(h) : 0;
+    const rPath = coinNow ? 0 : (Number(config.rint) || 10);
     if (!h.on && !forceOn) continue; // 스위치 꺼짐 (조립 순서 장면 등에서는 forceOn으로 켜진 모습을 그린다)
     reach(plus, true).forEach(c => res.energizedPlus.add(c));
     reach(minus, false).forEach(c => res.energizedMinus.add(c));
@@ -512,15 +523,37 @@ function solveInner(C, lab, forceOn) {
     };
     dfs(plus, new Set(), [], 0, 0);
 
+    // 길마다 문턱 전압과 직렬 저항을 구해 둔다
+    for (const p of paths) {
+      p.sumVth = p.leds.reduce((a, i) => a + vthOf(C.leds[i]), 0);
+      p.rs = Math.max(1, p.leds.length * (Number(config.ledRd) || 30) + p.rSum + rPath);
+    }
+    // 전지의 내부 저항은 모든 길이 함께 쓴다 — 길이 늘어날수록 단자 전압이 내려가
+    // 저마다 흐르는 전류가 줄어든다. V = 전지전압 − 내부저항 × (흐르는 전류의 합) 을 풀어서 구한다.
+    // 단자 전압이 오를수록 흐르는 전류도 늘어나므로, 답은 0V와 전지 전압 사이에 딱 하나 있다.
+    // 반씩 좁혀 가며(이분법) 찾는다 — 어떤 회로에서도 흔들리지 않는다.
+    let Vt = Vs;
+    if (rShared > 0) {
+      let lo = 0, hi = Vs;
+      for (let it = 0; it < 60; it++) {
+        const mid = (lo + hi) / 2;
+        let sumA = 0;
+        for (const p of paths) { const a = (mid - p.sumVth) / p.rs; if (a > 0) sumA += a; }
+        if (mid > Vs - rShared * sumA) hi = mid; else lo = mid;
+      }
+      Vt = (lo + hi) / 2;
+    }
+    res.vTerm = Vt;
+
     const conducting = [], faintPaths = [];
     for (const p of paths) {
       const k = p.leds.length;
-      const sumVth = p.leds.reduce((a, i) => a + vthOf(C.leds[i]), 0);
-      const I = (Vs - sumVth) / (rint + k * config.ledRd + p.rSum) * 1000;
+      const sumVth = p.sumVth;
+      const I = (Vt - sumVth) / p.rs * 1000;
       if (I <= 0.2) {
         // 문턱 전압에 못 미쳐도 실물 LED는 겨우 보일 만큼 빛난다.
         // 전압이 모자랄수록 급격히 어두워지고, 절반도 안 되면 정말 안 켜진다.
-        const ratio = sumVth > 0 ? Vs / sumVth : 0;
+        const ratio = sumVth > 0 ? Vt / sumVth : 0;
         // 밝기는 전압이 오를수록 커져야 한다 — 문턱을 갓 넘은 밝기(약 0.07)와 이어지게 맞춘다
         if (ratio > 0.5 && !(lab && isCoin(h))) faintPaths.push({ leds: p.leds, b: Math.max(0.02, 0.07 * (ratio - 0.5) / 0.5) });
         else if (k >= 2) res.hasBlockedSeries = true;
@@ -529,12 +562,11 @@ function solveInner(C, lab, forceOn) {
       conducting.push({ leds: p.leds, nRes: p.nRes, I });
     }
     const total = conducting.reduce((a, p) => a + p.I, 0);
-    // 동전 전지는 내부 저항이 커서, 낼 수 있는 것보다 많은 전류를 요구하면
-    // 단자 전압이 LED 문턱 아래로 무너져 아예 하나도 켜지지 않는다 (AA는 나눠 갖고 어두워진다).
+    // 전지가 더는 못 내주는 한계 (동전 전지는 이 값이 아주 작다)
     const imax = lab ? imaxOf(h) : (Number(config.imax) || 200);
     res.demand = Math.max(res.demand || 0, total);
     res.supply = imax;
-    if (lab && isCoin(h) && total > imax) { res.coinOverload = true; continue; }
+    if (lab && isCoin(h) && total > imax) res.coinOverload = true;
     const scale = total > imax ? imax / total : 1;
     for (const p of conducting) {
       const I = p.I * scale;
@@ -1108,7 +1140,7 @@ function advancedNote(C, R) {
   const vs = mode === 'lab'
     ? ([...new Set((C.holders || []).map(h => ((h.cells || 2) * 1.5).toFixed(1)))].join(' · ') || '3.0')
     : Number(config.voltage).toFixed(1);
-  const kinds = Object.values(KINDS).map(v => `${v.label} ${Number(v.vth ?? config.vf).toFixed(1)}V`).join(' · ');
+  const kinds = Object.entries(KINDS).map(([k, v]) => `${v.label} ${vthOfKind(k).toFixed(1)}V`).join(' · ');
   return `<div class="calc-card"><b>저항 고르기 — 계산해 봅시다</b>` +
     `<p>전지 ${vs}V · LED가 켜지는 데 필요한 전압: ${kinds}</p>` +
     `<p>① 저항이 받는 전압 = 전지 전압 − LED 전압<br>② 그 전압으로 원하는 전류를 흘리려면? <b>V = I × R</b></p>` +
@@ -1148,7 +1180,7 @@ function updatePanel() {
       const unlit = C.leds.length - litN - R.burnt.size;
       if (unlit > 0) html += `<p class="hint">안 켜진 LED가 ${unlit}개 있습니다. 긴 다리(+)가 어느 줄에 붙어 있는지, 두 다리가 서로 다른 줄에 있는지, 전압이 충분한지 살펴볼까요?</p>`;
       if (R.dimSeries) html += `<p class="hint">유난히 어둡게 켜진 LED가 보이나요? 전류가 LED를 몇 개나 거쳐 가는지, 전지의 전압이 얼마인지 생각해 보세요.</p>`;
-      if (R.coinOverload) html += `<p class="hint">동전 전지가 낼 수 있는 전류보다 더 많이 필요한 회로예요. 그래서 전지의 전압이 뚝 떨어져 <b>하나도 켜지지 않습니다</b>. LED를 몇 개, 어떤 방법으로 이었는지 다시 보고 — 같은 전지로 켜려면 무엇을 바꿔 볼 수 있을까요?</p>`;
+      if (R.coinOverload) html += `<p class="hint">동전 전지가 낼 수 있는 전류의 한계에 걸렸어요. LED를 더 붙여도 <b>더 밝아지지 않고 서로 나눠 갖습니다</b>. 같은 전지로 밝게 켜려면 무엇을 바꿔 볼 수 있을까요?</p>`;
       if (R.faintLit) html += `<p class="hint">겨우 보일 만큼 <b>희미하게</b> 켜진 LED가 있어요. 전류가 지나는 길 하나에 LED가 몇 개 있는지, 전지의 전압이 그 LED들에게 어떻게 나뉘는지 살펴볼까요? 같은 전지로 더 밝게 하려면 연결을 어떻게 바꿔 볼 수 있을까요?</p>`;
       else if (R.hasBlockedSeries) html += `<p class="hint">LED를 여러 개 거쳐 가는 길이 있네요. LED가 늘어날수록 각 LED가 나눠 받는 전압은 어떻게 될까요?</p>`;
       // 켜지긴 했지만 전류가 너무 적어 실제로는 흐릿한 경우 — '안정적'이라고 말하면 오개념이 된다

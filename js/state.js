@@ -68,7 +68,9 @@ export const DEFAULT_CONFIG = {
   // 회로 모델: 백색 LED를 문턱 전압 + 동저항으로 근사 — 현실과 같은 결론이 나온다.
   // 1.5V→안 켜짐 / 3V 1개→정상(약 20mA) / 3V 직렬2→소등 / 4.5V 직렬2→희미 / 6V 직렬2→정상
   // 저항 없이 4.5V 이상 직결→과전류(수명 급감)→타버림. I = (Vs − k·Vth) / (Rint + k·Rd + R외부)
-  vf: 2.2,      // LED 문턱 전압 Vth (V)
+  vf: 2.2,      // 백색 LED 문턱 전압 Vth (V)
+  // 색 LED 문턱 전압 — 대표값. 제품마다 달라서 제조사 표시를 보고 고칠 수 있다 (심화 모드)
+  vfRed: 1.8, vfYellow: 1.9, vfGreen: 2.0, vfBlue: 2.6,
   ledRd: 30,    // LED 동저항 (Ω)
   rint: 10,     // 전지·테이프 내부저항 (Ω)
   iOver: 25,    // 이보다 크면 과전류 경고 (mA)
@@ -76,8 +78,8 @@ export const DEFAULT_CONFIG = {
   // 회로 실험실 전용 동전 전지(CR2032) — 실습 전 안전하게 직렬·병렬을 시험해 보는 용도.
   // AA와 달리 전류를 조금밖에 못 내보내서, 병렬로 늘리면 금방 어두워진다.
   coinVolt: 3.0,       // 1개 전압 (V)
-  coinRint: 60,        // 1개 내부 저항 (Ω) — AA보다 훨씬 크다
-  coinImax: 10,        // 내보낼 수 있는 최대 전류 (mA)
+  coinRint: 30,        // 1개 내부 저항 (Ω) — 얇아서 AA보다 훨씬 크다 (모든 길이 함께 쓴다)
+  coinImax: 60,        // 감당할 수 있는 최대 전류 (mA)
   coinCells: 3,        // 쌓을 수 있는 최대 개수
   advanced: false,     // 심화 모드: 저항 부품 + 실제 색 LED (기본은 백색 LED + 매직 색칠)
   resistorOhm: 220,               // 기본 저항값
@@ -446,7 +448,7 @@ export function rosterActive() { return Object.keys(config.roster || {}).length 
 // 수업마다 달라지는 '수업 내용' 설정만 담는다.
 // 서버 연결·PIN·입장 코드·시간표·학번 체계·명단은 절대 담지도, 바꾸지도 않는다.
 const PRESET_KEYS = [
-  'advanced', 'resistorOhm', 'resistorSet', 'voltage',
+  'advanced', 'resistorOhm', 'resistorSet', 'voltage', 'vfRed', 'vfYellow', 'vfGreen', 'vfBlue',
   'coinVolt', 'coinRint', 'coinImax', 'coinCells', 'vf', 'ledRd', 'rint', 'iOver', 'iBurn', 'imax',
   'ledCount', 'overLimit', 'showSupply', 'showMeasure', 'askPredict', 'questionFeedback',
   'thickness', 'gridMajor', 'gridMinor', 'targetW', 'targetH', 'targetD', 'showTarget', 'boardW', 'boardH',
