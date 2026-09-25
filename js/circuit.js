@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=59';
-import { renderLogList } from './case3d.js?v=59';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=60';
+import { renderLogList } from './case3d.js?v=60';
 
 const $ = id => document.getElementById(id);
 
@@ -447,7 +447,7 @@ function solveInner(C, lab, forceOn) {
     tapeComp: C.tapes.map((_, i) => find(i)), energizedPlus: new Set(), energizedMinus: new Set(),
     netPlus: new Set(), netMinus: new Set(),
     hasBlockedSeries: false, dimSeries: false, noResistorLit: false, anyLit: false, faintLit: false,
-    coinOverload: false, demand: 0, supply: 0 };
+    coinOverload: false, batShort: false, demand: 0, supply: 0 };
   if (!H) return res;
 
   // 가장 가까운 테이프에 붙는다 (스치듯 지나가는 다른 줄에 잘못 붙지 않게)
@@ -567,7 +567,12 @@ function solveInner(C, lab, forceOn) {
 
     const paths = [];
     const dfs = (c, used, ledList, nRes, rSum, emf, rBat) => {
-      if (c === minus) { if (ledList.length) paths.push({ leds: [...ledList], nRes, rSum, emf, rBat }); return; }
+      if (c === minus) {
+        if (ledList.length) paths.push({ leds: [...ledList], nRes, rSum, emf, rBat });
+        // 부품 하나 없이 전지끼리만 이어진 고리 — 서로 밀어 대며 합선이 된다
+        else if (multiBat && nRes === 0 && Math.abs(Vs + emf) > 0.2) { res.batShort = true; res.short = true; }
+        return;
+      }
       if (paths.length > 300) return;
       // 다른 전지를 거쳐 가는 길 — (−)로 들어가 (+)로 나오면 전압이 더해지고, 반대면 깎인다
       for (const b of batEdges) {
@@ -1343,6 +1348,7 @@ function updatePanel() {
     html += `<p class="hint">실제로 지급되는 LED는 ${config.ledCount}개예요. 배치를 참고로 실험하는 건 자유!</p>`;
   if (R.noHolder) html += '<p class="muted">건전지 홀더를 놓고, 홀더의 <b style="color:#d64545">빨간(+)</b>·<b>검정(−)</b> 전선 끝을 끌어 테이프에 붙여 보세요. 전선 끝에서 테이프를 시작해도 돼요.' +
     (mode === 'placard' ? '<br>옆면 띠와 뒷면은 따로 붙입니다 — 테이프 끝을 서로 만나는 가장자리에 대면 조립할 때 이어져요.' : '') + '</p>';
+  else if (R.batShort) html += '<p class="warn">전지끼리 서로 밀고 있어요! 한 전지의 (+)가 다른 전지의 (−)와, (−)가 (+)와 이어져 부품 없이 한 바퀴 도는 길이 생겼습니다. 이러면 전지가 뜨거워지고 LED에는 전압이 남지 않아요. 전지 두 개를 어떻게 이어야 할지 다시 살펴볼까요?</p>';
   else if (R.short) html += (mode === 'lab' && C.holders.some(isCoin)
     ? '<p class="warn">(+)와 (−)가 직접 만나는 합선이에요. 동전 전지라 크게 뜨거워지지는 않지만 전지가 금방 닳습니다. 실습에서 쓰는 AA 전지였다면 매우 뜨거워집니다!'
     : '<p class="warn">전지가 뜨거워집니다! (+)와 (−)가 직접 만나는 합선이에요.') + (' 전도성 테이프는 겹치거나 교차하면 서로 닿아요 — 두 줄이 만나지 않게 떨어뜨리거나 돌아가게 붙여 보세요.' +
