@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=58';
-import { renderLogList } from './case3d.js?v=58';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=59';
+import { renderLogList } from './case3d.js?v=59';
 
 const $ = id => document.getElementById(id);
 
@@ -517,6 +517,16 @@ function solveInner(C, lab, forceOn) {
     edges.push({ type: 'res', i, a: nodeOf(g.a), k: nodeOf(g.k) });
   });
 
+  // 전지가 둘 이상이면 서로 이어 붙일 수 있다 — 전지도 길 위의 요소로 다룬다.
+  // 꺼져 있는 전지는 길이 끊긴 것이므로 지나갈 수 없다.
+  const multiBat = H > 1;
+  const batEdges = multiBat ? C.holders.map((hh, j) => ({
+    j, plus: find(term(j, 0)), minus: find(term(j, 1)),
+    V: lab ? holderVolt(hh) : (Number(config.voltage) || 3),
+    r: lab ? (isCoin(hh) ? rintOf(hh) : (Number(config.rint) || 10)) : (Number(config.rint) || 10),
+    on: !!hh.on,
+  })) : [];
+
   const reach = (start, fwd) => {
     const seen = new Set();
     if (start < 0) return seen;
@@ -556,9 +566,20 @@ function solveInner(C, lab, forceOn) {
     reach(minus, false).forEach(c => res.energizedMinus.add(c));
 
     const paths = [];
-    const dfs = (c, used, ledList, nRes, rSum) => {
-      if (c === minus) { if (ledList.length) paths.push({ leds: [...ledList], nRes, rSum }); return; }
+    const dfs = (c, used, ledList, nRes, rSum, emf, rBat) => {
+      if (c === minus) { if (ledList.length) paths.push({ leds: [...ledList], nRes, rSum, emf, rBat }); return; }
       if (paths.length > 300) return;
+      // 다른 전지를 거쳐 가는 길 — (−)로 들어가 (+)로 나오면 전압이 더해지고, 반대면 깎인다
+      for (const b of batEdges) {
+        if (b.j === hi || !b.on || used.has('bat' + b.j)) continue;
+        let nx = null, dv = 0;
+        if (b.minus === c) { nx = b.plus; dv = b.V; }
+        else if (b.plus === c) { nx = b.minus; dv = -b.V; }
+        if (nx === null) continue;
+        used.add('bat' + b.j);
+        dfs(nx, used, ledList, nRes, rSum, emf + dv, rBat + b.r);
+        used.delete('bat' + b.j);
+      }
       for (const e of edges) {
         if (e.a < 0 || e.k < 0 || used.has(e.type + e.i)) continue;
         let next = null;
@@ -568,12 +589,12 @@ function solveInner(C, lab, forceOn) {
         used.add(e.type + e.i);
         if (e.type === 'led') ledList.push(e.i);
         dfs(next, used, ledList, nRes + (e.type === 'res' ? 1 : 0),
-          rSum + (e.type === 'res' ? ohmOf(C.resistors[e.i]) : 0));
+          rSum + (e.type === 'res' ? ohmOf(C.resistors[e.i]) : 0), emf, rBat);
         if (e.type === 'led') ledList.pop();
         used.delete(e.type + e.i);
       }
     };
-    dfs(plus, new Set(), [], 0, 0);
+    dfs(plus, new Set(), [], 0, 0, 0, 0);
 
     // 길마다 문턱 전압과 직렬 저항을 구해 둔다
     for (const p of paths) {
@@ -601,11 +622,14 @@ function solveInner(C, lab, forceOn) {
     for (const p of paths) {
       const k = p.leds.length;
       const sumVth = p.sumVth;
-      const I = (Vt - sumVth) / p.rs * 1000;
+      // 전지가 둘 이상인 길은 지나온 전지들의 전압·내부 저항을 함께 셈한다
+      const I = multiBat
+        ? (Vs + (p.emf || 0) - sumVth) / (p.rs + (p.rBat || 0) + (coinNow ? rShared : 0)) * 1000
+        : (Vt - sumVth) / p.rs * 1000;
       if (I <= 0.2) {
         // 문턱 전압에 못 미쳐도 실물 LED는 겨우 보일 만큼 빛난다.
         // 전압이 모자랄수록 급격히 어두워지고, 절반도 안 되면 정말 안 켜진다.
-        const ratio = sumVth > 0 ? Vt / sumVth : 0;
+        const ratio = sumVth > 0 ? (multiBat ? (Vs + (p.emf || 0)) : Vt) / sumVth : 0;
         // 밝기는 전압이 오를수록 커져야 한다 — 문턱을 갓 넘은 밝기(약 0.07)와 이어지게 맞춘다
         if (ratio > 0.5 && !(lab && isCoin(h))) faintPaths.push({ leds: p.leds, b: Math.max(0.02, 0.07 * (ratio - 0.5) / 0.5) });
         else if (k >= 2) res.hasBlockedSeries = true;
