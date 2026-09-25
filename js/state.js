@@ -165,14 +165,16 @@ const OTHER_SUPABASE = 'gakrtbuicpruxjaqalec'; // 다른 버전(led)이 쓰는 �
 const MISS_KEY = 'lps_faq_miss';
 
 export let config = loadConfig();
-// 동전 전지를 처음 넣을 때 쓴 임시값이 저장된 기기가 있다 — 실측 기준값으로 한 번만 맞춘다.
-// (동전 전지 설정만 건드리고 다른 설정은 그대로 둔다)
-if (config.coinRev !== 2) {
+// 동전 전지를 처음 넣을 때 쓴 임시값이 저장·동기화된 기기가 있다 — 실측 기준값으로 한 번만 맞춘다.
+// 설정을 서버·파일에서 새로 받을 때마다 확인한다 (동전 전지 값만 건드린다).
+function fixCoinDefaults() {
+  if (config.coinRev === 2) return;
   config.coinRint = 30;
   config.coinImax = 60;
   config.coinRev = 2;
   saveConfig();
 }
+fixCoinDefaults();
 
 function loadConfig() {
   try {
@@ -210,6 +212,7 @@ export async function fileConfigPull() {
     delete pub.codeSalt;  // 코드 씨앗은 모든 기기가 같은 기본값을 써야 코드가 일치한다
     if ((pub._cfgAt || 0) <= (config._cfgAt || 0)) return false; // 내 설정이 더 최신
     Object.assign(config, pub);
+    fixCoinDefaults();
     localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
     return true;
   } catch (e) { return false; }
@@ -245,6 +248,7 @@ export async function cloudPullConfig() {
     CONFIG_SYNC_EXCLUDE.forEach(k => delete pub[k]);
     if ((pub._cfgAt || 0) <= (config._cfgAt || 0)) return false; // 내 설정이 더 최신이면 유지
     Object.assign(config, pub);
+    fixCoinDefaults();
     localStorage.setItem(CONFIG_KEY, JSON.stringify(config));
     return true;
   } catch (e) { return false; }
