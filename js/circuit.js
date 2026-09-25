@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=53';
-import { renderLogList } from './case3d.js?v=53';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=54';
+import { renderLogList } from './case3d.js?v=54';
 
 const $ = id => document.getElementById(id);
 
@@ -1130,7 +1130,7 @@ function drawCoin(h, hi) {
   ctx.translate((cg.base.x + cg.tip.x) / 2 * Z, (cg.base.y + cg.tip.y) / 2 * Z);
   ctx.rotate(Math.atan2(dys, dxs));
   ctx.fillStyle = '#6b7480'; ctx.font = `${Math.max(8, Z * 0.34)}px sans-serif`; ctx.textAlign = 'center';
-  ctx.fillText('두겹 테이프', 0, -0.45 * Z);
+  ctx.fillText('스위치 테이프', 0, -0.45 * Z);
   ctx.restore();
   ctx.textAlign = 'center';
   // 양 끝을 똑같이 그린다 — 어느 쪽이든 전지에 댈 수 있으니 방향이 있는 것처럼 보이면 안 된다.
@@ -1360,7 +1360,7 @@ function updatePanel() {
   } else html += mode === 'placard'
     ? '<p class="muted">스위치가 꺼져 있어요. 몇 개가 켜질지 예측을 적고 스위치를 켜 보세요.</p>'
     : (C.holders.some(isCoin)
-      ? '<p class="muted">두겹 테이프는 <b>양쪽 끝 모두</b> 전기가 통해요. 한쪽 끝을 회로의 테이프에 붙이고, <b>다른 끝을 동전 전지 위에</b> 끌어다 올려 보세요. 대면 켜지고 떼면 꺼집니다.</p>'
+      ? '<p class="muted">스위치 테이프는 <b>양쪽 끝 모두</b> 전기가 통해요. 한쪽 끝을 회로의 테이프에 붙이고, <b>다른 끝을 동전 전지 위에</b> 끌어다 올려 보세요. 대면 켜지고 떼면 꺼집니다.</p>'
       : '<p class="muted">스위치가 꺼져 있어요. 홀더의 스위치를 눌러 보세요.</p>');
   if (!R.noHolder && mode === 'placard')
     html += '<p class="muted small">테이프 위 가는 색선은 몇 번째 줄인지 구분하는 표시예요 — [입체로 보기]에서 같은 색을 따라가면 그 줄이 어떻게 둘러지는지 보여요.</p>';
