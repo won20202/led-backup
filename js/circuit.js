@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=52';
-import { renderLogList } from './case3d.js?v=52';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=53';
+import { renderLogList } from './case3d.js?v=53';
 
 const $ = id => document.getElementById(id);
 
@@ -1114,10 +1114,25 @@ function drawCoin(h, hi) {
   ctx.fillStyle = h.flip ? '#2f3640' : '#d64545';
   ctx.font = `bold ${Math.max(12, Z * 0.8)}px sans-serif`;
   ctx.fillText(h.flip ? '−' : '+', h.x * Z, (h.y + 0.3) * Z);
-  // 두겹 테이프 스위치 — 붙여 둔 끝(네모)에서 자유 끝(동그라미)까지
-  ctx.strokeStyle = '#c3c9d2'; ctx.lineWidth = 0.5 * Z; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(cg.base.x * Z, cg.base.y * Z); ctx.lineTo(cg.tip.x * Z, cg.tip.y * Z); ctx.stroke();
-  ctx.strokeStyle = '#98a1ab'; ctx.lineWidth = 1; ctx.stroke();
+  // 두겹 테이프 스위치 — 두 층이 눈에 보이게 나란히 두 줄로 그린다
+  const dxs = cg.tip.x - cg.base.x, dys = cg.tip.y - cg.base.y;
+  const Ls = Math.hypot(dxs, dys) || 1, nx = -dys / Ls * 0.17, ny = dxs / Ls * 0.17;
+  ctx.lineCap = 'round';
+  [[-1, '#b9c0c9'], [1, '#dde2e8']].forEach(([sgn, col]) => {
+    ctx.strokeStyle = col; ctx.lineWidth = 0.3 * Z;
+    ctx.beginPath();
+    ctx.moveTo((cg.base.x + nx * sgn) * Z, (cg.base.y + ny * sgn) * Z);
+    ctx.lineTo((cg.tip.x + nx * sgn) * Z, (cg.tip.y + ny * sgn) * Z);
+    ctx.stroke();
+    ctx.strokeStyle = '#8e959d'; ctx.lineWidth = 1; ctx.stroke();
+  });
+  ctx.save();
+  ctx.translate((cg.base.x + cg.tip.x) / 2 * Z, (cg.base.y + cg.tip.y) / 2 * Z);
+  ctx.rotate(Math.atan2(dys, dxs));
+  ctx.fillStyle = '#6b7480'; ctx.font = `${Math.max(8, Z * 0.34)}px sans-serif`; ctx.textAlign = 'center';
+  ctx.fillText('두겹 테이프', 0, -0.45 * Z);
+  ctx.restore();
+  ctx.textAlign = 'center';
   // 양 끝을 똑같이 그린다 — 어느 쪽이든 전지에 댈 수 있으니 방향이 있는 것처럼 보이면 안 된다.
   // 전지 위에 올라간 끝만 반투명하게 해서 아래의 극성 글자가 보이게 한다.
   [[cg.tip, cg.tipOn, 0], [cg.base, cg.baseOn, 1]].forEach(([e, on, wi]) => {
@@ -1167,10 +1182,12 @@ function drawCoin(h, hi) {
   // 두겹 테이프 — 댔으면 윗면에 닿고, 뗐으면 위에 떠 있다
   const gap = cg.touching ? 0.02 : 0.5;
   const tapeY = sy - stackH / 2 - 0.22 - gap;
-  ctx.fillStyle = cg.touching ? '#9fb0c2' : '#c3c9d2';
-  ctx.fillRect((sx + 0.2) * Z, tapeY * Z, (sw - 0.4) * Z, 0.22 * Z);
-  ctx.strokeStyle = '#7d848d'; ctx.lineWidth = 0.8;
-  ctx.strokeRect((sx + 0.2) * Z, tapeY * Z, (sw - 0.4) * Z, 0.22 * Z);
+  [0, 1].forEach(k => {   // 두 겹
+    ctx.fillStyle = k ? '#dde2e8' : '#b9c0c9';
+    ctx.fillRect((sx + 0.2) * Z, (tapeY - k * 0.15) * Z, (sw - 0.4) * Z, 0.14 * Z);
+    ctx.strokeStyle = '#7d848d'; ctx.lineWidth = 0.8;
+    ctx.strokeRect((sx + 0.2) * Z, (tapeY - k * 0.15) * Z, (sw - 0.4) * Z, 0.14 * Z);
+  });
   if (!cg.touching) {   // 떨어져 있다는 표시
     ctx.strokeStyle = '#b6bdc6'; ctx.setLineDash([2, 3]); ctx.lineWidth = 1;
     ctx.beginPath();
