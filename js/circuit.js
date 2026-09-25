@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=45';
-import { renderLogList } from './case3d.js?v=45';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=46';
+import { renderLogList } from './case3d.js?v=46';
 
 const $ = id => document.getElementById(id);
 
@@ -366,7 +366,11 @@ function normalize(C) {
   });
 }
 // 스위치 상태 요약 (썸네일·다른 탭이 tested를 계속 쓰므로 동기화)
-function syncTested(C) { C.tested = (C.holders || []).some(h => h.on); }
+function syncTested(C) {
+  // 동전 전지는 두겹 테이프를 댄 상태가 곧 스위치 ON
+  (C.holders || []).forEach(h => { if (h.pack === 'coin') h.on = coinGeom(h).touching; });
+  C.tested = (C.holders || []).some(h => h.on);
+}
 // 전원이 켜져 있는 동안에는 회로를 수정할 수 없다 (실제 작업 규칙과 동일)
 function poweredOn() { return (am().holders || []).some(h => h.on && !isCoin(h)); }
 
@@ -1444,6 +1448,9 @@ function toggleSwitch(hi) {
   resolveAndDraw();
 }
 function updateSwitchButton() {
+  // 동전 전지는 두겹 테이프를 대는 것이 스위치다 — 버튼으로 켜고 끄지 않는다
+  const coinOnly = mode === 'lab' && am().holders.length > 0 && am().holders.every(isCoin);
+  $('btn-test').style.display = coinOnly ? 'none' : '';
   $('btn-test').textContent = am().tested ? '스위치 끄기' : '스위치 켜기';
   $('btn-test').classList.toggle('on', am().tested);
   const ok = mode === 'lab' || !config.askPredict || am().predictCount !== '';
