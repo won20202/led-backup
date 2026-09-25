@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=54';
-import { renderLogList } from './case3d.js?v=54';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=55';
+import { renderLogList } from './case3d.js?v=55';
 
 const $ = id => document.getElementById(id);
 
@@ -196,14 +196,15 @@ function maxCells(h) { return isCoin(h) ? Math.max(1, Math.round(Number(config.c
 function rintOf(h) { return isCoin(h) ? (h.cells || 1) * (Number(config.coinRint) || 80) : (Number(config.rint) || 10); }
 function imaxOf(h) { return isCoin(h) ? (Number(config.coinImax) || 10) : (Number(config.imax) || 200); }
 
-// 동전 전지(실험실 전용): 은색 테이프 위에 놓인 전지 + 접착면끼리 붙인 두겹 테이프 스위치.
-// 바닥에 닿는 면은 밑에 깔린 테이프와 이어지고, 윗면은 두겹 테이프를 댈 때만 이어진다.
+// 동전 전지(실험실 전용): 은색 테이프 위에 놓인 전지 + 스위치 테이프.
+// 전기는 한 겹으로도 통한다 — 두 겹으로 만든 건 끈적한 면을 감춰 댔다 뗐다 하려는 것뿐이다.
+// 바닥에 닿는 면은 밑에 깔린 테이프와 이어지고, 윗면은 스위치 테이프를 댈 때만 이어진다.
 const COIN_R = 1.0;   // 반지름 (CR2032 지름 2cm)
 function coinGeom(h) {
   const w = h.wires || [];
   const tip = (w[0] && w[0].x !== undefined) ? w[0] : { x: h.x + 3.4, y: h.y - 2.6 };
   const base = (w[1] && w[1].x !== undefined) ? w[1] : { x: h.x + 6.4, y: h.y - 2.6 };
-  // 두겹 테이프는 양쪽 바깥면이 모두 전기가 통한다 — 어느 끝을 전지에 대든 같다.
+  // 테이프는 어디든 전기가 통하므로 어느 끝을 전지에 대든 같다.
   const dTip = Math.hypot(tip.x - h.x, tip.y - h.y);
   const dBase = Math.hypot(base.x - h.x, base.y - h.y);
   const R = COIN_R + 0.2;
@@ -214,7 +215,7 @@ function coinGeom(h) {
     tip, base, tipOn, baseOn, other,
     touching: tipOn || baseOn,
     benchPole: h.flip ? 0 : 1,   // 바닥에 닿는 면 (기본 −)
-    topPole: h.flip ? 1 : 0,     // 두겹 테이프를 대는 윗면 (기본 +)
+    topPole: h.flip ? 1 : 0,     // 스위치 테이프를 대는 윗면 (기본 +)
   };
 }
 
@@ -374,7 +375,7 @@ function normalize(C) {
 }
 // 스위치 상태 요약 (썸네일·다른 탭이 tested를 계속 쓰므로 동기화)
 function syncTested(C) {
-  // 동전 전지는 두겹 테이프를 댄 상태가 곧 스위치 ON
+  // 동전 전지는 스위치 테이프를 댄 상태가 곧 스위치 ON
   (C.holders || []).forEach(h => { if (h.pack === 'coin') h.on = coinGeom(h).touching; });
   C.tested = (C.holders || []).some(h => h.on);
 }
@@ -1114,7 +1115,7 @@ function drawCoin(h, hi) {
   ctx.fillStyle = h.flip ? '#2f3640' : '#d64545';
   ctx.font = `bold ${Math.max(12, Z * 0.8)}px sans-serif`;
   ctx.fillText(h.flip ? '−' : '+', h.x * Z, (h.y + 0.3) * Z);
-  // 두겹 테이프 스위치 — 두 층이 눈에 보이게 나란히 두 줄로 그린다
+  // 스위치 테이프 — 두 층으로 겹쳐 만든 조각이라는 게 보이게 나란히 두 줄로 그린다
   const dxs = cg.tip.x - cg.base.x, dys = cg.tip.y - cg.base.y;
   const Ls = Math.hypot(dxs, dys) || 1, nx = -dys / Ls * 0.17, ny = dxs / Ls * 0.17;
   ctx.lineCap = 'round';
@@ -1179,7 +1180,7 @@ function drawCoin(h, hi) {
   ctx.fillText(h.flip ? '−' : '+', (sx + 0.35) * Z, (sy - stackH / 2 + 0.28) * Z);
   ctx.fillStyle = h.flip ? '#d64545' : '#2f3640';
   ctx.fillText(h.flip ? '+' : '−', (sx + 0.35) * Z, (sy + stackH / 2 + 0.22) * Z);
-  // 두겹 테이프 — 댔으면 윗면에 닿고, 뗐으면 위에 떠 있다
+  // 스위치 테이프 — 댔으면 윗면에 닿고, 뗐으면 위에 떠 있다
   const gap = cg.touching ? 0.02 : 0.5;
   const tapeY = sy - stackH / 2 - 0.22 - gap;
   [0, 1].forEach(k => {   // 두 겹
@@ -1360,7 +1361,7 @@ function updatePanel() {
   } else html += mode === 'placard'
     ? '<p class="muted">스위치가 꺼져 있어요. 몇 개가 켜질지 예측을 적고 스위치를 켜 보세요.</p>'
     : (C.holders.some(isCoin)
-      ? '<p class="muted">스위치 테이프는 <b>양쪽 끝 모두</b> 전기가 통해요. 한쪽 끝을 회로의 테이프에 붙이고, <b>다른 끝을 동전 전지 위에</b> 끌어다 올려 보세요. 대면 켜지고 떼면 꺼집니다.</p>'
+      ? '<p class="muted">전도성 테이프는 어디든 전기가 통해요. 이 <b>스위치 테이프</b>는 끈적한 면이 밖으로 나오지 않게 만든 조각이라 전지에 <b>댔다 뗐다</b> 할 수 있어요. 한쪽 끝을 회로의 테이프에 붙이고, 다른 끝을 <b>동전 전지 위에</b> 끌어다 올려 보세요.</p>'
       : '<p class="muted">스위치가 꺼져 있어요. 홀더의 스위치를 눌러 보세요.</p>');
   if (!R.noHolder && mode === 'placard')
     html += '<p class="muted small">테이프 위 가는 색선은 몇 번째 줄인지 구분하는 표시예요 — [입체로 보기]에서 같은 색을 따라가면 그 줄이 어떻게 둘러지는지 보여요.</p>';
@@ -1400,7 +1401,7 @@ function inHolderBody(p, h) {
   const ly = dx * Math.sin(a) + dy * Math.cos(a);
   return Math.abs(lx) < HOLDER_W / 2 + 0.3 && Math.abs(ly) < HOLDER_H / 2 + 0.3;
 }
-// 전선·두겹 테이프 끝을 제자리로 (동전 전지는 전지에서 떨어진 기본 자리로 되돌린다)
+// 전선·스위치 테이프 끝을 제자리로 (동전 전지는 전지에서 떨어진 기본 자리로 되돌린다)
 function resetWire(h, wi) {
   if (!h) return;
   if (h.pack === 'coin') h.wires[wi] = wi === 0 ? { x: h.x + 3.4, y: h.y - 2.6 } : { x: h.x + 6.4, y: h.y - 2.6 };
@@ -1527,7 +1528,7 @@ function toggleSwitch(hi) {
   resolveAndDraw();
 }
 function updateSwitchButton() {
-  // 동전 전지는 두겹 테이프를 대는 것이 스위치다 — 버튼으로 켜고 끄지 않는다
+  // 동전 전지는 스위치 테이프를 대는 것이 스위치다 — 버튼으로 켜고 끄지 않는다
   const coinOnly = mode === 'lab' && am().holders.length > 0 && am().holders.every(isCoin);
   $('btn-test').style.display = coinOnly ? 'none' : '';
   $('btn-test').textContent = am().tested ? '스위치 끄기' : '스위치 켜기';
