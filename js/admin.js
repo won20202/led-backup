@@ -5,9 +5,9 @@ import { config, saveConfig, exportConfigCode, importConfigCode, getMisses, clea
          checkAdminPin, syncAdminPin,
          makeSid, parseSid, weekKeyOf, timetableForWeek, runsOf, todayRuns,
          rosterActive, readOnly, presetNames, savePreset, loadPreset, deletePreset,
-         BLOCKED_STATUS } from './state.js?v=50';
-import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=50';
-import { switchTab } from './app.js?v=50';
+         BLOCKED_STATUS } from './state.js?v=51';
+import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=51';
+import { switchTab } from './app.js?v=51';
 
 const $ = id => document.getElementById(id);
 

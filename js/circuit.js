@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=50';
-import { renderLogList } from './case3d.js?v=50';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=51';
+import { renderLogList } from './case3d.js?v=51';
 
 const $ = id => document.getElementById(id);
 
@@ -203,9 +203,16 @@ function coinGeom(h) {
   const w = h.wires || [];
   const tip = (w[0] && w[0].x !== undefined) ? w[0] : { x: h.x + 3.4, y: h.y - 2.6 };
   const base = (w[1] && w[1].x !== undefined) ? w[1] : { x: h.x + 6.4, y: h.y - 2.6 };
+  // 두겹 테이프는 양쪽 바깥면이 모두 전기가 통한다 — 어느 끝을 전지에 대든 같다.
+  const dTip = Math.hypot(tip.x - h.x, tip.y - h.y);
+  const dBase = Math.hypot(base.x - h.x, base.y - h.y);
+  const R = COIN_R + 0.2;
+  const tipOn = dTip <= R, baseOn = dBase <= R;
+  // 전지에 닿은 끝의 반대쪽 끝이 회로(테이프)와 이어지는 쪽
+  const other = (tipOn && baseOn) ? (dTip >= dBase ? tip : base) : (tipOn ? base : tip);
   return {
-    tip, base,
-    touching: Math.hypot(tip.x - h.x, tip.y - h.y) <= COIN_R + 0.2,
+    tip, base, tipOn, baseOn, other,
+    touching: tipOn || baseOn,
     benchPole: h.flip ? 0 : 1,   // 바닥에 닿는 면 (기본 −)
     topPole: h.flip ? 1 : 0,     // 두겹 테이프를 대는 윗면 (기본 +)
   };
@@ -464,7 +471,7 @@ function solveInner(C, lab, forceOn) {
         if (t >= 0) union(term(hi, pole), t);
       };
       put(cg.benchPole, { x: h.x, y: h.y });      // 바닥 면은 깔린 테이프에 닿아 있다
-      if (cg.touching) put(cg.topPole, cg.base);  // 두겹 테이프를 대야 윗면이 이어진다
+      if (cg.touching) put(cg.topPole, cg.other); // 전지에 댄 끝의 반대쪽이 회로와 이어진다
       return;
     }
     const g = holderGeom(h);
@@ -1111,18 +1118,18 @@ function drawCoin(h, hi) {
   ctx.strokeStyle = '#c3c9d2'; ctx.lineWidth = 0.5 * Z; ctx.lineCap = 'round';
   ctx.beginPath(); ctx.moveTo(cg.base.x * Z, cg.base.y * Z); ctx.lineTo(cg.tip.x * Z, cg.tip.y * Z); ctx.stroke();
   ctx.strokeStyle = '#98a1ab'; ctx.lineWidth = 1; ctx.stroke();
-  ctx.fillStyle = '#b6bdc6';
-  ctx.beginPath(); ctx.roundRect((cg.base.x - 0.35) * Z, (cg.base.y - 0.35) * Z, 0.7 * Z, 0.7 * Z, 3); ctx.fill();
-  ctx.strokeStyle = '#7d848d'; ctx.lineWidth = 1.2; ctx.stroke();
-  // 자유 끝 — 전지에 댄 동안에는 반투명하게 그려서 아래의 극성 글자가 보이게 한다
-  ctx.save();
-  if (cg.touching) ctx.globalAlpha = 0.5;
-  ctx.beginPath(); ctx.arc(cg.tip.x * Z, cg.tip.y * Z, 0.34 * Z, 0, 7);
-  ctx.fillStyle = cg.touching ? '#9fb0c2' : '#f2f5f9';
-  ctx.fill();
-  ctx.strokeStyle = (selected && selected.type === 'wire' && selected.hi === hi) ? '#2b6cb0' : '#5c646e';
-  ctx.lineWidth = 1.8; ctx.stroke();
-  ctx.restore();
+  // 양 끝을 똑같이 그린다 — 어느 쪽이든 전지에 댈 수 있으니 방향이 있는 것처럼 보이면 안 된다.
+  // 전지 위에 올라간 끝만 반투명하게 해서 아래의 극성 글자가 보이게 한다.
+  [[cg.tip, cg.tipOn, 0], [cg.base, cg.baseOn, 1]].forEach(([e, on, wi]) => {
+    ctx.save();
+    if (on) ctx.globalAlpha = 0.5;
+    ctx.beginPath(); ctx.arc(e.x * Z, e.y * Z, 0.34 * Z, 0, 7);
+    ctx.fillStyle = on ? '#9fb0c2' : '#f2f5f9';
+    ctx.fill();
+    ctx.strokeStyle = (selected && selected.type === 'wire' && selected.hi === hi && selected.wi === wi) ? '#2b6cb0' : '#5c646e';
+    ctx.lineWidth = 1.8; ctx.stroke();
+    ctx.restore();
+  });
   // 댔으면 전지 둘레에 초록 테두리 — 어느 면에 댔는지 글자는 그대로 보인다
   if (cg.touching) {
     ctx.beginPath(); ctx.arc(h.x * Z, h.y * Z, (COIN_R + 0.12) * Z, 0, 7);
@@ -1336,7 +1343,7 @@ function updatePanel() {
   } else html += mode === 'placard'
     ? '<p class="muted">스위치가 꺼져 있어요. 몇 개가 켜질지 예측을 적고 스위치를 켜 보세요.</p>'
     : (C.holders.some(isCoin)
-      ? '<p class="muted">두겹 테이프의 <b>자유 끝(동그라미)</b>을 끌어 동전 전지 위에 올려 보세요. 대면 켜지고 떼면 꺼집니다.</p>'
+      ? '<p class="muted">두겹 테이프는 <b>양쪽 끝 모두</b> 전기가 통해요. 한쪽 끝을 회로의 테이프에 붙이고, <b>다른 끝을 동전 전지 위에</b> 끌어다 올려 보세요. 대면 켜지고 떼면 꺼집니다.</p>'
       : '<p class="muted">스위치가 꺼져 있어요. 홀더의 스위치를 눌러 보세요.</p>');
   if (!R.noHolder && mode === 'placard')
     html += '<p class="muted small">테이프 위 가는 색선은 몇 번째 줄인지 구분하는 표시예요 — [입체로 보기]에서 같은 색을 따라가면 그 줄이 어떻게 둘러지는지 보여요.</p>';
