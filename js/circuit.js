@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=41';
-import { renderLogList } from './case3d.js?v=41';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=42';
+import { renderLogList } from './case3d.js?v=42';
 
 const $ = id => document.getElementById(id);
 
@@ -179,6 +179,16 @@ const d3 = (a, b) => Math.hypot(a.X - b.X, a.Y - b.Y, a.Z - b.Z);
 
 // 건전지 홀더: 실제 홀더처럼 세로 몸체, 위쪽 좁은 면에 (+)(−) 단자.
 // 여러 개 만들 수 있고 각자 전지 개수(전압)와 스위치를 가진다.
+// 전지 종류 — 'aa'(기본) / 'coin'(CR2032 동전 전지, 회로 실험실 전용)
+function isCoin(h) { return (h && h.pack) === 'coin'; }
+function cellVolt(h) { return isCoin(h) ? (Number(config.coinVolt) || 3) : 1.5; }
+function holderVolt(h) { return (h.cells || 2) * cellVolt(h); }
+function packName(h) { return isCoin(h) ? '동전(CR2032)' : 'AA'; }
+function packShort(h) { return isCoin(h) ? 'CR2032' : 'AA'; }
+function maxCells(h) { return isCoin(h) ? Math.max(1, Math.round(Number(config.coinCells) || 3)) : 6; }
+function rintOf(h) { return isCoin(h) ? (h.cells || 1) * (Number(config.coinRint) || 80) : (Number(config.rint) || 10); }
+function imaxOf(h) { return isCoin(h) ? (Number(config.coinImax) || 10) : (Number(config.imax) || 200); }
+
 function rotV(px, py, dir) {
   const a = (dir || 0) * Math.PI / 2;
   return { x: px * Math.cos(a) - py * Math.sin(a), y: px * Math.sin(a) + py * Math.cos(a) };
@@ -309,6 +319,8 @@ function normalize(C) {
   C.holders.forEach(h => {
     h.dir = h.dir || 0;
     h.cells = h.cells || 2;
+    h.pack = h.pack === 'coin' ? 'coin' : 'aa';
+    h.cells = Math.max(1, Math.min(h.cells, maxCells(h)));
     h.on = !!h.on;
     if (!h.g7) { const v = rotV(0, 1.0, h.dir); h.x += v.x; h.y += v.y; h.g7 = 1; } // 홀더 실측 반영 전 데이터: 단자 위치 유지
     if (!h.wires) h.wires = [{ dock: true }, { dock: true }];
@@ -384,10 +396,11 @@ function solveInner(C, lab, forceOn) {
 
   const res = { short: false, on: C.tested, noHolder: H === 0, unconnected: 0, bridges,
     lit: {}, over: new Set(), burnt: new Set(), iOf: {},
-    voltage: lab ? ((C.holders[0] && C.holders[0].cells) || 2) * 1.5 : config.voltage,
+    voltage: lab ? (C.holders[0] ? holderVolt(C.holders[0]) : 3) : config.voltage,
     tapeComp: C.tapes.map((_, i) => find(i)), energizedPlus: new Set(), energizedMinus: new Set(),
     netPlus: new Set(), netMinus: new Set(),
-    hasBlockedSeries: false, dimSeries: false, noResistorLit: false, anyLit: false, faintLit: false };
+    hasBlockedSeries: false, dimSeries: false, noResistorLit: false, anyLit: false, faintLit: false,
+    coinOverload: false, demand: 0, supply: 0 };
   if (!H) return res;
 
   // 가장 가까운 테이프에 붙는다 (스치듯 지나가는 다른 줄에 잘못 붙지 않게)
@@ -473,7 +486,8 @@ function solveInner(C, lab, forceOn) {
     const h = C.holders[hi];
     const plus = find(term(hi, 0)), minus = find(term(hi, 1));
     if (plus === minus) { res.short = true; continue; } // 이 홀더가 합선
-    const Vs = lab ? (h.cells || 2) * 1.5 : config.voltage;
+    const Vs = lab ? holderVolt(h) : config.voltage;
+    const rint = lab ? rintOf(h) : (Number(config.rint) || 10);
     if (!h.on && !forceOn) continue; // 스위치 꺼짐 (조립 순서 장면 등에서는 forceOn으로 켜진 모습을 그린다)
     reach(plus, true).forEach(c => res.energizedPlus.add(c));
     reach(minus, false).forEach(c => res.energizedMinus.add(c));
@@ -502,20 +516,26 @@ function solveInner(C, lab, forceOn) {
     for (const p of paths) {
       const k = p.leds.length;
       const sumVth = p.leds.reduce((a, i) => a + vthOf(C.leds[i]), 0);
-      const I = (Vs - sumVth) / (config.rint + k * config.ledRd + p.rSum) * 1000;
+      const I = (Vs - sumVth) / (rint + k * config.ledRd + p.rSum) * 1000;
       if (I <= 0.2) {
         // 문턱 전압에 못 미쳐도 실물 LED는 겨우 보일 만큼 빛난다.
         // 전압이 모자랄수록 급격히 어두워지고, 절반도 안 되면 정말 안 켜진다.
         const ratio = sumVth > 0 ? Vs / sumVth : 0;
         // 밝기는 전압이 오를수록 커져야 한다 — 문턱을 갓 넘은 밝기(약 0.07)와 이어지게 맞춘다
-        if (ratio > 0.5) faintPaths.push({ leds: p.leds, b: Math.max(0.02, 0.07 * (ratio - 0.5) / 0.5) });
+        if (ratio > 0.5 && !(lab && isCoin(h))) faintPaths.push({ leds: p.leds, b: Math.max(0.02, 0.07 * (ratio - 0.5) / 0.5) });
         else if (k >= 2) res.hasBlockedSeries = true;
         continue;
       }
       conducting.push({ leds: p.leds, nRes: p.nRes, I });
     }
     const total = conducting.reduce((a, p) => a + p.I, 0);
-    const scale = total > config.imax ? config.imax / total : 1;
+    // 동전 전지는 내부 저항이 커서, 낼 수 있는 것보다 많은 전류를 요구하면
+    // 단자 전압이 LED 문턱 아래로 무너져 아예 하나도 켜지지 않는다 (AA는 나눠 갖고 어두워진다).
+    const imax = lab ? imaxOf(h) : (Number(config.imax) || 200);
+    res.demand = Math.max(res.demand || 0, total);
+    res.supply = imax;
+    if (lab && isCoin(h) && total > imax) { res.coinOverload = true; continue; }
+    const scale = total > imax ? imax / total : 1;
     for (const p of conducting) {
       const I = p.I * scale;
       for (const i of p.leds) {
@@ -1028,18 +1048,30 @@ function drawHolder(h, hi) {
     ctx.fillStyle = col;
     ctx.beginPath(); ctx.roundRect((tx - 0.22) * Z, (-hh / 2 - 0.45) * Z, 0.44 * Z, 0.5 * Z, 2); ctx.fill();
   });
-  // 전지 칸 — 실물처럼 개수대로 늘어놓는다 (2개씩 줄지어 쌓인다)
+  // 전지 칸 — 실물처럼 개수대로. 동전 전지는 원판을 포개어 쌓는다 (그래야 (+)(−)가 이어진다)
   const cells = h.cells || 2;
-  const cols = Math.min(cells, 2), rows = Math.ceil(cells / cols);
-  const cw = Math.min(1.25, (hw - 0.6) / cols);
-  const cy0 = -hh / 2 + 0.5, zoneH = hh - 1.7, rowH = zoneH / rows, ch = rowH - 0.12;
-  for (let ci = 0; ci < cells; ci++) {
-    const cx = (ci % cols - (cols - 1) / 2) * (cw + 0.15);
-    const cy = cy0 + Math.floor(ci / cols) * rowH;
-    ctx.fillStyle = '#2e8f8f';
-    ctx.beginPath(); ctx.roundRect((cx - cw / 2) * Z, cy * Z, cw * Z, ch * Z, 5); ctx.fill();
-    ctx.fillStyle = '#57c6c0';   // (+) 쪽 머리
-    ctx.beginPath(); ctx.roundRect((cx - cw / 2) * Z, cy * Z, cw * Z, Math.min(1.1, ch * 0.34) * Z, 5); ctx.fill();
+  if (isCoin(h)) {
+    const zoneH = hh - 1.7, cy0 = -hh / 2 + 0.5;
+    const th = Math.min(0.7, zoneH / cells - 0.06);   // 한 장 두께
+    const cd = Math.min(hw - 0.7, 2.0);               // 지름
+    for (let ci = 0; ci < cells; ci++) {
+      const cy = cy0 + ci * (zoneH / cells);
+      ctx.fillStyle = '#b9c0c9';
+      ctx.beginPath(); ctx.roundRect((-cd / 2) * Z, cy * Z, cd * Z, th * Z, th * Z / 2); ctx.fill();
+      ctx.strokeStyle = '#7d848d'; ctx.lineWidth = 1; ctx.stroke();
+    }
+  } else {
+    const cols = Math.min(cells, 2), rows = Math.ceil(cells / cols);
+    const cw = Math.min(1.25, (hw - 0.6) / cols);
+    const cy0 = -hh / 2 + 0.5, zoneH = hh - 1.7, rowH = zoneH / rows, ch = rowH - 0.12;
+    for (let ci = 0; ci < cells; ci++) {
+      const cx = (ci % cols - (cols - 1) / 2) * (cw + 0.15);
+      const cy = cy0 + Math.floor(ci / cols) * rowH;
+      ctx.fillStyle = '#2e8f8f';
+      ctx.beginPath(); ctx.roundRect((cx - cw / 2) * Z, cy * Z, cw * Z, ch * Z, 5); ctx.fill();
+      ctx.fillStyle = '#57c6c0';   // (+) 쪽 머리
+      ctx.beginPath(); ctx.roundRect((cx - cw / 2) * Z, cy * Z, cw * Z, Math.min(1.1, ch * 0.34) * Z, 5); ctx.fill();
+    }
   }
   // 스위치 (아래쪽)
   ctx.beginPath(); ctx.arc(0, (hh / 2 - 0.75) * Z, 0.55 * Z, 0, 7);
@@ -1049,7 +1081,7 @@ function drawHolder(h, hi) {
   // 글자 (회전 없이)
   ctx.textAlign = 'center';
   ctx.fillStyle = '#d0d6de'; ctx.font = `${Math.max(9, Z * 0.5)}px sans-serif`;
-  ctx.fillText(`AA×${cells} ${(cells * 1.5).toFixed(1)}V`, h.x * Z, (h.y + rotV(0, -hh / 2 + 2.6, h.dir).y * 0) * Z + 4); // 중앙쯤
+  ctx.fillText(`${packShort(h)}×${cells} ${holderVolt(h).toFixed(1)}V`, h.x * Z, (h.y + rotV(0, -hh / 2 + 2.6, h.dir).y * 0) * Z + 4); // 중앙쯤
   // 단자 라벨
   ctx.font = 'bold 11px sans-serif';
   ctx.fillStyle = '#2f3640';
@@ -1069,6 +1101,8 @@ function advancedNote(C, R) {
       `<span class="mrow">${i + 1}. ${KINDS[l.kind || 'white'].label} <b>${(R.iOf[i] || 0).toFixed(1)}mA</b></span>`).join('');
     if (!rows) return '';
     return `<div class="calc-card"><b>측정 — LED마다 흐르는 전류</b><div class="mlist">${rows}</div>` +
+      (R.supply && mode === 'lab' && C.holders.some(isCoin)
+        ? `<p>이 회로가 요구하는 전류 <b>${R.demand.toFixed(1)}mA</b> · 동전 전지가 낼 수 있는 전류 <b>${R.supply}mA</b></p>` : '') +
       `<p class="small">계산해 둔 값과 비슷한가요? 다르다면 어느 단계를 다시 볼까요?</p></div>`;
   }
   const vs = mode === 'lab'
@@ -1089,13 +1123,15 @@ function updatePanel() {
   let html = '';
   if (!R) { el.innerHTML = html; return; }
   if (mode === 'lab' && C.holders.length)
-    html += `<p class="supply">전지 — ${C.holders.map(h => `AA×${h.cells || 2} (${((h.cells || 2) * 1.5).toFixed(1)}V)`).join(' · ')}</p>`;
+    html += `<p class="supply">전지 — ${C.holders.map(h => `${packName(h)}×${h.cells || 2} (${holderVolt(h).toFixed(1)}V)`).join(' · ')}</p>`;
   if (mode === 'placard' && C.leds.length > config.ledCount)
     html += `<p class="hint">실제로 지급되는 LED는 ${config.ledCount}개예요. 배치를 참고로 실험하는 건 자유!</p>`;
   if (R.noHolder) html += '<p class="muted">건전지 홀더를 놓고, 홀더의 <b style="color:#d64545">빨간(+)</b>·<b>검정(−)</b> 전선 끝을 끌어 테이프에 붙여 보세요. 전선 끝에서 테이프를 시작해도 돼요.' +
     (mode === 'placard' ? '<br>옆면 띠와 뒷면은 따로 붙입니다 — 테이프 끝을 서로 만나는 가장자리에 대면 조립할 때 이어져요.' : '') + '</p>';
-  else if (R.short) html += '<p class="warn">전지가 뜨거워집니다! (+)와 (−)가 직접 만나는 합선이에요. 전도성 테이프는 겹치거나 교차하면 서로 닿아요 — 두 줄이 만나지 않게 떨어뜨리거나 돌아가게 붙여 보세요.' +
-    (mode === 'lab' ? ' <b>빨간 동그라미</b>가 테이프끼리 닿은 지점이에요.' : '') + '</p>';
+  else if (R.short) html += (mode === 'lab' && C.holders.some(isCoin)
+    ? '<p class="warn">(+)와 (−)가 직접 만나는 합선이에요. 동전 전지라 크게 뜨거워지지는 않지만 전지가 금방 닳습니다. 실습에서 쓰는 AA 전지였다면 매우 뜨거워집니다!'
+    : '<p class="warn">전지가 뜨거워집니다! (+)와 (−)가 직접 만나는 합선이에요.') + (' 전도성 테이프는 겹치거나 교차하면 서로 닿아요 — 두 줄이 만나지 않게 떨어뜨리거나 돌아가게 붙여 보세요.' +
+    (mode === 'lab' ? ' <b>빨간 동그라미</b>가 테이프끼리 닿은 지점이에요.' : '')) + '</p>';
   else if (C.tested) {
     const litN = Object.keys(R.lit).length;
     html += `<p class="measure">점등 결과 — LED ${C.leds.length}개 중 <b>${litN}개</b> 켜짐</p>`;
@@ -1112,6 +1148,7 @@ function updatePanel() {
       const unlit = C.leds.length - litN - R.burnt.size;
       if (unlit > 0) html += `<p class="hint">안 켜진 LED가 ${unlit}개 있습니다. 긴 다리(+)가 어느 줄에 붙어 있는지, 두 다리가 서로 다른 줄에 있는지, 전압이 충분한지 살펴볼까요?</p>`;
       if (R.dimSeries) html += `<p class="hint">유난히 어둡게 켜진 LED가 보이나요? 전류가 LED를 몇 개나 거쳐 가는지, 전지의 전압이 얼마인지 생각해 보세요.</p>`;
+      if (R.coinOverload) html += `<p class="hint">동전 전지가 낼 수 있는 전류보다 더 많이 필요한 회로예요. 그래서 전지의 전압이 뚝 떨어져 <b>하나도 켜지지 않습니다</b>. LED를 몇 개, 어떤 방법으로 이었는지 다시 보고 — 같은 전지로 켜려면 무엇을 바꿔 볼 수 있을까요?</p>`;
       if (R.faintLit) html += `<p class="hint">겨우 보일 만큼 <b>희미하게</b> 켜진 LED가 있어요. 전류가 지나는 길 하나에 LED가 몇 개 있는지, 전지의 전압이 그 LED들에게 어떻게 나뉘는지 살펴볼까요? 같은 전지로 더 밝게 하려면 연결을 어떻게 바꿔 볼 수 있을까요?</p>`;
       else if (R.hasBlockedSeries) html += `<p class="hint">LED를 여러 개 거쳐 가는 길이 있네요. LED가 늘어날수록 각 LED가 나눠 받는 전압은 어떻게 될까요?</p>`;
       // 켜지긴 했지만 전류가 너무 적어 실제로는 흐릿한 경우 — '안정적'이라고 말하면 오개념이 된다
@@ -1767,8 +1804,12 @@ function updateFloatProps() {
     const h = C.holders[selected.i];
     html += `<button class="fp fp-rot" title="회전 (R)">${ROT_ICON}</button>`;
     if (mode === 'lab') {
-      html += `<span class="fp-sep"></span><span class="fp-label">전지</span>` + [1, 2, 3, 4, 5, 6].map(nn =>
-        `<button class="fp fp-cell ${(h.cells || 2) === nn ? 'on' : ''}" data-n="${nn}">${nn}개<small>${(nn * 1.5).toFixed(1)}V</small></button>`).join('');
+      html += `<span class="fp-sep"></span><span class="fp-label">전지</span>` +
+        [['aa', 'AA'], ['coin', '동전']].map(([k, nm]) =>
+          `<button class="fp fp-pack ${(isCoin(h) ? 'coin' : 'aa') === k ? 'on' : ''}" data-p="${k}">${nm}</button>`).join('');
+      const v1 = cellVolt(h);
+      html += `<span class="fp-sep"></span>` + Array.from({ length: maxCells(h) }, (_, i) => i + 1).map(nn =>
+        `<button class="fp fp-cell ${(h.cells || 2) === nn ? 'on' : ''}" data-n="${nn}">${nn}개<small>${(nn * v1).toFixed(1)}V</small></button>`).join('');
     }
     html += `<span class="fp-sep"></span><button class="fp fp-del" title="삭제 (Delete)">${TRASH_ICON}</button>`;
   } else {
@@ -1792,6 +1833,13 @@ function updateFloatProps() {
   }));
   el.querySelectorAll('.fp-ohm').forEach(b => b.addEventListener('click', () => {
     pushUndo(); C.resistors[selected.i].ohm = +b.dataset.v; afterChange();
+  }));
+  el.querySelectorAll('.fp-pack').forEach(b => b.addEventListener('click', () => {
+    pushUndo();
+    const hh2 = C.holders[selected.i];
+    hh2.pack = b.dataset.p === 'coin' ? 'coin' : 'aa';
+    hh2.cells = Math.max(1, Math.min(hh2.cells || 2, maxCells(hh2)));
+    afterChange();
   }));
   el.querySelectorAll('.fp-cell').forEach(b => b.addEventListener('click', () => {
     pushUndo(); C.holders[selected.i].cells = +b.dataset.n; afterChange();

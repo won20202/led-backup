@@ -73,6 +73,12 @@ export const DEFAULT_CONFIG = {
   rint: 10,     // 전지·테이프 내부저항 (Ω)
   iOver: 25,    // 이보다 크면 과전류 경고 (mA)
   iBurn: 50,    // 이보다 크면 LED가 타버림 (mA)
+  // 회로 실험실 전용 동전 전지(CR2032) — 실습 전 안전하게 직렬·병렬을 시험해 보는 용도.
+  // AA와 달리 전류를 조금밖에 못 내보내서, 병렬로 늘리면 금방 어두워진다.
+  coinVolt: 3.0,       // 1개 전압 (V)
+  coinRint: 60,        // 1개 내부 저항 (Ω) — AA보다 훨씬 크다
+  coinImax: 10,        // 내보낼 수 있는 최대 전류 (mA)
+  coinCells: 3,        // 쌓을 수 있는 최대 개수
   advanced: false,     // 심화 모드: 저항 부품 + 실제 색 LED (기본은 백색 LED + 매직 색칠)
   resistorOhm: 220,               // 기본 저항값
   resistorSet: '100, 220, 330, 470, 680, 1000',  // 심화 모드에서 고를 수 있는 값 (Ω)
@@ -440,7 +446,8 @@ export function rosterActive() { return Object.keys(config.roster || {}).length 
 // 수업마다 달라지는 '수업 내용' 설정만 담는다.
 // 서버 연결·PIN·입장 코드·시간표·학번 체계·명단은 절대 담지도, 바꾸지도 않는다.
 const PRESET_KEYS = [
-  'advanced', 'resistorOhm', 'resistorSet', 'voltage', 'vf', 'ledRd', 'rint', 'iOver', 'iBurn', 'imax',
+  'advanced', 'resistorOhm', 'resistorSet', 'voltage',
+  'coinVolt', 'coinRint', 'coinImax', 'coinCells', 'vf', 'ledRd', 'rint', 'iOver', 'iBurn', 'imax',
   'ledCount', 'overLimit', 'showSupply', 'showMeasure', 'askPredict', 'questionFeedback',
   'thickness', 'gridMajor', 'gridMinor', 'targetW', 'targetH', 'targetD', 'showTarget', 'boardW', 'boardH',
   'frontW', 'frontH', 'areaW', 'areaH', 'strokeMin',

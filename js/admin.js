@@ -5,9 +5,9 @@ import { config, saveConfig, exportConfigCode, importConfigCode, getMisses, clea
          checkAdminPin, syncAdminPin,
          makeSid, parseSid, weekKeyOf, timetableForWeek, runsOf, todayRuns,
          rosterActive, readOnly, presetNames, savePreset, loadPreset, deletePreset,
-         BLOCKED_STATUS } from './state.js?v=41';
-import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=41';
-import { switchTab } from './app.js?v=41';
+         BLOCKED_STATUS } from './state.js?v=42';
+import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=42';
+import { switchTab } from './app.js?v=42';
 
 const $ = id => document.getElementById(id);
 
@@ -33,6 +33,10 @@ const FIELDS = [
   ['resistorOhm', '저항 기본값 (Ω)', 'number'],
   ['resistorSet', '고를 수 있는 저항값 (Ω, 쉼표로 — 심화 모드)', 'text'],
   ['voltage', '전원 전압 (V)', 'number'],
+  ['coinVolt', '동전 전지 1개 전압 (V) — 회로 실험실 전용', 'number'],
+  ['coinRint', '동전 전지 1개 내부 저항 (Ω)', 'number'],
+  ['coinImax', '동전 전지 최대 공급 전류 (mA)', 'number'],
+  ['coinCells', '동전 전지 최대 개수', 'number'],
   ['vf', 'LED 점등 문턱 전압 (V) — 직렬 소등 기준', 'number'],
   ['rint', '내부 저항 (Ω) — 밝기 계산용', 'number'],
   ['imax', '전지 최대 공급 전류 (mA)', 'number'],
