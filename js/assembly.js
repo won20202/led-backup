@@ -1,11 +1,11 @@
 // 조립 순서 탭: 카드를 배열하고, 배열한 카드를 "눌러서" 그 단계의 모습을 본다.
 // 순서가 잘못되면 그 단계에서 무슨 일이 생기는지 보여주고, 그 뒤 단계는 볼 수 없다.
 // 건전지 홀더를 어디에 붙일지도 여기서 정한다. 정답 순서는 알려주지 않는다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=51';
-import { renderLogList } from './case3d.js?v=51';
-import { drawAssembled, getLighting } from './circuit.js?v=51';
-import { drawLitFront } from './preview.js?v=51';
-import { getDesignMask } from './design.js?v=51';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=52';
+import { renderLogList } from './case3d.js?v=52';
+import { drawAssembled, getLighting } from './circuit.js?v=52';
+import { drawLitFront } from './preview.js?v=52';
+import { getDesignMask } from './design.js?v=52';
 
 const $ = id => document.getElementById(id);
 
