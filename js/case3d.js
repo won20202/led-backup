@@ -1,6 +1,6 @@
 // 케이스 탭: 조각 치수 입력 → 3D 조립. 겹침(빨강)·틈(노랑)을 보여주되 수치는 알려주지 않는다.
-import * as THREE from '../vendor/three.module.min.js?v=57';
-import { config, work, addLog, touch, readOnly, attemptCount, logArea, demoAccount } from './state.js?v=57';
+import * as THREE from '../vendor/three.module.min.js?v=58';
+import { config, work, addLog, touch, readOnly, attemptCount, logArea, demoAccount } from './state.js?v=58';
 
 let scene, camera, renderer, root, el3d;
 let theta = 0.55, phi = 0.5, radius = 42; // 카메라 궤도

@@ -80,7 +80,6 @@ export const DEFAULT_CONFIG = {
   coinVolt: 3.0,       // 1개 전압 (V)
   coinRint: 30,        // 1개 내부 저항 (Ω) — 얇아서 AA보다 훨씬 크다 (모든 길이 함께 쓴다)
   coinImax: 60,        // 감당할 수 있는 최대 전류 (mA)
-  coinRev: 2,          // 동전 전지 값 보정 판 번호 (아래 한 번만 적용)
   coinCells: 3,        // 쌓을 수 있는 최대 개수
   advanced: false,     // 심화 모드: 저항 부품 + 실제 색 LED (기본은 백색 LED + 매직 색칠)
   resistorOhm: 220,               // 기본 저항값
@@ -168,11 +167,13 @@ export let config = loadConfig();
 // 동전 전지를 처음 넣을 때 쓴 임시값이 저장·동기화된 기기가 있다 — 실측 기준값으로 한 번만 맞춘다.
 // 설정을 서버·파일에서 새로 받을 때마다 확인한다 (동전 전지 값만 건드린다).
 function fixCoinDefaults() {
-  if (config.coinRev === 2) return;
-  config.coinRint = 30;
-  config.coinImax = 60;
-  config.coinRev = 2;
-  saveConfig();
+  // 처음 만들 때 쓴 임시값(60Ω / 10mA)이 그대로면 실측 기준값으로 바꾼다.
+  // 서버·파일에서 옛 설정을 다시 받아도 같은 값이면 다시 고쳐 준다.
+  if (Number(config.coinRint) === 60 && Number(config.coinImax) === 10) {
+    config.coinRint = 30;
+    config.coinImax = 60;
+    saveConfig();
+  }
 }
 fixCoinDefaults();
 

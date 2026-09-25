@@ -1,8 +1,8 @@
 // 완성 미리보기: 케이스 + 회로 + 도안을 합친 최종 모습.
 // 어느 위치에 어떤 색 빛이 나오는지, 전체 완성본이 어떨지를 보여준다.
-import { config, work } from './state.js?v=57';
-import { getLighting, drawAssembled } from './circuit.js?v=57';
-import { getDesignMask } from './design.js?v=57';
+import { config, work } from './state.js?v=58';
+import { getLighting, drawAssembled } from './circuit.js?v=58';
+import { getDesignMask } from './design.js?v=58';
 
 const $ = id => document.getElementById(id);
 
