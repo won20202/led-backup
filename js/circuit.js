@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=46';
-import { renderLogList } from './case3d.js?v=46';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=47';
+import { renderLogList } from './case3d.js?v=47';
 
 const $ = id => document.getElementById(id);
 
@@ -1114,15 +1114,29 @@ function drawCoin(h, hi) {
   ctx.fillStyle = '#b6bdc6';
   ctx.beginPath(); ctx.roundRect((cg.base.x - 0.35) * Z, (cg.base.y - 0.35) * Z, 0.7 * Z, 0.7 * Z, 3); ctx.fill();
   ctx.strokeStyle = '#7d848d'; ctx.lineWidth = 1.2; ctx.stroke();
+  // 자유 끝 — 전지에 댄 동안에는 반투명하게 그려서 아래의 극성 글자가 보이게 한다
+  ctx.save();
+  if (cg.touching) ctx.globalAlpha = 0.5;
   ctx.beginPath(); ctx.arc(cg.tip.x * Z, cg.tip.y * Z, 0.34 * Z, 0, 7);
-  ctx.fillStyle = cg.touching ? '#37c26e' : '#f2f5f9';
+  ctx.fillStyle = cg.touching ? '#9fb0c2' : '#f2f5f9';
   ctx.fill();
   ctx.strokeStyle = (selected && selected.type === 'wire' && selected.hi === hi) ? '#2b6cb0' : '#5c646e';
   ctx.lineWidth = 1.8; ctx.stroke();
+  ctx.restore();
+  // 댔으면 전지 둘레에 초록 테두리 — 어느 면에 댔는지 글자는 그대로 보인다
+  if (cg.touching) {
+    ctx.beginPath(); ctx.arc(h.x * Z, h.y * Z, (COIN_R + 0.12) * Z, 0, 7);
+    ctx.strokeStyle = '#37c26e'; ctx.lineWidth = 2.5; ctx.stroke();
+  }
   ctx.fillStyle = '#4a5561'; ctx.font = `${Math.max(9, Z * 0.45)}px sans-serif`;
   ctx.fillText(`CR2032×${cells} ${holderVolt(h).toFixed(1)}V`, h.x * Z, (h.y + COIN_R + 0.85) * Z);
+  // 어느 면이 어디에 닿는지 — 학생이 회로를 읽을 수 있게
+  ctx.fillStyle = cg.touching ? '#2e9e5b' : '#98a1ab';
+  ctx.font = `bold ${Math.max(9, Z * 0.42)}px sans-serif`;
+  ctx.fillText(cg.touching ? `윗면 ${h.flip ? '−' : '+'} 에 댐 — 켜짐` : `윗면 ${h.flip ? '−' : '+'} 에서 뗌 — 꺼짐`,
+    h.x * Z, (h.y + COIN_R + 1.65) * Z);
   ctx.fillStyle = '#98a1ab'; ctx.font = `${Math.max(8, Z * 0.38)}px sans-serif`;
-  ctx.fillText(cg.touching ? '댐 (켜짐)' : '뗌 (꺼짐)', cg.tip.x * Z, (cg.tip.y - 0.6) * Z);
+  ctx.fillText(`바닥 ${h.flip ? '+' : '−'} 는 테이프에 닿아 있음`, h.x * Z, (h.y + COIN_R + 2.35) * Z);
   ctx.textAlign = 'left';
 }
 
