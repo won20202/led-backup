@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=40';
-import { renderLogList } from './case3d.js?v=40';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=41';
+import { renderLogList } from './case3d.js?v=41';
 
 const $ = id => document.getElementById(id);
 
@@ -42,6 +42,13 @@ function rgbOf(l) {
   return (MAGIC[l.color || 'none'] || MAGIC.none).rgb;
 }
 function fOf() { return 1; } // 매직 색칠은 색만 바꾸고 밝기는 그대로 (실제로도 잘 빛난다)
+// 아주 약하게 켜진 빛은 색이 잘 보이지 않는다 — 회색 필터를 씌운 것처럼 섞는다
+function greyMix(rgb, k) {
+  const y = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2];
+  return rgb.map(v => Math.round(v + (y - v) * k));
+}
+// 0.3 미만으로 켜지면 그만큼 흐리게 보이게 하는 계수
+function dimOf(lit) { return Math.min(1, lit / 0.3); }
 
 // 매직 24색 — 투과율(f)은 색의 밝기에서 계산 (밝은 색일수록 빛이 잘 통과, 검정은 차단)
 const MARKER_COLORS = [
@@ -929,21 +936,23 @@ function draw() {
       ctx.stroke();
       return;
     }
+    const dim = dimOf(lit);                       // 겨우 켜진 빛은 색도 밝기도 죽인다
+    const col = dim < 1 ? greyMix(mag.rgb, 0.85 * (1 - dim)) : mag.rgb;
     if (lit > 0.02) {
       // 화면을 어둡게 하지 않고도 불이 확 살아 보이게: 흰 심 + 색 번짐 이중 광원
-      const [r1, g1, b1] = mag.rgb;
+      const [r1, g1, b1] = col;
       const halo = (1.5 + 4 * lit) * Z;
       let gr = ctx.createRadialGradient(l.x * Z, l.y * Z, 1, l.x * Z, l.y * Z, halo);
-      gr.addColorStop(0, `rgba(255,255,255,${0.9 * Math.min(1, lit)})`);
-      gr.addColorStop(0.15, `rgba(${r1},${g1},${b1},${0.75 * Math.min(1, lit) + 0.15})`);
-      gr.addColorStop(0.45, `rgba(${r1},${g1},${b1},${0.35 * lit})`);
+      gr.addColorStop(0, `rgba(255,255,255,${0.9 * Math.min(1, lit) * dim})`);
+      gr.addColorStop(0.15, `rgba(${r1},${g1},${b1},${(0.75 * Math.min(1, lit) + 0.15) * dim})`);
+      gr.addColorStop(0.45, `rgba(${r1},${g1},${b1},${0.35 * lit * dim})`);
       gr.addColorStop(1, 'rgba(255,255,255,0)');
       ctx.fillStyle = gr;
       ctx.beginPath(); ctx.arc(l.x * Z, l.y * Z, halo, 0, 7); ctx.fill();
     }
     ctx.beginPath(); ctx.arc(l.x * Z, l.y * Z, 0.35 * Z, 0, 7);
     ctx.fillStyle = lit > 0.02
-      ? `rgb(${Math.min(255, mag.rgb[0] + 60 * lit)},${Math.min(255, mag.rgb[1] + 60 * lit)},${Math.min(255, mag.rgb[2] + 60 * lit)})`
+      ? `rgba(${Math.min(255, col[0] + 60 * lit)},${Math.min(255, col[1] + 60 * lit)},${Math.min(255, col[2] + 60 * lit)},${0.35 + 0.65 * dim})`
       : (((l.kind && l.kind !== 'white') || (l.color && l.color !== 'none'))
         ? `rgba(${mag.rgb[0]},${mag.rgb[1]},${mag.rgb[2]},0.45)` : '#e8e8e2');
     ctx.fill();
@@ -1146,7 +1155,8 @@ export function getLighting() {
     const p3 = to3Dp(l);
     const fx = Math.max(0, Math.min(d.bw, p3.X));
     const fy = Math.max(0, Math.min(d.bh, d.bh - p3.Y));
-    out.lit.push({ face: k, fx, fy, b: Math.min(1, b), rgb: mag.rgb });
+    const dim = dimOf(b);
+    out.lit.push({ face: k, fx, fy, b: Math.min(1, b), rgb: dim < 1 ? greyMix(mag.rgb, 0.85 * (1 - dim)) : mag.rgb });
   }
   geomLab = prevGeom;
   return out;
