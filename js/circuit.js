@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=60';
-import { renderLogList } from './case3d.js?v=60';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=61';
+import { renderLogList } from './case3d.js?v=61';
 
 const $ = id => document.getElementById(id);
 
@@ -1945,6 +1945,8 @@ export function initCircuit() {
     afterChange();
   });
 
+  // 들어올 때마다 '처음 여는 것'으로 되돌린다 (아래 refreshCircuit보다 먼저 등록해야 한다)
+  document.addEventListener('work-loaded', () => { circuitOpened = false; });
   document.addEventListener('work-loaded', refreshCircuit);
   refreshCircuit();
 }
@@ -2095,14 +2097,16 @@ function updateFloatProps() {
   positionFloat();
 }
 
+let circuitOpened = false;   // 들어온 뒤 회로 탭을 한 번이라도 열었는지
 export function refreshCircuit() {
   normalize(work.circuit);
   normalize(work.lab = work.lab || { leds: [], resistors: [], tapes: [], holders: [], tested: false });
-  // 플래카드에 작업물이 있으면 이어서, 없으면 실험실부터 (회로 원리를 먼저 익히도록)
   const P = work.circuit;
-  const hasPlacard = P.tapes.length || P.leds.length || P.holders.length;
   $('in-predict-led').value = work.circuit.predictCount ?? '';
   $('tool-res').style.display = config.advanced ? '' : 'none';
   $('guide-adv').style.display = config.advanced ? '' : 'none';
-  setCircuitMode(hasPlacard ? 'placard' : 'lab');
+  // 회로 탭은 언제나 [회로 실험실]부터 — 원리를 먼저 익히고 플래카드로 간다.
+  // 다만 같은 수업 중에 탭을 오갈 때는 보던 화면을 그대로 둔다.
+  setCircuitMode(circuitOpened ? mode : 'lab');
+  circuitOpened = true;
 }
