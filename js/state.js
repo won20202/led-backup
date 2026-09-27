@@ -81,6 +81,7 @@ export const DEFAULT_CONFIG = {
   coinRint: 30,        // 1개 내부 저항 (Ω) — 얇아서 AA보다 훨씬 크다 (모든 길이 함께 쓴다)
   coinImax: 60,        // 감당할 수 있는 최대 전류 (mA)
   coinCells: 3,        // 쌓을 수 있는 최대 개수
+  switchTapeLen: 3,    // 스위치 테이프 길이 (cm) — 학생이 만들 조각과 같게
   advanced: false,     // 심화 모드: 저항 부품 + 실제 색 LED (기본은 백색 LED + 매직 색칠)
   resistorOhm: 220,               // 기본 저항값
   resistorSet: '100, 220, 330, 470, 680, 1000',  // 심화 모드에서 고를 수 있는 값 (Ω)
@@ -463,7 +464,7 @@ export function rosterActive() { return Object.keys(config.roster || {}).length 
 // 서버 연결·PIN·입장 코드·시간표·학번 체계·명단은 절대 담지도, 바꾸지도 않는다.
 const PRESET_KEYS = [
   'advanced', 'resistorOhm', 'resistorSet', 'voltage', 'vfRed', 'vfYellow', 'vfGreen', 'vfBlue',
-  'coinVolt', 'coinRint', 'coinImax', 'coinCells', 'vf', 'ledRd', 'rint', 'iOver', 'iBurn', 'imax',
+  'coinVolt', 'coinRint', 'coinImax', 'coinCells', 'switchTapeLen', 'vf', 'ledRd', 'rint', 'iOver', 'iBurn', 'imax',
   'ledCount', 'overLimit', 'showSupply', 'showMeasure', 'askPredict', 'questionFeedback',
   'thickness', 'gridMajor', 'gridMinor', 'targetW', 'targetH', 'targetD', 'showTarget', 'boardW', 'boardH',
   'frontW', 'frontH', 'areaW', 'areaH', 'strokeMin',

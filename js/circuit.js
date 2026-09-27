@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=61';
-import { renderLogList } from './case3d.js?v=61';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=62';
+import { renderLogList } from './case3d.js?v=62';
 
 const $ = id => document.getElementById(id);
 
@@ -200,10 +200,18 @@ function imaxOf(h) { return isCoin(h) ? (Number(config.coinImax) || 10) : (Numbe
 // 전기는 한 겹으로도 통한다 — 두 겹으로 만든 건 끈적한 면을 감춰 댔다 뗐다 하려는 것뿐이다.
 // 바닥에 닿는 면은 밑에 깔린 테이프와 이어지고, 윗면은 스위치 테이프를 댈 때만 이어진다.
 const COIN_R = 1.0;   // 반지름 (CR2032 지름 2cm)
+// 스위치 테이프 길이 — 학생이 실제로 만드는 조각과 같은 길이만 쓸 수 있다
+function switchLen() { const v = Number(config.switchTapeLen); return v > 0 ? v : 3; }
+// 한쪽 끝을 끌 때, 다른 끝에서 길이를 넘지 않도록 잡아 준다
+function clampSwitch(p, anchor) {
+  const dx = p.x - anchor.x, dy = p.y - anchor.y, L = Math.hypot(dx, dy), max = switchLen();
+  if (L <= max || L === 0) return p;
+  return { x: anchor.x + dx / L * max, y: anchor.y + dy / L * max };
+}
 function coinGeom(h) {
   const w = h.wires || [];
-  const tip = (w[0] && w[0].x !== undefined) ? w[0] : { x: h.x + 3.4, y: h.y - 2.6 };
-  const base = (w[1] && w[1].x !== undefined) ? w[1] : { x: h.x + 6.4, y: h.y - 2.6 };
+  const tip = (w[0] && w[0].x !== undefined) ? w[0] : { x: h.x, y: h.y - 1.6 };
+  const base = (w[1] && w[1].x !== undefined) ? w[1] : { x: h.x, y: h.y - 3.5 };
   // 테이프는 어디든 전기가 통하므로 어느 끝을 전지에 대든 같다.
   const dTip = Math.hypot(tip.x - h.x, tip.y - h.y);
   const dBase = Math.hypot(base.x - h.x, base.y - h.y);
@@ -363,8 +371,8 @@ function normalize(C) {
     if (!h.g7) { const v = rotV(0, 1.0, h.dir); h.x += v.x; h.y += v.y; h.g7 = 1; } // 홀더 실측 반영 전 데이터: 단자 위치 유지
     if (!h.wires) h.wires = [{ dock: true }, { dock: true }];
     if (h.pack === 'coin') {
-      if (!h.wires[0] || h.wires[0].x === undefined) h.wires[0] = { x: h.x + 3.4, y: h.y - 2.6 };
-      if (!h.wires[1] || h.wires[1].x === undefined) h.wires[1] = { x: h.x + 6.4, y: h.y - 2.6 };
+      if (!h.wires[0] || h.wires[0].x === undefined) h.wires[0] = { x: h.x, y: h.y - 1.6 };
+      if (!h.wires[1] || h.wires[1].x === undefined) h.wires[1] = { x: h.x, y: h.y - 3.5 };
       h.on = coinGeom(h).touching;   // 댔으면 켜짐, 떼면 꺼짐
     }
     h.wires.forEach(w => {
@@ -1160,7 +1168,7 @@ function drawCoin(h, hi) {
   ctx.translate((cg.base.x + cg.tip.x) / 2 * Z, (cg.base.y + cg.tip.y) / 2 * Z);
   ctx.rotate(Math.atan2(dys, dxs));
   ctx.fillStyle = '#6b7480'; ctx.font = `${Math.max(8, Z * 0.34)}px sans-serif`; ctx.textAlign = 'center';
-  ctx.fillText('스위치 테이프', 0, -0.45 * Z);
+  ctx.fillText(`스위치 테이프 ${switchLen()}cm`, 0, -0.45 * Z);
   ctx.restore();
   ctx.textAlign = 'center';
   // 양 끝을 똑같이 그린다 — 어느 쪽이든 전지에 댈 수 있으니 방향이 있는 것처럼 보이면 안 된다.
@@ -1192,9 +1200,17 @@ function drawCoin(h, hi) {
   ctx.fillStyle = 'rgba(255,255,255,0.92)';
   ctx.strokeStyle = '#dbe1e8'; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.roundRect((sx - 0.3) * Z, (sy - 1.7) * Z, (sw + 0.6) * Z, 3.1 * Z, 5); ctx.fill(); ctx.stroke();
-  // 바닥 테이프
-  ctx.fillStyle = '#c3c9d2';
-  ctx.fillRect(sx * Z, (sy + stackH / 2 + 0.06) * Z, sw * Z, 0.22 * Z);
+  // 바닥 테이프 — 전지 밑에 실제로 깔려 있을 때만 그린다
+  const onTapeNow = (am().tapes || []).some(t => distTape2D({ x: h.x, y: h.y }, t) < 0.7);
+  if (onTapeNow) {
+    ctx.fillStyle = '#c3c9d2';
+    ctx.fillRect(sx * Z, (sy + stackH / 2 + 0.06) * Z, sw * Z, 0.22 * Z);
+  } else {
+    ctx.strokeStyle = '#d5dbe2'; ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(sx * Z, (sy + stackH / 2 + 0.17) * Z); ctx.lineTo((sx + sw) * Z, (sy + stackH / 2 + 0.17) * Z);
+    ctx.stroke(); ctx.setLineDash([]);
+  }
   // 전지 (옆에서 본 원판 더미)
   for (let i = 0; i < cells; i++) {
     ctx.fillStyle = i % 2 ? '#c8cfd7' : '#dee3e9';
@@ -1434,7 +1450,7 @@ function inHolderBody(p, h) {
 // 전선·스위치 테이프 끝을 제자리로 (동전 전지는 전지에서 떨어진 기본 자리로 되돌린다)
 function resetWire(h, wi) {
   if (!h) return;
-  if (h.pack === 'coin') h.wires[wi] = wi === 0 ? { x: h.x + 3.4, y: h.y - 2.6 } : { x: h.x + 6.4, y: h.y - 2.6 };
+  if (h.pack === 'coin') h.wires[wi] = wi === 0 ? { x: h.x, y: h.y - 1.6 } : { x: h.x, y: h.y - 3.5 };
   else h.wires[wi] = { dock: true };
 }
 
@@ -1806,7 +1822,7 @@ export function initCircuit() {
         const q = clampNet({ x: snap(p.x), y: snap(p.y) });
         C.holders.push({
           ...q, dir: 0, pack: 'coin', cells: 1, on: false, g7: 1, flip: false,
-          wires: [{ x: q.x + 3.4, y: q.y - 2.6 }, { x: q.x + 6.4, y: q.y - 2.6 }],
+          wires: [{ x: q.x, y: q.y - 1.6 }, { x: q.x, y: q.y - 3.5 }],
         });
         selected = { type: 'holder', i: C.holders.length - 1 };
       } else {
@@ -1885,7 +1901,12 @@ export function initCircuit() {
       // 동전 전지는 전지 위에 대는 것이 곧 스위치라서 그대로 둔다.
       if (h && !isCoin(h) && inHolderBody(p, h))
         h.wires[selected.wi] = { dock: true };
-      else if (h)
+      else if (h && isCoin(h)) {
+        // 스위치 테이프는 길이가 정해져 있다 — 반대쪽 끝에서 그 길이를 넘지 못한다
+        const anchor = h.wires[1 - selected.wi];
+        const q = clampSwitch({ x: snap(p.x), y: snap(p.y) }, anchor && anchor.x !== undefined ? anchor : { x: h.x, y: h.y });
+        h.wires[selected.wi] = { ...clampNet({ x: Math.round(q.x * 2) / 2, y: Math.round(q.y * 2) / 2 }) };
+      } else if (h)
         h.wires[selected.wi] = { ...clampNet({ x: snap(p.x), y: snap(p.y) }) };
     } else if (selected.type === 'tape') {
       const dx = snap(p.x - dragOff.x), dy = snap(p.y - dragOff.y);
