@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=68';
-import { renderLogList } from './case3d.js?v=68';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=69';
+import { renderLogList } from './case3d.js?v=69';
 
 const $ = id => document.getElementById(id);
 
@@ -200,6 +200,8 @@ function imaxOf(h) { return isCoin(h) ? (Number(config.coinImax) || 10) : (Numbe
 // 전기는 한 겹으로도 통한다 — 두 겹으로 만든 건 끈적한 면을 감춰 댔다 뗐다 하려는 것뿐이다.
 // 바닥에 닿는 면은 밑에 깔린 테이프와 이어지고, 윗면은 스위치 테이프를 댈 때만 이어진다.
 const COIN_R = 1.0;   // 반지름 (CR2032 지름 2cm)
+let coinSideOpen = true;   // 옆에서 본 모습을 펼쳐 둘지 (버튼으로 접었다 폈다)
+let coinSideBtn = null;    // 그 버튼 자리 (cm) — 누름 판정용
 // 스위치 테이프 길이 — 학생이 실제로 만드는 조각과 같은 길이만 쓸 수 있다
 function switchLen() { const v = Number(config.switchTapeLen); return v > 0 ? v : 3; }
 // 한쪽 끝을 끌 때, 다른 끝에서 길이를 넘지 않도록 잡아 준다
@@ -1079,21 +1081,24 @@ function draw() {
     }
     const dim = dimOf(lit);                       // 겨우 켜진 빛은 색도 밝기도 죽인다
     const col = dim < 1 ? greyMix(mag.rgb, 0.85 * (1 - dim)) : mag.rgb;
+    // 밝기(전류)에 따라 빛의 크기·세기가 이어서 달라진다 — 직렬과 병렬의 차이가 눈에 보이게
+    const glow = Math.min(1, lit / 1.25);
     if (lit > 0.02) {
       // 화면을 어둡게 하지 않고도 불이 확 살아 보이게: 흰 심 + 색 번짐 이중 광원
       const [r1, g1, b1] = col;
-      const halo = (1.5 + 4 * lit) * Z;
+      const halo = (1.1 + 5.5 * Math.min(1.3, lit)) * Z;
       let gr = ctx.createRadialGradient(l.x * Z, l.y * Z, 1, l.x * Z, l.y * Z, halo);
-      gr.addColorStop(0, `rgba(255,255,255,${0.9 * Math.min(1, lit) * dim})`);
-      gr.addColorStop(0.15, `rgba(${r1},${g1},${b1},${(0.75 * Math.min(1, lit) + 0.15) * dim})`);
-      gr.addColorStop(0.45, `rgba(${r1},${g1},${b1},${0.35 * lit * dim})`);
+      gr.addColorStop(0, `rgba(255,255,255,${(0.3 + 0.65 * glow) * dim})`);
+      gr.addColorStop(0.15, `rgba(${r1},${g1},${b1},${(0.22 + 0.68 * glow) * dim})`);
+      gr.addColorStop(0.45, `rgba(${r1},${g1},${b1},${(0.06 + 0.34 * glow) * dim})`);
       gr.addColorStop(1, 'rgba(255,255,255,0)');
       ctx.fillStyle = gr;
       ctx.beginPath(); ctx.arc(l.x * Z, l.y * Z, halo, 0, 7); ctx.fill();
     }
     ctx.beginPath(); ctx.arc(l.x * Z, l.y * Z, 0.35 * Z, 0, 7);
+    const wm = 0.15 + 0.6 * glow;   // 밝을수록 알이 하얗게 달아오른다
     ctx.fillStyle = lit > 0.02
-      ? `rgba(${Math.min(255, col[0] + 60 * lit)},${Math.min(255, col[1] + 60 * lit)},${Math.min(255, col[2] + 60 * lit)},${0.35 + 0.65 * dim})`
+      ? `rgba(${Math.round(col[0] + (255 - col[0]) * wm)},${Math.round(col[1] + (255 - col[1]) * wm)},${Math.round(col[2] + (255 - col[2]) * wm)},${0.35 + 0.65 * dim})`
       : (((l.kind && l.kind !== 'white') || (l.color && l.color !== 'none'))
         ? `rgba(${mag.rgb[0]},${mag.rgb[1]},${mag.rgb[2]},0.45)` : '#e8e8e2');
     ctx.fill();
@@ -1196,6 +1201,20 @@ function drawCoin(h, hi) {
   const coinCount = am().holders.filter(isCoin).length;
   if (coinCount > 1 && !isSel) { ctx.textAlign = 'left'; return; }
   const sx = h.x + COIN_R + 2.1, sy = h.y;          // 단면 그림 자리
+  // 접기·펴기 버튼 (설명이 계속 크게 떠 있지 않도록)
+  const btn = coinSideOpen ? { x: sx + 2.5, y: sy - 1.45, r: 0.42 } : { x: sx - 0.1, y: sy, r: 0.42 };
+  coinSideBtn = btn;
+  const drawBtn = () => {
+    ctx.beginPath(); ctx.arc(btn.x * Z, btn.y * Z, btn.r * Z, 0, 7);
+    ctx.fillStyle = '#fff'; ctx.fill();
+    ctx.strokeStyle = '#9aa3ad'; ctx.lineWidth = 1.2; ctx.stroke();
+    ctx.strokeStyle = '#4a5561'; ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo((btn.x - 0.2) * Z, btn.y * Z); ctx.lineTo((btn.x + 0.2) * Z, btn.y * Z);
+    if (!coinSideOpen) { ctx.moveTo(btn.x * Z, (btn.y - 0.2) * Z); ctx.lineTo(btn.x * Z, (btn.y + 0.2) * Z); }
+    ctx.stroke();
+  };
+  if (!coinSideOpen) { drawBtn(); ctx.textAlign = 'left'; return; }
   const sw = 2.4, cellH = 0.32, stackH = cells * cellH;
   ctx.save();
   ctx.fillStyle = 'rgba(255,255,255,0.92)';
@@ -1248,6 +1267,9 @@ function drawCoin(h, hi) {
   ctx.fillText(cg.touching ? '댐 — 켜짐' : '뗌 — 꺼짐', (sx + sw / 2) * Z, (sy + 1.3) * Z);
   ctx.fillStyle = '#98a1ab'; ctx.font = `${Math.max(8, Z * 0.34)}px sans-serif`;
   ctx.fillText('옆에서 본 모습', (sx + sw / 2) * Z, (sy + 1.95) * Z);
+  ctx.restore();
+  drawBtn();
+  ctx.save();
   ctx.restore();
   ctx.textAlign = 'left';
 }
@@ -1774,6 +1796,13 @@ export function initCircuit() {
     const p = toCm(e);
     const C = am();
     normalize(C);
+    // 옆모습 접기·펴기 버튼이 먼저
+    if (mode === 'lab' && coinSideBtn && am().holders.some(isCoin) &&
+        Math.hypot(p.x - coinSideBtn.x, p.y - coinSideBtn.y) < coinSideBtn.r + 0.15) {
+      coinSideOpen = !coinSideOpen;
+      draw();
+      return;
+    }
     // 스위치는 어떤 도구에서든 동작
     const pre = hitTest(p);
     if (pre && pre.type === 'switch') { toggleSwitch(pre.hi); return; }
