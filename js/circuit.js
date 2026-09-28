@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=69';
-import { renderLogList } from './case3d.js?v=69';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=70';
+import { renderLogList } from './case3d.js?v=70';
 
 const $ = id => document.getElementById(id);
 
@@ -1094,9 +1094,26 @@ function draw() {
       gr.addColorStop(1, 'rgba(255,255,255,0)');
       ctx.fillStyle = gr;
       ctx.beginPath(); ctx.arc(l.x * Z, l.y * Z, halo, 0, 7); ctx.fill();
+      // 빛살 — 흰 바탕에서도 세기가 보이게, 전류가 클수록 길고 굵어진다
+      if (dim > 0.5) {
+        const rays = 8, inner = 0.5 * Z, len = (0.45 + 2.6 * Math.min(1.3, lit)) * Z;
+        ctx.save();
+        ctx.translate(l.x * Z, l.y * Z);
+        ctx.strokeStyle = `rgba(${r1},${g1},${b1},${0.35 + 0.45 * glow})`;
+        ctx.lineCap = 'round';
+        ctx.lineWidth = Math.max(1.5, (0.07 + 0.09 * glow) * Z);
+        for (let k = 0; k < rays; k++) {
+          const a = k * Math.PI * 2 / rays + Math.PI / rays;
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(a) * inner, Math.sin(a) * inner);
+          ctx.lineTo(Math.cos(a) * (inner + len), Math.sin(a) * (inner + len));
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
     }
     ctx.beginPath(); ctx.arc(l.x * Z, l.y * Z, 0.35 * Z, 0, 7);
-    const wm = 0.15 + 0.6 * glow;   // 밝을수록 알이 하얗게 달아오른다
+    const wm = 0.12 + 0.25 * glow;   // 알은 살짝만 달아오르게 (흰 바탕에서 묻히지 않도록)
     ctx.fillStyle = lit > 0.02
       ? `rgba(${Math.round(col[0] + (255 - col[0]) * wm)},${Math.round(col[1] + (255 - col[1]) * wm)},${Math.round(col[2] + (255 - col[2]) * wm)},${0.35 + 0.65 * dim})`
       : (((l.kind && l.kind !== 'white') || (l.color && l.color !== 'none'))
