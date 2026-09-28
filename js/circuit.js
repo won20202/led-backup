@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=64';
-import { renderLogList } from './case3d.js?v=64';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=65';
+import { renderLogList } from './case3d.js?v=65';
 
 const $ = id => document.getElementById(id);
 
@@ -1848,7 +1848,7 @@ export function initCircuit() {
     // 기본: 누르면 선택, 누른 채 끌면 이동
     const hit = pre;
     selected = hit && ['led', 'res', 'tape', 'wire', 'holder'].includes(hit.type) ? hit : null;
-    if ((tool === 'led' || tool === 'res' || tool === 'holder') && selected) setTool('none');
+    if ((tool === 'led' || tool === 'res' || tool === 'holder' || tool === 'coin') && selected) setTool('none');
     updateFloatProps();
     if (selected) beginDrag(p, e);
     draw();
