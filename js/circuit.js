@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=70';
-import { renderLogList } from './case3d.js?v=70';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=71';
+import { renderLogList } from './case3d.js?v=71';
 
 const $ = id => document.getElementById(id);
 
@@ -1096,12 +1096,14 @@ function draw() {
       ctx.beginPath(); ctx.arc(l.x * Z, l.y * Z, halo, 0, 7); ctx.fill();
       // 빛살 — 흰 바탕에서도 세기가 보이게, 전류가 클수록 길고 굵어진다
       if (dim > 0.5) {
-        const rays = 8, inner = 0.5 * Z, len = (0.45 + 2.6 * Math.min(1.3, lit)) * Z;
+        // 세기 차이가 확실히 벌어지게 — 전류가 조금만 커져도 빛살이 훌쩍 길어진다
+        const pw = Math.pow(Math.min(1.3, lit), 1.6);
+        const rays = 8, inner = 0.5 * Z, len = (0.25 + 3.7 * pw) * Z;
         ctx.save();
         ctx.translate(l.x * Z, l.y * Z);
-        ctx.strokeStyle = `rgba(${r1},${g1},${b1},${0.35 + 0.45 * glow})`;
+        ctx.strokeStyle = `rgba(${r1},${g1},${b1},${0.3 + 0.5 * Math.min(1, pw)})`;
         ctx.lineCap = 'round';
-        ctx.lineWidth = Math.max(1.5, (0.07 + 0.09 * glow) * Z);
+        ctx.lineWidth = Math.max(1.3, (0.05 + 0.12 * pw) * Z);
         for (let k = 0; k < rays; k++) {
           const a = k * Math.PI * 2 / rays + Math.PI / rays;
           ctx.beginPath();
