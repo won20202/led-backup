@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=72';
-import { renderLogList } from './case3d.js?v=72';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=73';
+import { renderLogList } from './case3d.js?v=73';
 
 const $ = id => document.getElementById(id);
 
@@ -1094,11 +1094,13 @@ function draw() {
       gr.addColorStop(1, 'rgba(255,255,255,0)');
       ctx.fillStyle = gr;
       ctx.beginPath(); ctx.arc(l.x * Z, l.y * Z, halo, 0, 7); ctx.fill();
-      // 빛살 — 흰 바탕에서도 세기가 보이게, 전류가 클수록 길고 굵어진다
-      if (dim > 0.5) {
+      // 빛살 — 흰 바탕에서도 세기가 보이게, 전류가 클수록 길고 굵어진다.
+      // 밝기를 견주는 곳은 실험실이다. 플래카드는 LED가 많아 빛살을 넣으면 어지러우므로 빼고,
+      // 거기서는 빛 번짐(halo) 크기로만 세기를 보여 준다.
+      if (dim > 0.5 && mode === 'lab') {
         // 세기 차이가 확실히 벌어지게 — 전류가 조금만 커져도 빛살이 훌쩍 길어진다
         const pw = Math.pow(Math.min(1.3, lit), 1.6);
-        const rays = 8, inner = 0.5 * Z, len = (0.25 + 3.7 * pw) * Z;
+        const rays = 6, inner = 0.5 * Z, len = (0.2 + 3.2 * pw) * Z;
         ctx.save();
         ctx.translate(l.x * Z, l.y * Z);
         ctx.strokeStyle = `rgba(${r1},${g1},${b1},${0.3 + 0.5 * Math.min(1, pw)})`;
