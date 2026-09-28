@@ -1,6 +1,6 @@
 // 케이스 탭: 조각 치수 입력 → 3D 조립. 겹침(빨강)·틈(노랑)을 보여주되 수치는 알려주지 않는다.
-import * as THREE from '../vendor/three.module.min.js?v=66';
-import { config, work, addLog, touch, readOnly, attemptCount, logArea, demoAccount } from './state.js?v=66';
+import * as THREE from '../vendor/three.module.min.js?v=67';
+import { config, work, addLog, touch, readOnly, attemptCount, logArea, demoAccount } from './state.js?v=67';
 
 let scene, camera, renderer, root, el3d;
 let theta = 0.55, phi = 0.5, radius = 42; // 카메라 궤도
@@ -329,6 +329,14 @@ function assemble(logIt) {
       `<tr><td>내 예측</td><td>${num(pr.w)}</td><td>${num(pr.h)}</td><td>${num(pr.d)}</td></tr>` +
       `<tr><td>실제</td><td>${cell(W, goal.w, num(pr.w), off.w)}</td><td>${cell(H, goal.h, num(pr.h), off.h)}</td><td>${cell(D, goal.d, num(pr.d), off.d)}</td></tr></table>` +
       '<p class="muted small">지금 만들어진 케이스가 목표한 크기보다 어떤지 알려 줍니다. 그 방향의 조각끼리 맞물리지 않으면 <b>안 맞음</b>으로 표시됩니다.</p>';
+    // 어디를 고쳐야 할지 못 찾는 학생이 많다 — 답 대신 '어느 방향을 어느 조각이 정하는지' 묻는다
+    const AXIS = { w: '가로', h: '높이', d: '깊이(세로)' };
+    const sizeOff = { w: goal.w > 0 && Math.abs(W - goal.w) > 0.05,
+                      h: goal.h > 0 && Math.abs(H - goal.h) > 0.05,
+                      d: goal.d > 0 && Math.abs(D - goal.d) > 0.05 };
+    const wrongAxes = ['w', 'h', 'd'].filter(k => sizeOff[k] && !off[k]);
+    if (wrongAxes.length)
+      html += `<p class="hint"><b>${wrongAxes.map(k => AXIS[k]).join('·')}</b> 방향이 목표와 다릅니다. 케이스를 돌려 그 방향으로 놓인 모서리를 따라가 보세요 — <b>어느 조각의 어느 변</b>이 그 길이를 정하고 있나요? 한 방향을 조각 두 개가 함께 맡고 있을 수도 있어요.</p>`;
   }
   info.innerHTML = html;
 
