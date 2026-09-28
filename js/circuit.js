@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=62';
-import { renderLogList } from './case3d.js?v=62';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=63';
+import { renderLogList } from './case3d.js?v=63';
 
 const $ = id => document.getElementById(id);
 
@@ -1459,11 +1459,17 @@ function hitTest(p) {
   for (let hi = C.holders.length - 1; hi >= 0; hi--) {
     const h = C.holders[hi];
     const g = holderGeom(h);
-    if (Math.hypot(p.x - g.sw.x, p.y - g.sw.y) < 0.8) return { type: 'switch', hi };
+    const coinHere = mode === 'lab' && isCoin(h);
+    if (!coinHere && Math.hypot(p.x - g.sw.x, p.y - g.sw.y) < 0.8) return { type: 'switch', hi };
     for (let wi = 0; wi < 2; wi++) {
       const w = h.wires[wi];
       const end = w.dock ? g.dock[wi] : w; // 접혀 있는 전선도 끝을 잡아 끌 수 있다
       if (Math.hypot(p.x - end.x, p.y - end.y) < 0.7) return { type: 'wire', hi, wi };
+    }
+    // 스위치 테이프 몸통을 잡으면 조각째로 옮긴다 (전지와 따로 움직인다)
+    if (coinHere) {
+      const cg = coinGeom(h);
+      if (distSeg(p, cg.base, cg.tip) < 0.45) return { type: 'swtape', hi };
     }
   }
   for (let i = C.leds.length - 1; i >= 0; i--)
@@ -1856,6 +1862,10 @@ export function initCircuit() {
     else if (selected.type === 'res') dragOff = { x: p.x - C.resistors[selected.i].x, y: p.y - C.resistors[selected.i].y, attach: captureAttach(selected) };
     else if (selected.type === 'holder') dragOff = { x: p.x - C.holders[selected.i].x, y: p.y - C.holders[selected.i].y, attach: captureAttach(selected) };
     else if (selected.type === 'wire') dragOff = { x: 0, y: 0 };
+    else if (selected.type === 'swtape') {
+      const w = C.holders[selected.hi].wires;
+      dragOff = { x: p.x, y: p.y, ends: [{ ...w[0] }, { ...w[1] }] };
+    }
     else if (selected.type === 'tape') dragOff = { x: p.x, y: p.y, pts: C.tapes[selected.i].pts.map(q => ({ ...q })) };
   }
 
@@ -1908,6 +1918,10 @@ export function initCircuit() {
         h.wires[selected.wi] = { ...clampNet({ x: Math.round(q.x * 2) / 2, y: Math.round(q.y * 2) / 2 }) };
       } else if (h)
         h.wires[selected.wi] = { ...clampNet({ x: snap(p.x), y: snap(p.y) }) };
+    } else if (selected.type === 'swtape') {
+      const h = C.holders[selected.hi];
+      const dx = snap(p.x - dragOff.x), dy = snap(p.y - dragOff.y);
+      h.wires = dragOff.ends.map(q => ({ ...clampNet({ x: q.x + dx, y: q.y + dy }) }));
     } else if (selected.type === 'tape') {
       const dx = snap(p.x - dragOff.x), dy = snap(p.y - dragOff.y);
       C.tapes[selected.i].pts = dragOff.pts.map(q => clampNet({ x: q.x + dx, y: q.y + dy }));
