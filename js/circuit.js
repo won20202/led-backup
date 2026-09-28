@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=71';
-import { renderLogList } from './case3d.js?v=71';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=72';
+import { renderLogList } from './case3d.js?v=72';
 
 const $ = id => document.getElementById(id);
 
@@ -1219,9 +1219,11 @@ function drawCoin(h, hi) {
   // 동전이 여러 개면 화면이 복잡해지므로, 하나뿐일 때 또는 고른 전지에만 그린다.
   const coinCount = am().holders.filter(isCoin).length;
   if (coinCount > 1 && !isSel) { ctx.textAlign = 'left'; return; }
-  const sx = h.x + COIN_R + 2.1, sy = h.y;          // 단면 그림 자리
+  const sw0 = 2.4;                                  // 단면 그림 폭
+  const sx = h.x - sw0 / 2, sy = h.y + COIN_R + 2.9;   // 전지 아래 (부품 툴바는 위쪽에 뜨므로 겹치지 않는다)
   // 접기·펴기 버튼 (설명이 계속 크게 떠 있지 않도록)
-  const btn = coinSideOpen ? { x: sx + 2.5, y: sy - 1.45, r: 0.42 } : { x: sx - 0.1, y: sy, r: 0.42 };
+  const btn = coinSideOpen ? { x: sx + sw0 + 0.35, y: sy - 1.45, r: 0.42 }
+    : { x: h.x + COIN_R + 0.55, y: h.y + COIN_R + 0.5, r: 0.42 };
   coinSideBtn = btn;
   const drawBtn = () => {
     ctx.beginPath(); ctx.arc(btn.x * Z, btn.y * Z, btn.r * Z, 0, 7);
@@ -1234,7 +1236,7 @@ function drawCoin(h, hi) {
     ctx.stroke();
   };
   if (!coinSideOpen) { drawBtn(); ctx.textAlign = 'left'; return; }
-  const sw = 2.4, cellH = 0.32, stackH = cells * cellH;
+  const sw = sw0, cellH = 0.32, stackH = cells * cellH;
   ctx.save();
   ctx.fillStyle = 'rgba(255,255,255,0.92)';
   ctx.strokeStyle = '#dbe1e8'; ctx.lineWidth = 1;
