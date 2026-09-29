@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=73';
-import { renderLogList } from './case3d.js?v=73';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=74';
+import { renderLogList } from './case3d.js?v=74';
 
 const $ = id => document.getElementById(id);
 
@@ -738,7 +738,7 @@ export function drawAssembled(tctx, rx, ry, rw, rh, opts = {}) {
     quad([P3(0, 0, 0), P3(d.bw, 0, 0), P3(d.bw, d.bh, 0), P3(0, d.bh, 0)], null, '#a8b2bd', true);
   } else if (show({ x: 0, y: 0, z: -1 })) {
     quad([P3(0, 0, 0), P3(d.bw, 0, 0), P3(d.bw, d.bh, 0), P3(0, d.bh, 0)],
-      wallFill(opts.opaque ? 'rgb(240,236,226)' : 'rgba(247,243,232,0.95)'), line, walls === 'dashed');
+      wallFill(opts.opaque ? 'rgb(232,238,244)' : 'rgba(228,238,247,0.95)'), line, walls === 'dashed');   // 옆면·위아랫면과 같은 우드락 색
   }
   if (walls !== 'none') {
     const wallC = opts.opaque

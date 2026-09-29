@@ -1,8 +1,8 @@
 // 완성 미리보기: 케이스 + 회로 + 도안을 합친 최종 모습.
 // 어느 위치에 어떤 색 빛이 나오는지, 전체 완성본이 어떨지를 보여준다.
-import { config, work } from './state.js?v=73';
-import { getLighting, drawAssembled } from './circuit.js?v=73';
-import { getDesignMask } from './design.js?v=73';
+import { config, work } from './state.js?v=74';
+import { getLighting, drawAssembled } from './circuit.js?v=74';
+import { getDesignMask } from './design.js?v=74';
 
 const $ = id => document.getElementById(id);
 
@@ -26,7 +26,8 @@ function paintAmbient(c2, litArr, alphaScale) {
   }
   if (!n || sum <= 0) return;
   // 트레이싱지 산란: 하나만 켜져도 글자 전체가 어느 정도는 빛난다 (위치에 따라 밝기 차이만)
-  const a = Math.min(0.78, 0.24 + 0.09 * sum) * alphaScale;   // 작품이 잘 보이게 넉넉히
+  // 개수에 따라 확실히 달라지게 — 1~2개면 은은하고, 8개쯤 달면 예전처럼 환하다
+  const a = Math.min(0.78, 0.06 + 0.09 * sum) * alphaScale;
   c2.fillStyle = `rgba(${Math.round(r / n)},${Math.round(g / n)},${Math.round(b / n)},${a})`;
   c2.fillRect(0, 0, c2.canvas.width, c2.canvas.height);
 }
