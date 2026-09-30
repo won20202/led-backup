@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=74';
-import { renderLogList } from './case3d.js?v=74';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=75';
+import { renderLogList } from './case3d.js?v=75';
 
 const $ = id => document.getElementById(id);
 
@@ -140,6 +140,11 @@ function faceOf(p) {
   return null;
 }
 // 전개도(또는 실험실 작업대) 밖으로 나가지 않게
+// 건전지 홀더는 케이스 '바깥'에 붙이는 부품이라 전개도 면에 붙잡아 두지 않는다 (빈 곳에도 놓을 수 있게)
+function clampHolder(p) {
+  if (geomLab) return clampNet(p);
+  return { x: p.x, y: p.y };
+}
 function clampNet(p) {
   if (geomLab)
     return { x: Math.min(Math.max(p.x, 0), LAB.w), y: Math.min(Math.max(p.y, 0), LAB.h) };
@@ -904,10 +909,10 @@ function draw() {
     const labZoom = zFitAll ? 1 : 0.55;
     const cmW = (mode === 'lab' ? LAB.w * labZoom
       : zFitAll ? d.sh * 2 + d.tw * 2
-      : d.bw + d.sh) + MARGIN * 2;
+      : d.bw) + MARGIN * 2;   // [크게 보기]에서는 뒷면이 화면을 꽉 채우게 (옆면 띠는 옆으로 밀어서 본다)
     const cmH = (mode === 'lab' ? LAB.h * labZoom : d.sw + NET_GAP + d.bh + 0.4) + MARGIN * 2;
     const availH = (window.innerHeight || 800) - 170;
-    Z = Math.max(8, Math.min(Math.floor(avail / cmW), Math.floor(availH / cmH), 44));
+    Z = Math.max(8, Math.min(Math.floor(avail / cmW), Math.floor(availH / cmH), 60));
   }
   const { ox, oy } = origin();
   const W = mode === 'lab'
@@ -1449,7 +1454,9 @@ function updatePanel() {
       if (darks) html += `<p class="hint">어두운 색으로 칠한 LED는 실제로는 빛이 조금 어둡게 보일 수 있어요.</p>`;
     }
     if (mode === 'placard' && R.noResistorLit && !R.over.size && !R.burnt.size)
-      html += `<p class="hint">지금은 LED에 전류가 그대로 흐르고 있어요. 실제 제작에서는 LED가 뜨거워져 수명이 빨리 닳을 수 있습니다. 전류를 알맞게 줄이려면 회로에 무엇이 더 있어야 할까요?</p>`;
+      html += config.advanced
+        ? `<p class="hint">지금은 LED에 전류가 그대로 흐르고 있어요. 전류를 알맞게 줄이려면 회로에 무엇이 더 있어야 할까요?</p>`
+        : `<p class="muted small"><b>이번 실습에서는 저항을 쓰지 않습니다 — 지금 연결은 잘못된 것이 아니에요.</b> 참고로 저항을 넣으면 전류가 줄어 LED를 더 오래 쓸 수 있습니다.</p>`;
   } else html += mode === 'placard'
     ? '<p class="muted">스위치가 꺼져 있어요. 몇 개가 켜질지 예측을 적고 스위치를 켜 보세요.</p>'
     : (C.holders.some(isCoin)
@@ -1886,7 +1893,7 @@ export function initCircuit() {
         selected = { type: 'holder', i: C.holders.length - 1 };
       } else {
         C.holders.push({
-          ...clampNet({ x: snap(p.x), y: snap(p.y) }),
+          ...clampHolder({ x: snap(p.x), y: snap(p.y) }),
           dir: 0, cells: 2, on: false, g7: 1,
           wires: [{ dock: true }, { dock: true }],
         });
@@ -1956,7 +1963,7 @@ export function initCircuit() {
       Object.assign(r, clampPart({ x: snap(p.x - dragOff.x), y: snap(p.y - dragOff.y) }, r.dir));
       applyAttach(selected, dragOff.attach);
     } else if (selected.type === 'holder') {
-      Object.assign(C.holders[selected.i], clampNet({ x: snap(p.x - dragOff.x), y: snap(p.y - dragOff.y) }));
+      Object.assign(C.holders[selected.i], clampHolder({ x: snap(p.x - dragOff.x), y: snap(p.y - dragOff.y) }));
       applyAttach(selected, dragOff.attach);
     } else if (selected.type === 'wire') {
       const h = C.holders[selected.hi];
