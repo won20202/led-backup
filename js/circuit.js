@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=75';
-import { renderLogList } from './case3d.js?v=75';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=76';
+import { renderLogList } from './case3d.js?v=76';
 
 const $ = id => document.getElementById(id);
 
@@ -1456,7 +1456,7 @@ function updatePanel() {
     if (mode === 'placard' && R.noResistorLit && !R.over.size && !R.burnt.size)
       html += config.advanced
         ? `<p class="hint">지금은 LED에 전류가 그대로 흐르고 있어요. 전류를 알맞게 줄이려면 회로에 무엇이 더 있어야 할까요?</p>`
-        : `<p class="muted small"><b>이번 실습에서는 저항을 쓰지 않습니다 — 지금 연결은 잘못된 것이 아니에요.</b> 참고로 저항을 넣으면 전류가 줄어 LED를 더 오래 쓸 수 있습니다.</p>`;
+        : `<p class="muted small">이번 실습에서는 저항을 쓰지 않습니다. 참고로 저항을 넣으면 전류가 줄어 LED를 더 오래 쓸 수 있습니다.</p>`;
   } else html += mode === 'placard'
     ? '<p class="muted">스위치가 꺼져 있어요. 몇 개가 켜질지 예측을 적고 스위치를 켜 보세요.</p>'
     : (C.holders.some(isCoin)
