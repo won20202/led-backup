@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=86';
-import { renderLogList } from './case3d.js?v=86';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=87';
+import { renderLogList } from './case3d.js?v=87';
 
 const $ = id => document.getElementById(id);
 
@@ -1663,10 +1663,11 @@ export function initCircuit() {
 
   const TOOL_FACTS = {
     none: '',
-    tape: '전도성 테이프 — 전기가 지나는 길. 파란 연결점을 누르면 바로 이어져요.',
+    tape: '전도성 테이프 — 전기가 지나다니는 길이에요.',
     led: 'LED — 긴 다리가 (+)극. 빈 곳을 눌러 놓으세요.',
     res: '저항 — 전류를 알맞게 줄여 LED를 지켜 줘요.',
     holder: '건전지 홀더 — 빨간(+)·검정(−) 전선 끝을 끌어 테이프에 붙이세요. 누를 때마다 하나씩 생겨요.',
+    coin: '동전 전지 — 전선이 없어요. 양옆 금속 탭의 (+)(−)에 테이프를 바로 붙입니다.',
   };
   function setTool(t) {
     tool = t;
