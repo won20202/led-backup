@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=80';
-import { renderLogList } from './case3d.js?v=80';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=81';
+import { renderLogList } from './case3d.js?v=81';
 
 const $ = id => document.getElementById(id);
 
@@ -1356,13 +1356,23 @@ function drawHolder(h, hi) {
     const cols = Math.min(cells, 2), rows = Math.ceil(cells / cols);
     const cw = Math.min(1.25, (hw - 0.6) / cols);
     const cy0 = -hh / 2 + 0.5, zoneH = hh - 1.7, rowH = zoneH / rows, ch = rowH - 0.12;
+    const headH = Math.min(1.1, ch * 0.34);
     for (let ci = 0; ci < cells; ci++) {
       const cx = (ci % cols - (cols - 1) / 2) * (cw + 0.15);
       const cy = cy0 + Math.floor(ci / cols) * rowH;
       ctx.fillStyle = '#2e8f8f';
       ctx.beginPath(); ctx.roundRect((cx - cw / 2) * Z, cy * Z, cw * Z, ch * Z, 5); ctx.fill();
+      // 실물 홀더는 전지를 번갈아 반대로 넣어야 (+)와 (−)가 이어진다 — 머리 방향도 번갈아
+      const headTop = ci % 2 === 0;
       ctx.fillStyle = '#57c6c0';   // (+) 쪽 머리
-      ctx.beginPath(); ctx.roundRect((cx - cw / 2) * Z, cy * Z, cw * Z, Math.min(1.1, ch * 0.34) * Z, 5); ctx.fill();
+      ctx.beginPath();
+      ctx.roundRect((cx - cw / 2) * Z, (headTop ? cy : cy + ch - headH) * Z, cw * Z, headH * Z, 5);
+      ctx.fill();
+      // 머리 끝의 돌기 (+ 극 표시)
+      ctx.fillStyle = '#8fdcd6';
+      ctx.beginPath();
+      ctx.roundRect((cx - cw * 0.18) * Z, (headTop ? cy - 0.12 : cy + ch) * Z, cw * 0.36 * Z, 0.12 * Z, 2);
+      ctx.fill();
     }
   }
   // 스위치 (아래쪽)
