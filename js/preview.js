@@ -1,8 +1,8 @@
 // 완성 미리보기: 케이스 + 회로 + 도안을 합친 최종 모습.
 // 어느 위치에 어떤 색 빛이 나오는지, 전체 완성본이 어떨지를 보여준다.
-import { config, work } from './state.js?v=78';
-import { getLighting, drawAssembled } from './circuit.js?v=78';
-import { getDesignMask } from './design.js?v=78';
+import { config, work } from './state.js?v=79';
+import { getLighting, drawAssembled } from './circuit.js?v=79';
+import { getDesignMask } from './design.js?v=79';
 
 const $ = id => document.getElementById(id);
 
@@ -27,9 +27,12 @@ function paintAmbient(c2, litArr, alphaScale) {
   if (!n || sum <= 0) return;
   // 트레이싱지 산란: 하나만 켜져도 글자 전체가 어느 정도는 빛난다 (위치에 따라 밝기 차이만)
   // 개수에 따라 확실히 달라지게 — 1~2개면 은은하고, 8개쯤 달면 예전처럼 환하다
-  // 너무 세면 LED마다 고른 색이 흰빛에 묻힌다 — 바탕만 깔고 색은 아래 번짐이 맡는다
-  const a = Math.min(0.42, 0.04 + 0.055 * sum) * alphaScale;
-  c2.fillStyle = `rgba(${Math.round(r / n)},${Math.round(g / n)},${Math.round(b / n)},${a})`;
+  // 바탕광은 '밝기'만 올린다. 색까지 평균색으로 덮으면 차가운 색(초록·파랑)이 묻힌다.
+  const a = Math.min(0.18, 0.02 + 0.02 * sum) * alphaScale;
+  let ar = r / n, ag = g / n, ab = b / n;
+  const y = 0.299 * ar + 0.587 * ag + 0.114 * ab;      // 거의 무채색으로 — 색은 아래 번짐이 맡는다
+  ar += (y - ar) * 0.75; ag += (y - ag) * 0.75; ab += (y - ab) * 0.75;
+  c2.fillStyle = `rgba(${Math.round(ar)},${Math.round(ag)},${Math.round(ab)},${a})`;
   c2.fillRect(0, 0, c2.canvas.width, c2.canvas.height);
 }
 
