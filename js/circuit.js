@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=82';
-import { renderLogList } from './case3d.js?v=82';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=83';
+import { renderLogList } from './case3d.js?v=83';
 
 const $ = id => document.getElementById(id);
 
@@ -1295,7 +1295,9 @@ function updatePanel() {
     if (R.burnt.size)
       html += `<p class="warn">전류가 너무 커서 LED ${R.burnt.size}개가 타버렸어요! 실제 회로에서도 똑같은 일이 일어납니다. 전류가 왜 이렇게 커졌는지, 회로에서 무엇을 바꾸면 줄어들지 생각해 볼까요?</p>`;
     else if (R.over.size)
-      html += `<p class="warn">LED에 정격(20mA)보다 큰 전류가 흐르고 있어요. 실제라면 매우 뜨거워지고 수명이 크게 짧아집니다. 지금 이 회로에서 전류의 크기를 정하는 것은 무엇일까요?</p>`;
+      html += config.advanced
+        ? `<p class="warn">LED에 정격(20mA)보다 큰 전류가 흐르고 있어요. 실제라면 매우 뜨거워지고 수명이 크게 짧아집니다. <b>전지는 그대로 두고</b> 전류를 줄이려면 회로에 무엇을 더하면 좋을까요?</p>`
+        : `<p class="warn">LED에 정격(20mA)보다 큰 전류가 흐르고 있어요. 실제라면 매우 뜨거워지고 수명이 크게 짧아집니다. <b>전지가 몇 개일 때</b> 알맞게 켜지는지 바꿔 가며 살펴볼까요?</p>`;
     if (config.questionFeedback) {
       const unlit = C.leds.length - litN - R.burnt.size;
       if (unlit > 0) html += `<p class="hint">안 켜진 LED가 ${unlit}개 있습니다. 긴 다리(+)가 어느 줄에 붙어 있는지, 두 다리가 서로 다른 줄에 있는지, 전압이 충분한지 살펴볼까요?</p>`;
