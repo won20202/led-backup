@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=83';
-import { renderLogList } from './case3d.js?v=83';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=84';
+import { renderLogList } from './case3d.js?v=84';
 
 const $ = id => document.getElementById(id);
 
@@ -217,15 +217,11 @@ const HOLDER_W = 3, HOLDER_H = 7;
 function holderGeom(h) {
   if (isCoin(h)) {
     // 탭 달린 일체형 동전 전지 — 양옆으로 금속 탭이 나오고 거기에 전선을 잇는다
-    const tP = rotV(COIN_R + 0.9, -0.35, h.dir);    // (+) 탭 끝
-    const tM = rotV(-(COIN_R + 0.9), 0.35, h.dir);  // (−) 탭 끝
-    const dP = rotV(COIN_R + 2.4, -1.1, h.dir);
-    const dM = rotV(-(COIN_R + 2.4), 1.1, h.dir);
-    return {
-      t: [{ x: h.x + tP.x, y: h.y + tP.y }, { x: h.x + tM.x, y: h.y + tM.y }],
-      dock: [{ x: h.x + dP.x, y: h.y + dP.y }, { x: h.x + dM.x, y: h.y + dM.y }],
-      sw: { x: h.x, y: h.y },   // 몸체에는 스위치가 없다 (왼쪽 [스위치 켜기]로 켠다)
-    };
+    // 전선이 없다 — 금속 탭에 (+)(−)가 찍혀 있고 거기에 테이프를 직접 붙인다
+    const tP = rotV(COIN_R + 0.75, 0, h.dir);
+    const tM = rotV(-(COIN_R + 0.75), 0, h.dir);
+    const P = { x: h.x + tP.x, y: h.y + tP.y }, M = { x: h.x + tM.x, y: h.y + tM.y };
+    return { t: [P, M], dock: [P, M], sw: { x: h.x, y: h.y } };
   }
   // 단자: 위쪽 좁은 면. 왼쪽 (−), 오른쪽 (+) — 실제 홀더·팅커캐드와 같은 배치
   const tP = rotV(1.4, -HOLDER_H / 2 - 0.25, h.dir);   // (+)
@@ -256,7 +252,9 @@ function terminals(C) {
     // 테이프는 홀더의 전선 끝에 잇는다 (실물: 빨간(+)·검정(−) 전선을 테이프에 붙임)
     h.wires.forEach((w, wi) => {
       const end = w.dock ? g.dock[wi] : w;
-      out.push({ x: end.x, y: end.y, label: wi === 0 ? '+' : '−', wire: { hi: C.holders.indexOf(h), wi } });
+      const pt = { x: end.x, y: end.y, label: wi === 0 ? '+' : '−' };
+      if (!isCoin(h)) pt.wire = { hi: C.holders.indexOf(h), wi };   // 동전 전지는 끌어낼 전선이 없다
+      out.push(pt);
     });
   });
   return out;
@@ -1134,13 +1132,13 @@ function drawCoinBody(h, hi) {
   ctx.save();
   ctx.translate(h.x * Z, h.y * Z);
   ctx.rotate((h.dir || 0) * Math.PI / 2);
-  // 금속 탭 두 개 (양옆으로 뻗어 전선을 잇는다)
-  [[1, -0.35], [-1, 0.35]].forEach(([sx, oy]) => {
-    ctx.fillStyle = '#c8ced6';
+  // 금속 탭 두 개 — 여기에 전도성 테이프를 바로 붙인다 (전선 없음)
+  [1, -1].forEach(sx => {
+    ctx.fillStyle = '#ccd2d9';
     ctx.beginPath();
-    ctx.roundRect((sx > 0 ? COIN_R - 0.2 : -(COIN_R + 0.9)) * Z, (oy - 0.22) * Z, 1.1 * Z, 0.44 * Z, 3);
+    ctx.roundRect((sx > 0 ? COIN_R - 0.25 : -(COIN_R + 1.1)) * Z, -0.3 * Z, 1.35 * Z, 0.6 * Z, 3);
     ctx.fill();
-    ctx.strokeStyle = '#8e959d'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.strokeStyle = '#8e959d'; ctx.lineWidth = 1.1; ctx.stroke();
   });
   // 전지 몸통
   ctx.beginPath(); ctx.arc(0, 0, COIN_R * Z, 0, 7);
@@ -1149,98 +1147,13 @@ function drawCoinBody(h, hi) {
   ctx.beginPath(); ctx.arc(0, 0, COIN_R * 0.74 * Z, 0, 7);
   ctx.strokeStyle = '#c3c9d2'; ctx.lineWidth = 1; ctx.stroke();
   ctx.restore();
-  // 글자는 회전시키지 않는다
-  ctx.textAlign = 'center';
+  // 탭에 찍힌 (+)(−) — 돌려도 글자는 바로 보이게
+  const g2 = holderGeom(h);
+  ctx.textAlign = 'center'; ctx.font = `bold ${Math.max(11, Z * 0.62)}px sans-serif`;
+  ctx.fillStyle = '#d64545'; ctx.fillText('+', g2.t[0].x * Z, (g2.t[0].y + 0.22) * Z);
+  ctx.fillStyle = '#2f3640'; ctx.fillText('−', g2.t[1].x * Z, (g2.t[1].y + 0.22) * Z);
   ctx.fillStyle = '#6b7480'; ctx.font = `${Math.max(9, Z * 0.42)}px sans-serif`;
-  ctx.fillText('CR2032 3.0V', h.x * Z, (h.y + COIN_R + 0.85) * Z);
-  ctx.textAlign = 'left';
-}
-
-function drawHolder(h, hi) {
-  const g = holderGeom(h);
-  const wcol = ['#d64545', '#2f3640'];
-  const isSel = selected && selected.type === 'holder' && selected.i === hi;
-  // 전선 (몸체보다 먼저) — 실물처럼 빨간(+)·검정(−) 전선이 항상 달려 있고, 끝을 끌어 테이프에 붙인다
-  h.wires.forEach((w, wi) => {
-    const t = g.t[wi];
-    const end = w.dock ? g.dock[wi] : w;
-    ctx.strokeStyle = wcol[wi]; ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(t.x * Z, t.y * Z);
-    const mx = (t.x + end.x) / 2, my = (t.y + end.y) / 2 - (w.dock ? 0.3 : 1);
-    ctx.quadraticCurveTo(mx * Z, my * Z, end.x * Z, end.y * Z);
-    ctx.stroke();
-    ctx.beginPath(); ctx.arc(end.x * Z, end.y * Z, 5, 0, 7);
-    ctx.fillStyle = wcol[wi]; ctx.fill();
-    if (selected && selected.type === 'wire' && selected.hi === hi && selected.wi === wi) { ctx.strokeStyle = '#2b6cb0'; ctx.lineWidth = 2; ctx.stroke(); }
-  });
-  if (isCoin(h)) { drawCoinBody(h, hi); return; }
-  // 몸체 (세로형, 방향대로 회전) — 전지 두 칸이 나란히 보이는 실제 홀더 모양
-  ctx.save();
-  ctx.translate(h.x * Z, h.y * Z);
-  ctx.rotate((h.dir || 0) * Math.PI / 2);
-  const hw = HOLDER_W, hh = HOLDER_H;
-  ctx.fillStyle = '#2f3844';
-  ctx.strokeStyle = isSel ? '#2b6cb0' : '#1c232c';
-  ctx.lineWidth = isSel ? 2.5 : 2;
-  ctx.beginPath(); ctx.roundRect(-hw / 2 * Z, -hh / 2 * Z, hw * Z, hh * Z, 6); ctx.fill(); ctx.stroke();
-  // 단자 (위쪽 좁은 면: 왼쪽 −, 오른쪽 +)
-  [[-1.4, '#2f3640'], [1.4, '#d64545']].forEach(([tx, col]) => {
-    ctx.fillStyle = col;
-    ctx.beginPath(); ctx.roundRect((tx - 0.22) * Z, (-hh / 2 - 0.45) * Z, 0.44 * Z, 0.5 * Z, 2); ctx.fill();
-  });
-  // 전지 칸 — 실물처럼 개수대로. 동전 전지는 원판을 포개어 쌓는다 (그래야 (+)(−)가 이어진다)
-  const cells = h.cells || 2;
-  if (isCoin(h)) {
-    const zoneH = hh - 1.7, cy0 = -hh / 2 + 0.5;
-    const th = Math.min(0.7, zoneH / cells - 0.06);   // 한 장 두께
-    const cd = Math.min(hw - 0.7, 2.0);               // 지름
-    for (let ci = 0; ci < cells; ci++) {
-      const cy = cy0 + ci * (zoneH / cells);
-      ctx.fillStyle = '#b9c0c9';
-      ctx.beginPath(); ctx.roundRect((-cd / 2) * Z, cy * Z, cd * Z, th * Z, th * Z / 2); ctx.fill();
-      ctx.strokeStyle = '#7d848d'; ctx.lineWidth = 1; ctx.stroke();
-    }
-  } else {
-    const cols = Math.min(cells, 2), rows = Math.ceil(cells / cols);
-    const cw = Math.min(1.25, (hw - 0.6) / cols);
-    const cy0 = -hh / 2 + 0.5, zoneH = hh - 1.7, rowH = zoneH / rows, ch = rowH - 0.12;
-    const headH = Math.min(1.1, ch * 0.34);
-    for (let ci = 0; ci < cells; ci++) {
-      const cx = (ci % cols - (cols - 1) / 2) * (cw + 0.15);
-      const cy = cy0 + Math.floor(ci / cols) * rowH;
-      ctx.fillStyle = '#2e8f8f';
-      ctx.beginPath(); ctx.roundRect((cx - cw / 2) * Z, cy * Z, cw * Z, ch * Z, 5); ctx.fill();
-      // 실물 홀더는 전지를 번갈아 반대로 넣어야 (+)와 (−)가 이어진다 — 머리 방향도 번갈아
-      const headTop = ci % 2 === 0;
-      ctx.fillStyle = '#57c6c0';   // (+) 쪽 머리
-      ctx.beginPath();
-      ctx.roundRect((cx - cw / 2) * Z, (headTop ? cy : cy + ch - headH) * Z, cw * Z, headH * Z, 5);
-      ctx.fill();
-      // 머리 끝의 돌기 (+ 극 표시)
-      ctx.fillStyle = '#8fdcd6';
-      ctx.beginPath();
-      ctx.roundRect((cx - cw * 0.18) * Z, (headTop ? cy - 0.12 : cy + ch) * Z, cw * 0.36 * Z, 0.12 * Z, 2);
-      ctx.fill();
-    }
-  }
-  // 스위치 (아래쪽)
-  ctx.beginPath(); ctx.arc(0, (hh / 2 - 0.75) * Z, 0.55 * Z, 0, 7);
-  ctx.fillStyle = h.on ? '#37c26e' : '#828b96'; ctx.fill();
-  ctx.strokeStyle = '#1c232c'; ctx.lineWidth = 1.5; ctx.stroke();
-  ctx.restore();
-  // 글자 (회전 없이)
-  ctx.textAlign = 'center';
-  ctx.fillStyle = '#d0d6de'; ctx.font = `${Math.max(9, Z * 0.5)}px sans-serif`;
-  ctx.fillText(`${packShort(h)}×${cells} ${holderVolt(h).toFixed(1)}V`, h.x * Z, (h.y + rotV(0, -hh / 2 + 2.6, h.dir).y * 0) * Z + 4); // 중앙쯤
-  // 단자 라벨
-  ctx.font = 'bold 11px sans-serif';
-  ctx.fillStyle = '#2f3640';
-  ctx.fillText('−', g.t[1].x * Z, (g.t[1].y - 0.45) * Z);
-  ctx.fillStyle = '#d64545';
-  ctx.fillText('+', g.t[0].x * Z, (g.t[0].y - 0.45) * Z);
-  ctx.fillStyle = '#fff'; ctx.font = `bold ${Math.max(9, Z * 0.45)}px sans-serif`;
-  ctx.fillText(h.on ? 'ON' : 'OFF', g.sw.x * Z, g.sw.y * Z + Z * 0.16);
+  ctx.fillText('CR2032 3.0V', h.x * Z, (h.y + COIN_R + 0.9) * Z);
   ctx.textAlign = 'left';
 }
 
@@ -1374,9 +1287,9 @@ function hitTest(p) {
   for (let hi = C.holders.length - 1; hi >= 0; hi--) {
     const h = C.holders[hi];
     const g = holderGeom(h);
-    const coinHere = mode === 'lab' && isCoin(h);
+    const coinHere = isCoin(h);
     if (!coinHere && Math.hypot(p.x - g.sw.x, p.y - g.sw.y) < 0.8) return { type: 'switch', hi };
-    for (let wi = 0; wi < 2; wi++) {
+    for (let wi = 0; wi < 2 && !coinHere; wi++) {
       const w = h.wires[wi];
       const end = w.dock ? g.dock[wi] : w; // 접혀 있는 전선도 끝을 잡아 끌 수 있다
       if (Math.hypot(p.x - end.x, p.y - end.y) < 0.7) return { type: 'wire', hi, wi };
