@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=84';
-import { renderLogList } from './case3d.js?v=84';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=85';
+import { renderLogList } from './case3d.js?v=85';
 
 const $ = id => document.getElementById(id);
 
@@ -1125,6 +1125,95 @@ function draw() {
   }
 
   ctx.restore();
+}
+
+function drawHolder(h, hi) {
+  const g = holderGeom(h);
+  const wcol = ['#d64545', '#2f3640'];
+  const isSel = selected && selected.type === 'holder' && selected.i === hi;
+  if (isCoin(h)) { drawCoinBody(h, hi); return; }   // 동전 전지는 전선이 없다
+  // 전선 (몸체보다 먼저) — 실물처럼 빨간(+)·검정(−) 전선이 항상 달려 있고, 끝을 끌어 테이프에 붙인다
+  h.wires.forEach((w, wi) => {
+    const t = g.t[wi];
+    const end = w.dock ? g.dock[wi] : w;
+    ctx.strokeStyle = wcol[wi]; ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(t.x * Z, t.y * Z);
+    const mx = (t.x + end.x) / 2, my = (t.y + end.y) / 2 - (w.dock ? 0.3 : 1);
+    ctx.quadraticCurveTo(mx * Z, my * Z, end.x * Z, end.y * Z);
+    ctx.stroke();
+    ctx.beginPath(); ctx.arc(end.x * Z, end.y * Z, 5, 0, 7);
+    ctx.fillStyle = wcol[wi]; ctx.fill();
+    if (selected && selected.type === 'wire' && selected.hi === hi && selected.wi === wi) { ctx.strokeStyle = '#2b6cb0'; ctx.lineWidth = 2; ctx.stroke(); }
+  });
+  if (isCoin(h)) { drawCoinBody(h, hi); return; }
+  // 몸체 (세로형, 방향대로 회전) — 전지 두 칸이 나란히 보이는 실제 홀더 모양
+  ctx.save();
+  ctx.translate(h.x * Z, h.y * Z);
+  ctx.rotate((h.dir || 0) * Math.PI / 2);
+  const hw = HOLDER_W, hh = HOLDER_H;
+  ctx.fillStyle = '#2f3844';
+  ctx.strokeStyle = isSel ? '#2b6cb0' : '#1c232c';
+  ctx.lineWidth = isSel ? 2.5 : 2;
+  ctx.beginPath(); ctx.roundRect(-hw / 2 * Z, -hh / 2 * Z, hw * Z, hh * Z, 6); ctx.fill(); ctx.stroke();
+  // 단자 (위쪽 좁은 면: 왼쪽 −, 오른쪽 +)
+  [[-1.4, '#2f3640'], [1.4, '#d64545']].forEach(([tx, col]) => {
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.roundRect((tx - 0.22) * Z, (-hh / 2 - 0.45) * Z, 0.44 * Z, 0.5 * Z, 2); ctx.fill();
+  });
+  // 전지 칸 — 실물처럼 개수대로. 동전 전지는 원판을 포개어 쌓는다 (그래야 (+)(−)가 이어진다)
+  const cells = h.cells || 2;
+  if (isCoin(h)) {
+    const zoneH = hh - 1.7, cy0 = -hh / 2 + 0.5;
+    const th = Math.min(0.7, zoneH / cells - 0.06);   // 한 장 두께
+    const cd = Math.min(hw - 0.7, 2.0);               // 지름
+    for (let ci = 0; ci < cells; ci++) {
+      const cy = cy0 + ci * (zoneH / cells);
+      ctx.fillStyle = '#b9c0c9';
+      ctx.beginPath(); ctx.roundRect((-cd / 2) * Z, cy * Z, cd * Z, th * Z, th * Z / 2); ctx.fill();
+      ctx.strokeStyle = '#7d848d'; ctx.lineWidth = 1; ctx.stroke();
+    }
+  } else {
+    const cols = Math.min(cells, 2), rows = Math.ceil(cells / cols);
+    const cw = Math.min(1.25, (hw - 0.6) / cols);
+    const cy0 = -hh / 2 + 0.5, zoneH = hh - 1.7, rowH = zoneH / rows, ch = rowH - 0.12;
+    const headH = Math.min(1.1, ch * 0.34);
+    for (let ci = 0; ci < cells; ci++) {
+      const cx = (ci % cols - (cols - 1) / 2) * (cw + 0.15);
+      const cy = cy0 + Math.floor(ci / cols) * rowH;
+      ctx.fillStyle = '#2e8f8f';
+      ctx.beginPath(); ctx.roundRect((cx - cw / 2) * Z, cy * Z, cw * Z, ch * Z, 5); ctx.fill();
+      // 실물 홀더는 전지를 번갈아 반대로 넣어야 (+)와 (−)가 이어진다 — 머리 방향도 번갈아
+      const headTop = ci % 2 === 0;
+      ctx.fillStyle = '#57c6c0';   // (+) 쪽 머리
+      ctx.beginPath();
+      ctx.roundRect((cx - cw / 2) * Z, (headTop ? cy : cy + ch - headH) * Z, cw * Z, headH * Z, 5);
+      ctx.fill();
+      // 머리 끝의 돌기 (+ 극 표시)
+      ctx.fillStyle = '#8fdcd6';
+      ctx.beginPath();
+      ctx.roundRect((cx - cw * 0.18) * Z, (headTop ? cy - 0.12 : cy + ch) * Z, cw * 0.36 * Z, 0.12 * Z, 2);
+      ctx.fill();
+    }
+  }
+  // 스위치 (아래쪽)
+  ctx.beginPath(); ctx.arc(0, (hh / 2 - 0.75) * Z, 0.55 * Z, 0, 7);
+  ctx.fillStyle = h.on ? '#37c26e' : '#828b96'; ctx.fill();
+  ctx.strokeStyle = '#1c232c'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.restore();
+  // 글자 (회전 없이)
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#d0d6de'; ctx.font = `${Math.max(9, Z * 0.5)}px sans-serif`;
+  ctx.fillText(`${packShort(h)}×${cells} ${holderVolt(h).toFixed(1)}V`, h.x * Z, (h.y + rotV(0, -hh / 2 + 2.6, h.dir).y * 0) * Z + 4); // 중앙쯤
+  // 단자 라벨
+  ctx.font = 'bold 11px sans-serif';
+  ctx.fillStyle = '#2f3640';
+  ctx.fillText('−', g.t[1].x * Z, (g.t[1].y - 0.45) * Z);
+  ctx.fillStyle = '#d64545';
+  ctx.fillText('+', g.t[0].x * Z, (g.t[0].y - 0.45) * Z);
+  ctx.fillStyle = '#fff'; ctx.font = `bold ${Math.max(9, Z * 0.45)}px sans-serif`;
+  ctx.fillText(h.on ? 'ON' : 'OFF', g.sw.x * Z, g.sw.y * Z + Z * 0.16);
+  ctx.textAlign = 'left';
 }
 
 function drawCoinBody(h, hi) {
