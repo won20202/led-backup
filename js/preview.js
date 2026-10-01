@@ -1,8 +1,8 @@
 // 완성 미리보기: 케이스 + 회로 + 도안을 합친 최종 모습.
 // 어느 위치에 어떤 색 빛이 나오는지, 전체 완성본이 어떨지를 보여준다.
-import { config, work } from './state.js?v=77';
-import { getLighting, drawAssembled } from './circuit.js?v=77';
-import { getDesignMask } from './design.js?v=77';
+import { config, work } from './state.js?v=78';
+import { getLighting, drawAssembled } from './circuit.js?v=78';
+import { getDesignMask } from './design.js?v=78';
 
 const $ = id => document.getElementById(id);
 
@@ -138,6 +138,9 @@ export function drawPreview() {
     c2.globalCompositeOperation = 'lighter';
     const boost = 1;   // 배경이 밝아도 빛은 또렷하게
     paintAmbient(c2, light.lit, boost);
+    // 빛을 '더하기'로 합치면 여러 개가 겹칠 때 모든 색이 흰빛으로 포화된다.
+    // 밝은 쪽을 고르는 방식으로 합쳐야 LED마다 제 색이 남는다.
+    c2.globalCompositeOperation = 'lighten';
     for (const L of light.lit) paintGlow(c2, L, d, depth, RA, boost);
     // 트레이싱지 확산: 저해상도 → 확대가 자연스러운 번짐이 된다
     c2.globalCompositeOperation = 'destination-in';
