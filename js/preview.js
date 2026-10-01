@@ -1,8 +1,8 @@
 // 완성 미리보기: 케이스 + 회로 + 도안을 합친 최종 모습.
 // 어느 위치에 어떤 색 빛이 나오는지, 전체 완성본이 어떨지를 보여준다.
-import { config, work } from './state.js?v=76';
-import { getLighting, drawAssembled } from './circuit.js?v=76';
-import { getDesignMask } from './design.js?v=76';
+import { config, work } from './state.js?v=77';
+import { getLighting, drawAssembled } from './circuit.js?v=77';
+import { getDesignMask } from './design.js?v=77';
 
 const $ = id => document.getElementById(id);
 
@@ -27,7 +27,8 @@ function paintAmbient(c2, litArr, alphaScale) {
   if (!n || sum <= 0) return;
   // 트레이싱지 산란: 하나만 켜져도 글자 전체가 어느 정도는 빛난다 (위치에 따라 밝기 차이만)
   // 개수에 따라 확실히 달라지게 — 1~2개면 은은하고, 8개쯤 달면 예전처럼 환하다
-  const a = Math.min(0.78, 0.06 + 0.09 * sum) * alphaScale;
+  // 너무 세면 LED마다 고른 색이 흰빛에 묻힌다 — 바탕만 깔고 색은 아래 번짐이 맡는다
+  const a = Math.min(0.42, 0.04 + 0.055 * sum) * alphaScale;
   c2.fillStyle = `rgba(${Math.round(r / n)},${Math.round(g / n)},${Math.round(b / n)},${a})`;
   c2.fillRect(0, 0, c2.canvas.width, c2.canvas.height);
 }
@@ -40,7 +41,7 @@ function paintGlow(c2, L, d, depth, RA, alphaScale) {
   const back = L.face === 'back';
   let cx = Math.max(0, Math.min(c2.canvas.width, L.fx * RA));
   let cy = Math.max(0, Math.min(c2.canvas.height, L.fy * RA));
-  const rad = (back ? Math.max(depth * 1.35, d.bh * 1.05) : d.bw * 0.35) * RA;
+  const rad = (back ? Math.max(depth * 1.4, d.bh * 0.7) : d.bw * 0.3) * RA;
   const grad = c2.createRadialGradient(cx, cy, 1, cx, cy, rad);
   if (back) {
     grad.addColorStop(0, `rgba(${r},${g},${b},${a})`);
@@ -55,9 +56,10 @@ function paintGlow(c2, L, d, depth, RA, alphaScale) {
   c2.fillRect(0, 0, c2.canvas.width, c2.canvas.height);
   if (back) {
     // 깊이가 5cm 정도라 트레이싱지가 있어도 LED 바로 앞은 위치 티가 난다 — 밝은 핫스팟
-    const hot = c2.createRadialGradient(cx, cy, 0, cx, cy, Math.max(2, depth * 0.55 * RA));
-    hot.addColorStop(0, `rgba(255,255,255,${a * 0.75})`);
-    hot.addColorStop(1, 'rgba(255,255,255,0)');
+    const hot = c2.createRadialGradient(cx, cy, 0, cx, cy, Math.max(2, depth * 0.5 * RA));
+    hot.addColorStop(0, `rgba(${r},${g},${b},${a * 0.85})`);
+    hot.addColorStop(0.45, `rgba(${r},${g},${b},${a * 0.35})`);
+    hot.addColorStop(1, 'rgba(0,0,0,0)');
     c2.fillStyle = hot;
     c2.fillRect(0, 0, c2.canvas.width, c2.canvas.height);
   }

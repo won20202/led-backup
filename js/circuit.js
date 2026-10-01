@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=76';
-import { renderLogList } from './case3d.js?v=76';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=77';
+import { renderLogList } from './case3d.js?v=77';
 
 const $ = id => document.getElementById(id);
 
@@ -1587,10 +1587,9 @@ function rotateSelected() {
     selected.type === 'holder' ? C.holders[selected.i] : null);
   if (o && !readOnly) {
     pushUndo();
-    const attach = captureAttach(selected); // 회전 전 연결 상태 기억
+    // 돌릴 때는 테이프를 따라오게 하지 않는다 — 방향만 바꾸려는데 선이 끌려오면 지우고 다시 그려야 한다
     o.dir = ((o.dir || 0) + 1) % 4;
     if (selected.type !== 'holder') Object.assign(o, clampPart(o, o.dir));
-    applyAttach(selected, attach);          // 붙어 있던 테이프 끝이 따라온다
     C.tested = false; afterChange();
   }
 }
