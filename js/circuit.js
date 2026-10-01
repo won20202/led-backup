@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=85';
-import { renderLogList } from './case3d.js?v=85';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=86';
+import { renderLogList } from './case3d.js?v=86';
 
 const $ = id => document.getElementById(id);
 
@@ -1327,7 +1327,9 @@ function updatePanel() {
         : `<p class="muted small">이번 실습에서는 저항을 쓰지 않습니다. 참고로 저항을 넣으면 전류가 줄어 LED를 더 오래 쓸 수 있습니다.</p>`;
   } else html += mode === 'placard'
     ? '<p class="muted">스위치가 꺼져 있어요. 몇 개가 켜질지 예측을 적고 스위치를 켜 보세요.</p>'
-    : '<p class="muted">스위치가 꺼져 있어요. [스위치 켜기]를 눌러 보세요.</p>';
+    : (C.holders.some(h => !isCoin(h))
+      ? '<p class="muted">스위치가 꺼져 있어요. [스위치 켜기]를 눌러 보세요.</p>'
+      : '<p class="muted">[시뮬레이션 시작]을 누르면 불이 들어오는지 확인할 수 있어요.</p>');
   if (!R.noHolder && mode === 'placard')
     html += '<p class="muted small">테이프 위 가는 색선은 몇 번째 줄인지 구분하는 표시예요 — [입체로 보기]에서 같은 색을 따라가면 그 줄이 어떻게 둘러지는지 보여요.</p>';
   if (!R.noHolder && !R.short) html += advancedNote(C, R);
@@ -1497,7 +1499,11 @@ function toggleSwitch(hi) {
   resolveAndDraw();
 }
 function updateSwitchButton() {
-  $('btn-test').textContent = am().tested ? '스위치 끄기' : '스위치 켜기';
+  // 동전 전지에는 스위치가 없다 — 그럴 때는 '시뮬레이션'이라고 부른다
+  const hasSwitch = (am().holders || []).some(h => !isCoin(h));
+  $('btn-test').textContent = am().tested
+    ? (hasSwitch ? '스위치 끄기' : '시뮬레이션 멈추기')
+    : (hasSwitch ? '스위치 켜기' : '시뮬레이션 시작');
   $('btn-test').classList.toggle('on', am().tested);
   const ok = mode === 'lab' || !config.askPredict || am().predictCount !== '';
   $('btn-test').disabled = readOnly || (!am().tested && !ok);
