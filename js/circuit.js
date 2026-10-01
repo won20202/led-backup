@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=81';
-import { renderLogList } from './case3d.js?v=81';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=82';
+import { renderLogList } from './case3d.js?v=82';
 
 const $ = id => document.getElementById(id);
 
@@ -197,7 +197,7 @@ function cellVolt(h) { return isCoin(h) ? (Number(config.coinVolt) || 3) : 1.5; 
 function holderVolt(h) { return (h.cells || 2) * cellVolt(h); }
 function packName(h) { return isCoin(h) ? '동전(CR2032)' : 'AA'; }
 function packShort(h) { return isCoin(h) ? 'CR2032' : 'AA'; }
-function maxCells(h) { return isCoin(h) ? Math.max(1, Math.round(Number(config.coinCells) || 3)) : 6; }
+function maxCells(h) { return isCoin(h) ? 1 : 6; }   // 동전 전지는 한 개짜리 — 더 필요하면 하나 더 놓아 직렬로 잇는다
 function rintOf(h) { return isCoin(h) ? (h.cells || 1) * (Number(config.coinRint) || 80) : (Number(config.rint) || 10); }
 function imaxOf(h) { return isCoin(h) ? (Number(config.coinImax) || 10) : (Number(config.imax) || 200); }
 
@@ -205,34 +205,7 @@ function imaxOf(h) { return isCoin(h) ? (Number(config.coinImax) || 10) : (Numbe
 // 전기는 한 겹으로도 통한다 — 두 겹으로 만든 건 끈적한 면을 감춰 댔다 뗐다 하려는 것뿐이다.
 // 바닥에 닿는 면은 밑에 깔린 테이프와 이어지고, 윗면은 스위치 테이프를 댈 때만 이어진다.
 const COIN_R = 1.0;   // 반지름 (CR2032 지름 2cm)
-let coinSideOpen = true;   // 옆에서 본 모습을 펼쳐 둘지 (버튼으로 접었다 폈다)
-let coinSideBtn = null;    // 그 버튼 자리 (cm) — 누름 판정용
-// 스위치 테이프 길이 — 학생이 실제로 만드는 조각과 같은 길이만 쓸 수 있다
-function switchLen() { const v = Number(config.switchTapeLen); return v > 0 ? v : 3; }
-// 한쪽 끝을 끌 때, 다른 끝에서 길이를 넘지 않도록 잡아 준다
-function clampSwitch(p, anchor) {
-  const dx = p.x - anchor.x, dy = p.y - anchor.y, L = Math.hypot(dx, dy), max = switchLen();
-  if (L <= max || L === 0) return p;
-  return { x: anchor.x + dx / L * max, y: anchor.y + dy / L * max };
-}
-function coinGeom(h) {
-  const w = h.wires || [];
-  const tip = (w[0] && w[0].x !== undefined) ? w[0] : { x: h.x, y: h.y - 1.6 };
-  const base = (w[1] && w[1].x !== undefined) ? w[1] : { x: h.x, y: h.y - 3.5 };
-  // 테이프는 어디든 전기가 통하므로 어느 끝을 전지에 대든 같다.
-  const dTip = Math.hypot(tip.x - h.x, tip.y - h.y);
-  const dBase = Math.hypot(base.x - h.x, base.y - h.y);
-  const R = COIN_R + 0.2;
-  const tipOn = dTip <= R, baseOn = dBase <= R;
-  // 전지에 닿은 끝의 반대쪽 끝이 회로(테이프)와 이어지는 쪽
-  const other = (tipOn && baseOn) ? (dTip >= dBase ? tip : base) : (tipOn ? base : tip);
-  return {
-    tip, base, tipOn, baseOn, other,
-    touching: tipOn || baseOn,
-    benchPole: h.flip ? 0 : 1,   // 바닥에 닿는 면 (기본 −)
-    topPole: h.flip ? 1 : 0,     // 스위치 테이프를 대는 윗면 (기본 +)
-  };
-}
+
 
 function rotV(px, py, dir) {
   const a = (dir || 0) * Math.PI / 2;
@@ -242,6 +215,18 @@ function rotV(px, py, dir) {
 const HOLDER_W = 3, HOLDER_H = 7;
 // 단자 간격을 넉넉히(2.8cm) — 두 단자에서 나가는 테이프가 나란히 가도 서로 닿지 않게
 function holderGeom(h) {
+  if (isCoin(h)) {
+    // 탭 달린 일체형 동전 전지 — 양옆으로 금속 탭이 나오고 거기에 전선을 잇는다
+    const tP = rotV(COIN_R + 0.9, -0.35, h.dir);    // (+) 탭 끝
+    const tM = rotV(-(COIN_R + 0.9), 0.35, h.dir);  // (−) 탭 끝
+    const dP = rotV(COIN_R + 2.4, -1.1, h.dir);
+    const dM = rotV(-(COIN_R + 2.4), 1.1, h.dir);
+    return {
+      t: [{ x: h.x + tP.x, y: h.y + tP.y }, { x: h.x + tM.x, y: h.y + tM.y }],
+      dock: [{ x: h.x + dP.x, y: h.y + dP.y }, { x: h.x + dM.x, y: h.y + dM.y }],
+      sw: { x: h.x, y: h.y },   // 몸체에는 스위치가 없다 (왼쪽 [스위치 켜기]로 켠다)
+    };
+  }
   // 단자: 위쪽 좁은 면. 왼쪽 (−), 오른쪽 (+) — 실제 홀더·팅커캐드와 같은 배치
   const tP = rotV(1.4, -HOLDER_H / 2 - 0.25, h.dir);   // (+)
   const tM = rotV(-1.4, -HOLDER_H / 2 - 0.25, h.dir);  // (−)
@@ -267,14 +252,6 @@ function terminals(C) {
     out.push({ x: g.a.x, y: g.a.y }, { x: g.k.x, y: g.k.y });
   });
   (C.holders || []).forEach(h => {
-    if (h.pack === 'coin') {
-      const cg = coinGeom(h);
-      const hi = C.holders.indexOf(h);
-      out.push({ x: h.x, y: h.y, label: h.flip ? '+' : '−' });
-      out.push({ x: cg.tip.x, y: cg.tip.y, label: h.flip ? '−' : '+', wire: { hi, wi: 0 } });
-      out.push({ x: cg.base.x, y: cg.base.y, label: h.flip ? '−' : '+', wire: { hi, wi: 1 } });
-      return;
-    }
     const g = holderGeom(h);
     // 테이프는 홀더의 전선 끝에 잇는다 (실물: 빨간(+)·검정(−) 전선을 테이프에 붙임)
     h.wires.forEach((w, wi) => {
@@ -377,11 +354,6 @@ function normalize(C) {
     h.on = !!h.on;
     if (!h.g7) { const v = rotV(0, 1.0, h.dir); h.x += v.x; h.y += v.y; h.g7 = 1; } // 홀더 실측 반영 전 데이터: 단자 위치 유지
     if (!h.wires) h.wires = [{ dock: true }, { dock: true }];
-    if (h.pack === 'coin') {
-      if (!h.wires[0] || h.wires[0].x === undefined) h.wires[0] = { x: h.x, y: h.y - 1.6 };
-      if (!h.wires[1] || h.wires[1].x === undefined) h.wires[1] = { x: h.x, y: h.y - 3.5 };
-      h.on = coinGeom(h).touching;   // 댔으면 켜짐, 떼면 꺼짐
-    }
     h.wires.forEach(w => {
       if (w.surf === 'dock' || (w.x === undefined && !w.dock)) { w.dock = true; }
       delete w.surf;
@@ -389,13 +361,9 @@ function normalize(C) {
   });
 }
 // 스위치 상태 요약 (썸네일·다른 탭이 tested를 계속 쓰므로 동기화)
-function syncTested(C) {
-  // 동전 전지는 스위치 테이프를 댄 상태가 곧 스위치 ON
-  (C.holders || []).forEach(h => { if (h.pack === 'coin') h.on = coinGeom(h).touching; });
-  C.tested = (C.holders || []).some(h => h.on);
-}
+function syncTested(C) { C.tested = (C.holders || []).some(h => h.on); }
 // 전원이 켜져 있는 동안에는 회로를 수정할 수 없다 (실제 작업 규칙과 동일)
-function poweredOn() { return (am().holders || []).some(h => h.on && !isCoin(h)); }
+function poweredOn() { return (am().holders || []).some(h => h.on); }
 
 // ---------- 실행 취소 ----------
 let undoStack = [];
@@ -478,18 +446,6 @@ function solveInner(C, lab, forceOn) {
   // 홀더 단자·전선 끝을 테이프와 연결 (단자에 테이프를 바로 붙여도 된다)
   const poles = []; // {hi, pole, p3} — 다리 직접 접촉 판정용
   C.holders.forEach((h, hi) => {
-    if (lab && isCoin(h)) {
-      const cg = coinGeom(h);
-      const put = (pole, pt) => {
-        const p3 = to3Dp(pt);
-        poles.push({ hi, pole, p3 });
-        const t = tapeNear3D(p3);
-        if (t >= 0) union(term(hi, pole), t);
-      };
-      put(cg.benchPole, { x: h.x, y: h.y });      // 바닥 면은 깔린 테이프에 닿아 있다
-      if (cg.touching) put(cg.topPole, cg.other); // 전지에 댄 끝의 반대쪽이 회로와 이어진다
-      return;
-    }
     const g = holderGeom(h);
     [0, 1].forEach(pole => {
       const w = h.wires[pole];
@@ -1173,142 +1129,34 @@ function draw() {
   ctx.restore();
 }
 
-function drawCoin(h, hi) {
-  const cg = coinGeom(h);
+function drawCoinBody(h, hi) {
   const isSel = selected && selected.type === 'holder' && selected.i === hi;
-  const cells = h.cells || 1;
-  // 쌓은 장수가 보이게 살짝 비켜 그린다
-  for (let i = cells - 1; i >= 0; i--) {
-    ctx.beginPath(); ctx.arc((h.x + i * 0.18) * Z, (h.y - i * 0.18) * Z, COIN_R * Z, 0, 7);
-    ctx.fillStyle = i === 0 ? '#dee3e9' : '#bcc3cb';
+  ctx.save();
+  ctx.translate(h.x * Z, h.y * Z);
+  ctx.rotate((h.dir || 0) * Math.PI / 2);
+  // 금속 탭 두 개 (양옆으로 뻗어 전선을 잇는다)
+  [[1, -0.35], [-1, 0.35]].forEach(([sx, oy]) => {
+    ctx.fillStyle = '#c8ced6';
+    ctx.beginPath();
+    ctx.roundRect((sx > 0 ? COIN_R - 0.2 : -(COIN_R + 0.9)) * Z, (oy - 0.22) * Z, 1.1 * Z, 0.44 * Z, 3);
     ctx.fill();
-    ctx.strokeStyle = isSel ? '#2b6cb0' : '#8e959d'; ctx.lineWidth = isSel ? 2.5 : 1.2; ctx.stroke();
-  }
-  ctx.textAlign = 'center';
-  ctx.fillStyle = h.flip ? '#2f3640' : '#d64545';
-  ctx.font = `bold ${Math.max(12, Z * 0.8)}px sans-serif`;
-  ctx.fillText(h.flip ? '−' : '+', h.x * Z, (h.y + 0.3) * Z);
-  // 스위치 테이프 — 두 층으로 겹쳐 만든 조각이라는 게 보이게 나란히 두 줄로 그린다
-  const dxs = cg.tip.x - cg.base.x, dys = cg.tip.y - cg.base.y;
-  const Ls = Math.hypot(dxs, dys) || 1, nx = -dys / Ls * 0.17, ny = dxs / Ls * 0.17;
-  ctx.lineCap = 'round';
-  [[-1, '#b9c0c9'], [1, '#dde2e8']].forEach(([sgn, col]) => {
-    ctx.strokeStyle = col; ctx.lineWidth = 0.3 * Z;
-    ctx.beginPath();
-    ctx.moveTo((cg.base.x + nx * sgn) * Z, (cg.base.y + ny * sgn) * Z);
-    ctx.lineTo((cg.tip.x + nx * sgn) * Z, (cg.tip.y + ny * sgn) * Z);
-    ctx.stroke();
-    const swSel = selected && selected.type === 'swtape' && selected.hi === hi;
-    ctx.strokeStyle = swSel ? '#2b6cb0' : '#8e959d'; ctx.lineWidth = swSel ? 1.8 : 1; ctx.stroke();
+    ctx.strokeStyle = '#8e959d'; ctx.lineWidth = 1; ctx.stroke();
   });
-  ctx.save();
-  ctx.translate((cg.base.x + cg.tip.x) / 2 * Z, (cg.base.y + cg.tip.y) / 2 * Z);
-  ctx.rotate(Math.atan2(dys, dxs));
-  ctx.fillStyle = '#6b7480'; ctx.font = `${Math.max(8, Z * 0.34)}px sans-serif`; ctx.textAlign = 'center';
-  ctx.fillText(`스위치 테이프 ${switchLen()}cm`, 0, -0.45 * Z);
+  // 전지 몸통
+  ctx.beginPath(); ctx.arc(0, 0, COIN_R * Z, 0, 7);
+  ctx.fillStyle = '#dee3e9'; ctx.fill();
+  ctx.strokeStyle = isSel ? '#2b6cb0' : '#8e959d'; ctx.lineWidth = isSel ? 2.5 : 1.4; ctx.stroke();
+  ctx.beginPath(); ctx.arc(0, 0, COIN_R * 0.74 * Z, 0, 7);
+  ctx.strokeStyle = '#c3c9d2'; ctx.lineWidth = 1; ctx.stroke();
   ctx.restore();
+  // 글자는 회전시키지 않는다
   ctx.textAlign = 'center';
-  // 양 끝을 똑같이 그린다 — 어느 쪽이든 전지에 댈 수 있으니 방향이 있는 것처럼 보이면 안 된다.
-  // 전지 위에 올라간 끝만 반투명하게 해서 아래의 극성 글자가 보이게 한다.
-  [[cg.tip, cg.tipOn, 0], [cg.base, cg.baseOn, 1]].forEach(([e, on, wi]) => {
-    ctx.save();
-    if (on) ctx.globalAlpha = 0.5;
-    ctx.beginPath(); ctx.arc(e.x * Z, e.y * Z, 0.34 * Z, 0, 7);
-    ctx.fillStyle = on ? '#9fb0c2' : '#f2f5f9';
-    ctx.fill();
-    ctx.strokeStyle = (selected && selected.type === 'wire' && selected.hi === hi && selected.wi === wi) ? '#2b6cb0' : '#5c646e';
-    ctx.lineWidth = 1.8; ctx.stroke();
-    ctx.restore();
-  });
-  // 댔으면 전지 둘레에 초록 테두리 — 어느 면에 댔는지 글자는 그대로 보인다
-  if (cg.touching) {
-    ctx.beginPath(); ctx.arc(h.x * Z, h.y * Z, (COIN_R + 0.12) * Z, 0, 7);
-    ctx.strokeStyle = '#37c26e'; ctx.lineWidth = 2.5; ctx.stroke();
-  }
-  ctx.fillStyle = '#4a5561'; ctx.font = `${Math.max(9, Z * 0.45)}px sans-serif`;
-  ctx.fillText(`CR2032×${cells} ${holderVolt(h).toFixed(1)}V`, h.x * Z, (h.y + COIN_R + 0.85) * Z);
-  // 옆에서 본 모습 — 테이프가 전지 '위'에 올라온다는 걸 평면 화면에서도 알 수 있게.
-  // 동전이 여러 개면 화면이 복잡해지므로, 하나뿐일 때 또는 고른 전지에만 그린다.
-  const coinCount = am().holders.filter(isCoin).length;
-  if (coinCount > 1 && !isSel) { ctx.textAlign = 'left'; return; }
-  const sw0 = 2.4;                                  // 단면 그림 폭
-  const sx = h.x - sw0 / 2, sy = h.y + COIN_R + 2.9;   // 전지 아래 (부품 툴바는 위쪽에 뜨므로 겹치지 않는다)
-  // 접기·펴기 버튼 (설명이 계속 크게 떠 있지 않도록)
-  const btn = coinSideOpen ? { x: sx + sw0 + 0.35, y: sy - 1.45, r: 0.42 }
-    : { x: h.x + COIN_R + 0.55, y: h.y + COIN_R + 0.5, r: 0.42 };
-  coinSideBtn = btn;
-  const drawBtn = () => {
-    ctx.beginPath(); ctx.arc(btn.x * Z, btn.y * Z, btn.r * Z, 0, 7);
-    ctx.fillStyle = '#fff'; ctx.fill();
-    ctx.strokeStyle = '#9aa3ad'; ctx.lineWidth = 1.2; ctx.stroke();
-    ctx.strokeStyle = '#4a5561'; ctx.lineWidth = 1.6;
-    ctx.beginPath();
-    ctx.moveTo((btn.x - 0.2) * Z, btn.y * Z); ctx.lineTo((btn.x + 0.2) * Z, btn.y * Z);
-    if (!coinSideOpen) { ctx.moveTo(btn.x * Z, (btn.y - 0.2) * Z); ctx.lineTo(btn.x * Z, (btn.y + 0.2) * Z); }
-    ctx.stroke();
-  };
-  if (!coinSideOpen) { drawBtn(); ctx.textAlign = 'left'; return; }
-  const sw = sw0, cellH = 0.32, stackH = cells * cellH;
-  ctx.save();
-  ctx.fillStyle = 'rgba(255,255,255,0.92)';
-  ctx.strokeStyle = '#dbe1e8'; ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.roundRect((sx - 0.3) * Z, (sy - 1.7) * Z, (sw + 0.6) * Z, 3.1 * Z, 5); ctx.fill(); ctx.stroke();
-  // 바닥 테이프 — 전지 밑에 실제로 깔려 있을 때만 그린다
-  const onTapeNow = (am().tapes || []).some(t => distTape2D({ x: h.x, y: h.y }, t) < 0.7);
-  if (onTapeNow) {
-    ctx.fillStyle = '#c3c9d2';
-    ctx.fillRect(sx * Z, (sy + stackH / 2 + 0.06) * Z, sw * Z, 0.22 * Z);
-  } else {
-    ctx.strokeStyle = '#d5dbe2'; ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(sx * Z, (sy + stackH / 2 + 0.17) * Z); ctx.lineTo((sx + sw) * Z, (sy + stackH / 2 + 0.17) * Z);
-    ctx.stroke(); ctx.setLineDash([]);
-  }
-  // 전지 (옆에서 본 원판 더미)
-  for (let i = 0; i < cells; i++) {
-    ctx.fillStyle = i % 2 ? '#c8cfd7' : '#dee3e9';
-    ctx.fillRect((sx + 0.45) * Z, (sy - stackH / 2 + i * cellH) * Z, (sw - 0.9) * Z, cellH * Z);
-    ctx.strokeStyle = '#98a1ab'; ctx.lineWidth = 0.8;
-    ctx.strokeRect((sx + 0.45) * Z, (sy - stackH / 2 + i * cellH) * Z, (sw - 0.9) * Z, cellH * Z);
-  }
-  // 위·아래 면 극성
-  ctx.textAlign = 'right';
-  ctx.font = `bold ${Math.max(9, Z * 0.45)}px sans-serif`;
-  ctx.fillStyle = h.flip ? '#2f3640' : '#d64545';
-  ctx.fillText(h.flip ? '−' : '+', (sx + 0.35) * Z, (sy - stackH / 2 + 0.28) * Z);
-  ctx.fillStyle = h.flip ? '#d64545' : '#2f3640';
-  ctx.fillText(h.flip ? '+' : '−', (sx + 0.35) * Z, (sy + stackH / 2 + 0.22) * Z);
-  // 스위치 테이프 — 댔으면 윗면에 닿고, 뗐으면 위에 떠 있다
-  const gap = cg.touching ? 0.02 : 0.5;
-  const tapeY = sy - stackH / 2 - 0.22 - gap;
-  [0, 1].forEach(k => {   // 두 겹
-    ctx.fillStyle = k ? '#dde2e8' : '#b9c0c9';
-    ctx.fillRect((sx + 0.2) * Z, (tapeY - k * 0.15) * Z, (sw - 0.4) * Z, 0.14 * Z);
-    ctx.strokeStyle = '#7d848d'; ctx.lineWidth = 0.8;
-    ctx.strokeRect((sx + 0.2) * Z, (tapeY - k * 0.15) * Z, (sw - 0.4) * Z, 0.14 * Z);
-  });
-  if (!cg.touching) {   // 떨어져 있다는 표시
-    ctx.strokeStyle = '#b6bdc6'; ctx.setLineDash([2, 3]); ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo((sx + sw / 2) * Z, (tapeY + 0.24) * Z);
-    ctx.lineTo((sx + sw / 2) * Z, (sy - stackH / 2 - 0.02) * Z);
-    ctx.stroke(); ctx.setLineDash([]);
-  }
-  ctx.textAlign = 'center';
-  ctx.fillStyle = cg.touching ? '#2e9e5b' : '#98a1ab';
-  ctx.font = `bold ${Math.max(8, Z * 0.38)}px sans-serif`;
-  ctx.fillText(cg.touching ? '댐 — 켜짐' : '뗌 — 꺼짐', (sx + sw / 2) * Z, (sy + 1.3) * Z);
-  ctx.fillStyle = '#98a1ab'; ctx.font = `${Math.max(8, Z * 0.34)}px sans-serif`;
-  ctx.fillText('옆에서 본 모습', (sx + sw / 2) * Z, (sy + 1.95) * Z);
-  ctx.restore();
-  drawBtn();
-  ctx.save();
-  ctx.restore();
+  ctx.fillStyle = '#6b7480'; ctx.font = `${Math.max(9, Z * 0.42)}px sans-serif`;
+  ctx.fillText('CR2032 3.0V', h.x * Z, (h.y + COIN_R + 0.85) * Z);
   ctx.textAlign = 'left';
 }
 
 function drawHolder(h, hi) {
-  if (mode === 'lab' && isCoin(h)) return drawCoin(h, hi);
   const g = holderGeom(h);
   const wcol = ['#d64545', '#2f3640'];
   const isSel = selected && selected.type === 'holder' && selected.i === hi;
@@ -1326,6 +1174,7 @@ function drawHolder(h, hi) {
     ctx.fillStyle = wcol[wi]; ctx.fill();
     if (selected && selected.type === 'wire' && selected.hi === hi && selected.wi === wi) { ctx.strokeStyle = '#2b6cb0'; ctx.lineWidth = 2; ctx.stroke(); }
   });
+  if (isCoin(h)) { drawCoinBody(h, hi); return; }
   // 몸체 (세로형, 방향대로 회전) — 전지 두 칸이 나란히 보이는 실제 홀더 모양
   ctx.save();
   ctx.translate(h.x * Z, h.y * Z);
@@ -1474,9 +1323,7 @@ function updatePanel() {
         : `<p class="muted small">이번 실습에서는 저항을 쓰지 않습니다. 참고로 저항을 넣으면 전류가 줄어 LED를 더 오래 쓸 수 있습니다.</p>`;
   } else html += mode === 'placard'
     ? '<p class="muted">스위치가 꺼져 있어요. 몇 개가 켜질지 예측을 적고 스위치를 켜 보세요.</p>'
-    : (C.holders.some(isCoin)
-      ? '<p class="muted">전도성 테이프는 어디든 전기가 통해요. 이 <b>스위치 테이프</b>는 끈적한 면이 밖으로 나오지 않게 만든 조각이라 전지에 <b>댔다 뗐다</b> 할 수 있어요. 한쪽 끝을 회로의 테이프에 붙이고, 다른 끝을 <b>동전 전지 위에</b> 끌어다 올려 보세요.</p>'
-      : '<p class="muted">스위치가 꺼져 있어요. 홀더의 스위치를 눌러 보세요.</p>');
+    : '<p class="muted">스위치가 꺼져 있어요. [스위치 켜기]를 눌러 보세요.</p>';
   if (!R.noHolder && mode === 'placard')
     html += '<p class="muted small">테이프 위 가는 색선은 몇 번째 줄인지 구분하는 표시예요 — [입체로 보기]에서 같은 색을 따라가면 그 줄이 어떻게 둘러지는지 보여요.</p>';
   if (!R.noHolder && !R.short) html += advancedNote(C, R);
@@ -1517,9 +1364,7 @@ function inHolderBody(p, h) {
 }
 // 전선·스위치 테이프 끝을 제자리로 (동전 전지는 전지에서 떨어진 기본 자리로 되돌린다)
 function resetWire(h, wi) {
-  if (!h) return;
-  if (h.pack === 'coin') h.wires[wi] = wi === 0 ? { x: h.x, y: h.y - 1.6 } : { x: h.x, y: h.y - 3.5 };
-  else h.wires[wi] = { dock: true };
+  if (h) h.wires[wi] = { dock: true };
 }
 
 function hitTest(p) {
@@ -1533,11 +1378,6 @@ function hitTest(p) {
       const w = h.wires[wi];
       const end = w.dock ? g.dock[wi] : w; // 접혀 있는 전선도 끝을 잡아 끌 수 있다
       if (Math.hypot(p.x - end.x, p.y - end.y) < 0.7) return { type: 'wire', hi, wi };
-    }
-    // 스위치 테이프 몸통을 잡으면 조각째로 옮긴다 (전지와 따로 움직인다)
-    if (coinHere) {
-      const cg = coinGeom(h);
-      if (distSeg(p, cg.base, cg.tip) < 0.45) return { type: 'swtape', hi };
     }
   }
   for (let i = C.leds.length - 1; i >= 0; i--)
@@ -1653,9 +1493,6 @@ function toggleSwitch(hi) {
   resolveAndDraw();
 }
 function updateSwitchButton() {
-  // 동전 전지는 스위치 테이프를 대는 것이 스위치다 — 버튼으로 켜고 끄지 않는다
-  const coinOnly = mode === 'lab' && am().holders.length > 0 && am().holders.every(isCoin);
-  $('btn-test').style.display = coinOnly ? 'none' : '';
   $('btn-test').textContent = am().tested ? '스위치 끄기' : '스위치 켜기';
   $('btn-test').classList.toggle('on', am().tested);
   const ok = mode === 'lab' || !config.askPredict || am().predictCount !== '';
@@ -1846,13 +1683,6 @@ export function initCircuit() {
     const p = toCm(e);
     const C = am();
     normalize(C);
-    // 옆모습 접기·펴기 버튼이 먼저
-    if (mode === 'lab' && coinSideBtn && am().holders.some(isCoin) &&
-        Math.hypot(p.x - coinSideBtn.x, p.y - coinSideBtn.y) < coinSideBtn.r + 0.15) {
-      coinSideOpen = !coinSideOpen;
-      draw();
-      return;
-    }
     // 스위치는 어떤 도구에서든 동작
     const pre = hitTest(p);
     if (pre && pre.type === 'switch') { toggleSwitch(pre.hi); return; }
@@ -1905,10 +1735,10 @@ export function initCircuit() {
         C.resistors.push({ ...clampPart({ x: snap(p.x), y: snap(p.y) }, defDir), dir: defDir });
         selected = { type: 'res', i: C.resistors.length - 1 };
       } else if (tool === 'coin') {
-        const q = clampNet({ x: snap(p.x), y: snap(p.y) });
         C.holders.push({
-          ...q, dir: 0, pack: 'coin', cells: 1, on: false, g7: 1, flip: false,
-          wires: [{ x: q.x, y: q.y - 1.6 }, { x: q.x, y: q.y - 3.5 }],
+          ...clampHolder({ x: snap(p.x), y: snap(p.y) }),
+          dir: 0, pack: 'coin', cells: 1, on: false, g7: 1,
+          wires: [{ dock: true }, { dock: true }],
         });
         selected = { type: 'holder', i: C.holders.length - 1 };
       } else {
@@ -1926,7 +1756,7 @@ export function initCircuit() {
     }
     // 기본: 누르면 선택, 누른 채 끌면 이동
     const hit = pre;
-    selected = hit && ['led', 'res', 'tape', 'tapept', 'wire', 'holder', 'swtape'].includes(hit.type) ? hit : null;
+    selected = hit && ['led', 'res', 'tape', 'tapept', 'wire', 'holder'].includes(hit.type) ? hit : null;
     if ((tool === 'led' || tool === 'res' || tool === 'holder' || tool === 'coin') && selected) setTool('none');
     updateFloatProps();
     if (selected) beginDrag(p, e);
@@ -1942,10 +1772,6 @@ export function initCircuit() {
     else if (selected.type === 'res') dragOff = { x: p.x - C.resistors[selected.i].x, y: p.y - C.resistors[selected.i].y, attach: captureAttach(selected) };
     else if (selected.type === 'holder') dragOff = { x: p.x - C.holders[selected.i].x, y: p.y - C.holders[selected.i].y, attach: captureAttach(selected) };
     else if (selected.type === 'wire') dragOff = { x: 0, y: 0 };
-    else if (selected.type === 'swtape') {
-      const w = C.holders[selected.hi].wires;
-      dragOff = { x: p.x, y: p.y, ends: [{ ...w[0] }, { ...w[1] }] };
-    }
     else if (selected.type === 'tape') dragOff = { x: p.x, y: p.y, pts: C.tapes[selected.i].pts.map(q => ({ ...q })) };
     else if (selected.type === 'tapept') dragOff = { x: 0, y: 0 };
   }
@@ -1992,17 +1818,9 @@ export function initCircuit() {
       // 동전 전지는 전지 위에 대는 것이 곧 스위치라서 그대로 둔다.
       if (h && !isCoin(h) && inHolderBody(p, h))
         h.wires[selected.wi] = { dock: true };
-      else if (h && isCoin(h)) {
-        // 스위치 테이프는 길이가 정해져 있다 — 반대쪽 끝에서 그 길이를 넘지 못한다
-        const anchor = h.wires[1 - selected.wi];
-        const q = clampSwitch({ x: snap(p.x), y: snap(p.y) }, anchor && anchor.x !== undefined ? anchor : { x: h.x, y: h.y });
-        h.wires[selected.wi] = { ...clampNet({ x: Math.round(q.x * 2) / 2, y: Math.round(q.y * 2) / 2 }) };
-      } else if (h)
+      else if (h)
         h.wires[selected.wi] = { ...clampNet({ x: snap(p.x), y: snap(p.y) }) };
-    } else if (selected.type === 'swtape') {
-      const h = C.holders[selected.hi];
-      const dx = snap(p.x - dragOff.x), dy = snap(p.y - dragOff.y);
-      h.wires = dragOff.ends.map(q => ({ ...clampNet({ x: q.x + dx, y: q.y + dy }) }));
+    } else if (false) {
     } else if (selected.type === 'tape') {
       const dx = snap(p.x - dragOff.x), dy = snap(p.y - dragOff.y);
       C.tapes[selected.i].pts = dragOff.pts.map(q => clampNet({ x: q.x + dx, y: q.y + dy }));
@@ -2182,9 +2000,7 @@ function updateFloatProps() {
     html += `<span class="fp-sep"></span><button class="fp fp-del" title="삭제 (Delete)">${TRASH_ICON}</button>`;
   } else if (selected.type === 'holder') {
     const h = C.holders[selected.i];
-    html += isCoin(h) && mode === 'lab'
-      ? `<button class="fp fp-flip">뒤집기 <small>(+/−)</small></button>`
-      : `<button class="fp fp-rot" title="회전 (R)">${ROT_ICON}</button>`;
+    html += `<button class="fp fp-rot" title="회전 (R)">${ROT_ICON}</button>`;
     if (mode === 'lab') {
       html += `<span class="fp-sep"></span><span class="fp-label">전지</span>` +
         [['aa', 'AA'], ['coin', '동전']].map(([k, nm]) =>
@@ -2215,9 +2031,6 @@ function updateFloatProps() {
   }));
   el.querySelectorAll('.fp-ohm').forEach(b => b.addEventListener('click', () => {
     pushUndo(); C.resistors[selected.i].ohm = +b.dataset.v; afterChange();
-  }));
-  el.querySelectorAll('.fp-flip').forEach(b => b.addEventListener('click', () => {
-    pushUndo(); C.holders[selected.i].flip = !C.holders[selected.i].flip; afterChange();
   }));
   el.querySelectorAll('.fp-pack').forEach(b => b.addEventListener('click', () => {
     pushUndo();

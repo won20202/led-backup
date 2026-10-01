@@ -5,9 +5,9 @@ import { config, saveConfig, exportConfigCode, importConfigCode, getMisses, clea
          checkAdminPin, syncAdminPin,
          makeSid, parseSid, weekKeyOf, timetableForWeek, runsOf, todayRuns,
          rosterActive, readOnly, presetNames, savePreset, loadPreset, deletePreset,
-         BLOCKED_STATUS } from './state.js?v=81';
-import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=81';
-import { switchTab } from './app.js?v=81';
+         BLOCKED_STATUS } from './state.js?v=82';
+import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=82';
+import { switchTab } from './app.js?v=82';
 
 const $ = id => document.getElementById(id);
 
@@ -36,8 +36,6 @@ const FIELDS = [
   ['coinVolt', '동전 전지 1개 전압 (V) — 회로 실험실 전용', 'number'],
   ['coinRint', '동전 전지 1개 내부 저항 (Ω)', 'number'],
   ['coinImax', '동전 전지 최대 공급 전류 (mA)', 'number'],
-  ['coinCells', '동전 전지 최대 개수', 'number'],
-  ['switchTapeLen', '스위치 테이프 길이 (cm)', 'number'],
   ['vf', '백색 LED 문턱 전압 (V) — 직렬 소등 기준', 'number'],
   ['vfRed', '빨강 LED 문턱 전압 (V) — 심화 모드', 'number'],
   ['vfYellow', '노랑 LED 문턱 전압 (V)', 'number'],
