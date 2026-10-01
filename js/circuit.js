@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=79';
-import { renderLogList } from './case3d.js?v=79';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=80';
+import { renderLogList } from './case3d.js?v=80';
 
 const $ = id => document.getElementById(id);
 
@@ -991,6 +991,11 @@ function draw() {
       ctx.lineWidth = Math.max(1.5, 0.09 * Z);
       ctx.stroke();
     }
+    if (selected && selected.type === 'tapept' && selected.i === i) {
+      const q = t.pts[selected.j];
+      if (q) { ctx.beginPath(); ctx.arc(q.x * Z, q.y * Z, 0.3 * Z, 0, 7);
+        ctx.fillStyle = '#fff'; ctx.fill(); ctx.strokeStyle = '#2b6cb0'; ctx.lineWidth = 2.5; ctx.stroke(); }
+    }
     if (selected && selected.type === 'tape' && selected.i === i) {
       ctx.strokeStyle = '#2b6cb0'; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
       ctx.beginPath();
@@ -1531,6 +1536,12 @@ function hitTest(p) {
     if (Math.hypot(p.x - C.resistors[i].x, p.y - C.resistors[i].y) < 0.8) return { type: 'res', i };
   for (let hi = C.holders.length - 1; hi >= 0; hi--)
     if (inHolderBody(p, C.holders[hi])) return { type: 'holder', i: hi };
+  // 테이프의 점(끝점·꺾인 곳)을 먼저 — 잡아 끌면 그 점만 움직여 모양이 바뀐다
+  for (let i = C.tapes.length - 1; i >= 0; i--) {
+    const pts = C.tapes[i].pts || [];
+    for (let j = 0; j < pts.length; j++)
+      if (Math.hypot(p.x - pts[j].x, p.y - pts[j].y) < 0.55) return { type: 'tapept', i, j };
+  }
   for (let i = C.tapes.length - 1; i >= 0; i--)
     if (distTape2D(p, C.tapes[i]) < 0.5) return { type: 'tape', i };
   return null;
@@ -1905,7 +1916,7 @@ export function initCircuit() {
     }
     // 기본: 누르면 선택, 누른 채 끌면 이동
     const hit = pre;
-    selected = hit && ['led', 'res', 'tape', 'wire', 'holder', 'swtape'].includes(hit.type) ? hit : null;
+    selected = hit && ['led', 'res', 'tape', 'tapept', 'wire', 'holder', 'swtape'].includes(hit.type) ? hit : null;
     if ((tool === 'led' || tool === 'res' || tool === 'holder' || tool === 'coin') && selected) setTool('none');
     updateFloatProps();
     if (selected) beginDrag(p, e);
@@ -1926,6 +1937,7 @@ export function initCircuit() {
       dragOff = { x: p.x, y: p.y, ends: [{ ...w[0] }, { ...w[1] }] };
     }
     else if (selected.type === 'tape') dragOff = { x: p.x, y: p.y, pts: C.tapes[selected.i].pts.map(q => ({ ...q })) };
+    else if (selected.type === 'tapept') dragOff = { x: 0, y: 0 };
   }
 
   cv.addEventListener('pointermove', e => {
@@ -1984,6 +1996,13 @@ export function initCircuit() {
     } else if (selected.type === 'tape') {
       const dx = snap(p.x - dragOff.x), dy = snap(p.y - dragOff.y);
       C.tapes[selected.i].pts = dragOff.pts.map(q => clampNet({ x: q.x + dx, y: q.y + dy }));
+    } else if (selected.type === 'tapept') {
+      // 점 하나만 움직여 테이프를 늘이거나 줄인다. 연결점 가까이 가면 딱 붙는다.
+      const t = C.tapes[selected.i];
+      if (t && t.pts[selected.j]) {
+        const sn = snapToTerminal(p, C);
+        t.pts[selected.j] = sn ? { x: sn.x, y: sn.y } : clampNet({ x: snap(p.x), y: snap(p.y) });
+      }
     }
     positionFloat(); // 옵션 카드가 부품을 따라간다
     draw();
@@ -2012,6 +2031,10 @@ export function initCircuit() {
       if (selected.type === 'led') C.leds.splice(selected.i, 1);
       else if (selected.type === 'res') C.resistors.splice(selected.i, 1);
       else if (selected.type === 'tape') C.tapes.splice(selected.i, 1);
+      else if (selected.type === 'tapept') {
+        const t = C.tapes[selected.i];
+        if (t && t.pts.length > 2) t.pts.splice(selected.j, 1); else C.tapes.splice(selected.i, 1);
+      }
       else if (selected.type === 'wire') resetWire(C.holders[selected.hi], selected.wi);
       else if (selected.type === 'holder') C.holders.splice(selected.i, 1);
       selected = null; syncTested(C); afterChange();
@@ -2080,6 +2103,10 @@ function selObjPos() {
     const t = C.tapes[selected.i];
     return t ? t.pts[Math.floor(t.pts.length / 2)] : null;
   }
+  if (selected.type === 'tapept') {
+    const t = C.tapes[selected.i];
+    return t && t.pts[selected.j] ? t.pts[selected.j] : null;
+  }
   return null;
 }
 function positionFloat() {
@@ -2104,6 +2131,10 @@ function deleteSelected() {
   if (selected.type === 'led') C.leds.splice(selected.i, 1);
   else if (selected.type === 'res') C.resistors.splice(selected.i, 1);
   else if (selected.type === 'tape') C.tapes.splice(selected.i, 1);
+      else if (selected.type === 'tapept') {
+        const t = C.tapes[selected.i];
+        if (t && t.pts.length > 2) t.pts.splice(selected.j, 1); else C.tapes.splice(selected.i, 1);
+      }
   else if (selected.type === 'wire') resetWire(C.holders[selected.hi], selected.wi);
   else if (selected.type === 'holder') C.holders.splice(selected.i, 1);
   selected = null;
