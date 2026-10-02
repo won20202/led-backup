@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=87';
-import { renderLogList } from './case3d.js?v=87';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=88';
+import { renderLogList } from './case3d.js?v=88';
 
 const $ = id => document.getElementById(id);
 
@@ -96,6 +96,10 @@ let geomLab = false;          // solve/draw가 실험실 좌표(평면)로 동�
 let drawingTape = null;
 let pendingWire = null; // 전선 끝을 눌렀을 때: 끌면 전선 당기기, 그냥 떼면 테이프 시작
 let selected = null;
+let multi = null;      // 상자로 한꺼번에 고른 부품들
+let boxState = null;   // 고르는 상자를 끌고 있는 중
+let cursorDown = { x: 0, y: 0 }; // 마지막으로 누른 자리
+let multiDrag = null;  // 여럿을 함께 옮기는 중
 let dragOff = null;
 let cursor = null;
 let solveResult = null;
@@ -376,7 +380,7 @@ function doUndo() {
   const C = am();
   Object.keys(C).forEach(k => delete C[k]);
   Object.assign(C, JSON.parse(s));
-  drawingTape = null; selected = null;
+  drawingTape = null; selected = null; multi = null;
   afterChange();
 }
 function updateUndoBtn() {
@@ -956,6 +960,20 @@ function draw() {
       t.pts.forEach((p, j) => j ? ctx.lineTo(p.x * Z, p.y * Z) : ctx.moveTo(p.x * Z, p.y * Z));
       ctx.stroke(); ctx.setLineDash([]);
     }
+    // 고른 테이프: 끝·꺾인 점은 꽉 찬 점(끌면 늘어남), 선 가운데는 빈 점(끌면 꺾임)
+    if (selected && ['tape', 'tapept', 'tapemid'].includes(selected.type) && selected.i === i) {
+      t.pts.forEach(q => {
+        ctx.beginPath(); ctx.arc(q.x * Z, q.y * Z, 0.22 * Z, 0, 7);
+        ctx.fillStyle = '#fff'; ctx.fill();
+        ctx.strokeStyle = '#2b6cb0'; ctx.lineWidth = 2; ctx.stroke();
+      });
+      for (let j = 0; j + 1 < t.pts.length; j++) {
+        const mx = (t.pts[j].x + t.pts[j + 1].x) / 2, my = (t.pts[j].y + t.pts[j + 1].y) / 2;
+        ctx.beginPath(); ctx.arc(mx * Z, my * Z, 0.15 * Z, 0, 7);
+        ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fill();
+        ctx.strokeStyle = 'rgba(43,108,176,0.6)'; ctx.lineWidth = 1.5; ctx.stroke();
+      }
+    }
   });
   if (drawingTape) {
     ctx.strokeStyle = 'rgba(120,130,145,0.6)';
@@ -1122,6 +1140,24 @@ function draw() {
       ctx.fillStyle = '#fff';
       lines.forEach((t, li) => ctx.fillText(t, tx + 10, ty + 18 + li * 18));
     }
+  }
+
+  // 상자로 고른 것들
+  multiItems().forEach(it => {
+    const b = itemBox(it);
+    ctx.strokeStyle = '#2b6cb0'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
+    ctx.strokeRect(b.x0 * Z, b.y0 * Z, (b.x1 - b.x0) * Z, (b.y1 - b.y0) * Z);
+    ctx.setLineDash([]);
+  });
+  // 끌고 있는 고르기 상자
+  if (boxState) {
+    const x0 = Math.min(boxState.x0, boxState.x1), y0 = Math.min(boxState.y0, boxState.y1);
+    const w = Math.abs(boxState.x1 - boxState.x0), h = Math.abs(boxState.y1 - boxState.y0);
+    ctx.fillStyle = 'rgba(74,108,240,0.10)';
+    ctx.fillRect(x0 * Z, y0 * Z, w * Z, h * Z);
+    ctx.strokeStyle = '#4a6cf0'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+    ctx.strokeRect(x0 * Z, y0 * Z, w * Z, h * Z);
+    ctx.setLineDash([]);
   }
 
   ctx.restore();
@@ -1373,8 +1409,52 @@ function resetWire(h, wi) {
   if (h) h.wires[wi] = { dock: true };
 }
 
+// ---- 상자로 여러 개 고르기 ----
+function multiItems() {
+  const C = am();
+  return (multi || []).filter(it => {
+    const arr = it.type === 'led' ? C.leds : it.type === 'res' ? (C.resistors || []) :
+      it.type === 'holder' ? C.holders : C.tapes;
+    return arr && arr[it.i];
+  });
+}
+function itemBox(it) {
+  const C = am();
+  if (it.type === 'tape') {
+    const q = C.tapes[it.i].pts;
+    return { x0: Math.min(...q.map(a => a.x)) - 0.3, y0: Math.min(...q.map(a => a.y)) - 0.3,
+             x1: Math.max(...q.map(a => a.x)) + 0.3, y1: Math.max(...q.map(a => a.y)) + 0.3 };
+  }
+  if (it.type === 'holder') {
+    const g = holderGeom(C.holders[it.i]);
+    const xs = g.t.map(a => a.x), ys = g.t.map(a => a.y);
+    return { x0: Math.min(...xs) - 0.5, y0: Math.min(...ys) - 0.9, x1: Math.max(...xs) + 0.5, y1: Math.max(...ys) + 0.9 };
+  }
+  const o = it.type === 'led' ? C.leds[it.i] : C.resistors[it.i];
+  const g = legs(o), xs = [g.a.x, g.k.x, o.x], ys = [g.a.y, g.k.y, o.y];
+  return { x0: Math.min(...xs) - 0.4, y0: Math.min(...ys) - 0.5, x1: Math.max(...xs) + 0.4, y1: Math.max(...ys) + 0.5 };
+}
+
 function hitTest(p) {
   const C = am();
+  // 스위치는 늘 먼저
+  for (let hi = C.holders.length - 1; hi >= 0; hi--) {
+    const h = C.holders[hi];
+    if (!isCoin(h) && Math.hypot(p.x - holderGeom(h).sw.x, p.y - holderGeom(h).sw.y) < 0.8) return { type: 'switch', hi };
+  }
+  // 고른 테이프는 점을 먼저 잡는다 — 끝점이 LED 다리에 얹혀 있어도 늘이거나 줄일 수 있게
+  const ti = selected && ['tape', 'tapept', 'tapemid'].includes(selected.type) ? selected.i : -1;
+  const st = ti >= 0 ? C.tapes[ti] : null;
+  if (st) {
+    const pts = st.pts || [];
+    const tol = Math.max(0.55, 15 / Z), tolM = Math.max(0.4, 12 / Z);
+    for (let j = 0; j < pts.length; j++)
+      if (Math.hypot(p.x - pts[j].x, p.y - pts[j].y) < tol) return { type: 'tapept', i: ti, j };
+    for (let j = 0; j + 1 < pts.length; j++) {   // 선 가운데 손잡이를 끌면 그 자리가 꺾인다
+      const mx = (pts[j].x + pts[j + 1].x) / 2, my = (pts[j].y + pts[j + 1].y) / 2;
+      if (Math.hypot(p.x - mx, p.y - my) < tolM) return { type: 'tapemid', i: ti, j };
+    }
+  }
   for (let hi = C.holders.length - 1; hi >= 0; hi--) {
     const h = C.holders[hi];
     const g = holderGeom(h);
@@ -1509,7 +1589,7 @@ function updateSwitchButton() {
   $('btn-test').disabled = readOnly || (!am().tested && !ok);
   // 전원이 켜져 있으면 편집 도구 잠금
   const locked = readOnly || poweredOn();
-  document.querySelectorAll('#circuit-tools button[data-tool]').forEach(b => b.disabled = locked);
+  document.querySelectorAll('#tab-circuit button[data-tool]').forEach(b => b.disabled = locked);
   $('btn-circuit-reset').disabled = locked;
   if (locked) $('btn-undo').disabled = true; else updateUndoBtn();
   $('circuit-predict-hint').textContent = ok ? '' : '몇 개가 켜질지 먼저 예측해 보세요.';
@@ -1519,7 +1599,7 @@ function updateSwitchButton() {
 function setCircuitMode(m) {
   mode = m;
   if (!readOnly) { work.circuitMode = m; touch(); } // 교사 보드용
-  drawingTape = null; selected = null; dragOff = null;
+  drawingTape = null; selected = null; multi = null; dragOff = null;
   undoStack = []; updateUndoBtn();
   if (view3d) { view3d = false; $('btn-3d').classList.remove('active'); $('btn-3d').textContent = '입체로 보기'; }
   document.querySelectorAll('#circ-mode button').forEach(b => b.classList.toggle('active', b.dataset.cm === m));
@@ -1549,7 +1629,7 @@ function set3D(on) {
   view3d = on;
   $('btn-3d').classList.toggle('active', on);
   $('btn-3d').textContent = on ? '평면(전개도)으로 돌아가기' : '입체로 보기';
-  drawingTape = null; selected = null;
+  drawingTape = null; selected = null; multi = null;
   updateFloatProps();
   resolveAndDraw();
 }
@@ -1668,20 +1748,27 @@ export function initCircuit() {
     res: '저항 — 전류를 알맞게 줄여 LED를 지켜 줘요.',
     holder: '건전지 홀더 — 빨간(+)·검정(−) 전선 끝을 끌어 테이프에 붙이세요. 누를 때마다 하나씩 생겨요.',
     coin: '동전 전지 — 전선이 없어요. 양옆 금속 탭의 (+)(−)에 테이프를 바로 붙입니다.',
+    box: '여러 개 고르기 — 화면을 비스듬히 끌어 상자를 그리면 상자 안에 든 것이 모두 골라져요.',
   };
+  function syncToolFact() {
+    const n = multiItems().length;
+    $('tool-fact').textContent = TOOL_FACTS[tool] ||
+      (n ? `${n}개를 함께 골랐어요. 하나를 끌면 같이 움직이고, Delete 키를 누르면 같이 지워져요.` : '');
+  }
   function setTool(t) {
     tool = t;
+    if (t === 'box') { multi = null; selected = null; }
     drawingTape = null;
     if (view3d && t !== 'none') set3D(false);
-    document.querySelectorAll('#circuit-tools button[data-tool]').forEach(x =>
+    document.querySelectorAll('#tab-circuit button[data-tool]').forEach(x =>
       x.classList.toggle('active', x.dataset.tool === t));
     $('tape-hint').style.display = t === 'tape' ? '' : 'none';
     $('btn-tape-done').style.display = t === 'tape' ? '' : 'none';
-    $('tool-fact').textContent = TOOL_FACTS[t] || '';
+    syncToolFact();
     updateFloatProps();
     resolveAndDraw();
   }
-  document.querySelectorAll('#circuit-tools button[data-tool]').forEach(b => {
+  document.querySelectorAll('#tab-circuit button[data-tool]').forEach(b => {
     b.addEventListener('click', () => {
       selected = null;
       setTool(tool === b.dataset.tool ? 'none' : b.dataset.tool); // 다시 누르면 해제
@@ -1692,6 +1779,7 @@ export function initCircuit() {
     if (readOnly || view3d) return;
     geomLab = mode === 'lab';
     const p = toCm(e);
+    cursorDown = p;
     const C = am();
     normalize(C);
     // 스위치는 어떤 도구에서든 동작
@@ -1699,6 +1787,13 @@ export function initCircuit() {
     if (pre && pre.type === 'switch') { toggleSwitch(pre.hi); return; }
     // 전원이 켜져 있으면 수정 금지 — 스위치를 꺼야 다시 작업할 수 있다
     if (poweredOn()) return;
+
+    if (tool === 'box') {
+      boxState = { x0: p.x, y0: p.y, x1: p.x, y1: p.y };
+      try { cv.setPointerCapture(e.pointerId); } catch (err) { /* 못 잡아도 계속 */ }
+      draw();
+      return;
+    }
 
     if (tool === 'tape') {
       let sn = snapToTerminal(p, C);
@@ -1715,7 +1810,7 @@ export function initCircuit() {
         pendingWire = { sn, start: p };
         return;
       }
-      if (!drawingTape && !sn && pre && ['led', 'res', 'holder', 'wire', 'tape'].includes(pre.type)) {
+      if (!drawingTape && !sn && pre && ['led', 'res', 'holder', 'wire', 'tape', 'tapept', 'tapemid'].includes(pre.type)) {
         selected = pre;
         updateFloatProps();
         beginDrag(p, e);
@@ -1767,7 +1862,23 @@ export function initCircuit() {
     }
     // 기본: 누르면 선택, 누른 채 끌면 이동
     const hit = pre;
-    selected = hit && ['led', 'res', 'tape', 'tapept', 'wire', 'holder'].includes(hit.type) ? hit : null;
+    const picked = multiItems();
+    const ht = hit && (hit.type === 'tapept' || hit.type === 'tapemid') ? 'tape' : hit && hit.type;
+    if (picked.length && hit && picked.some(it => it.type === ht && it.i === hit.i)) {
+      // 함께 고른 것 중 하나를 잡았다 → 모두 같이 움직인다
+      pushUndo();
+      try { cv.setPointerCapture(e.pointerId); } catch (err) { /* 못 잡아도 계속 */ }
+      multiDrag = {
+        x: p.x, y: p.y,
+        orig: picked.map(it => it.type === 'tape'
+          ? { it, pts: C.tapes[it.i].pts.map(q => ({ ...q })) }
+          : { it, ...(it.type === 'led' ? C.leds[it.i] : it.type === 'res' ? C.resistors[it.i] : C.holders[it.i]) }),
+      };
+      selected = null; updateFloatProps(); draw();
+      return;
+    }
+    if (picked.length) { multi = null; syncToolFact(); }
+    selected = hit && ['led', 'res', 'tape', 'tapept', 'tapemid', 'wire', 'holder'].includes(hit.type) ? hit : null;
     if ((tool === 'led' || tool === 'res' || tool === 'holder' || tool === 'coin') && selected) setTool('none');
     updateFloatProps();
     if (selected) beginDrag(p, e);
@@ -1784,7 +1895,7 @@ export function initCircuit() {
     else if (selected.type === 'holder') dragOff = { x: p.x - C.holders[selected.i].x, y: p.y - C.holders[selected.i].y, attach: captureAttach(selected) };
     else if (selected.type === 'wire') dragOff = { x: 0, y: 0 };
     else if (selected.type === 'tape') dragOff = { x: p.x, y: p.y, pts: C.tapes[selected.i].pts.map(q => ({ ...q })) };
-    else if (selected.type === 'tapept') dragOff = { x: 0, y: 0 };
+    else if (selected.type === 'tapept' || selected.type === 'tapemid') dragOff = { x: 0, y: 0 };
   }
 
   cv.addEventListener('pointermove', e => {
@@ -1792,6 +1903,35 @@ export function initCircuit() {
     const p = toCm(e);
     cursor = p;
     if (view3d) return;
+    if (boxState) { boxState.x1 = p.x; boxState.y1 = p.y; draw(); return; }
+    if (multiDrag && !readOnly) {
+      const C0 = am();
+      const dx = snap(p.x) - snap(multiDrag.x), dy = snap(p.y) - snap(multiDrag.y);
+      multiDrag.orig.forEach(o => {
+        if (o.it.type === 'tape') {
+          C0.tapes[o.it.i].pts = o.pts.map(q => clampNet({ x: q.x + dx, y: q.y + dy }));
+        } else if (o.it.type === 'holder') {
+          Object.assign(C0.holders[o.it.i], clampHolder({ x: o.x + dx, y: o.y + dy }));
+        } else {
+          const t = o.it.type === 'led' ? C0.leds[o.it.i] : C0.resistors[o.it.i];
+          Object.assign(t, clampPart({ x: o.x + dx, y: o.y + dy }, t.dir));
+        }
+      });
+      draw();
+      return;
+    }
+    // 선 가운데 손잡이는 '실제로 끌기 시작할 때' 꺾인 점이 된다 — 톡 누르기만 하면 모양 그대로
+    if (selected && selected.type === 'tapemid' && dragOff) {
+      if (Math.hypot(p.x - cursorDown.x, p.y - cursorDown.y) < 0.25) return;
+      const t = am().tapes[selected.i];
+      if (t && t.pts[selected.j + 1]) {
+        t.pts.splice(selected.j + 1, 0, {
+          x: (t.pts[selected.j].x + t.pts[selected.j + 1].x) / 2,
+          y: (t.pts[selected.j].y + t.pts[selected.j + 1].y) / 2,
+        });
+        selected = { type: 'tapept', i: selected.i, j: selected.j + 1 };
+      } else { selected = null; dragOff = null; return; }
+    }
     // 과전류 경고 배지 위 호버 → 전류 설명 툴팁
     if (am().tested && solveResult) {
       let hl = -1;
@@ -1848,6 +1988,27 @@ export function initCircuit() {
   });
 
   cv.addEventListener('pointerup', () => {
+    if (boxState) {
+      const C = am();
+      const x0 = Math.min(boxState.x0, boxState.x1), x1 = Math.max(boxState.x0, boxState.x1);
+      const y0 = Math.min(boxState.y0, boxState.y1), y1 = Math.max(boxState.y0, boxState.y1);
+      const inB = q => q.x >= x0 && q.x <= x1 && q.y >= y0 && q.y <= y1;
+      const found = [];
+      C.leds.forEach((l, i) => { if (inB(l)) found.push({ type: 'led', i }); });
+      (C.resistors || []).forEach((r, i) => { if (inB(r)) found.push({ type: 'res', i }); });
+      C.holders.forEach((h, i) => { if (inB(h)) found.push({ type: 'holder', i }); });
+      // 테이프는 전체가 상자 안에 들어와야 — 반쪽만 끌려가지 않게
+      C.tapes.forEach((t, i) => { if (t.pts.length && t.pts.every(inB)) found.push({ type: 'tape', i }); });
+      boxState = null;
+      multi = found.length ? found : null;
+      setTool('none');          // 한 번 고르면 바로 옮기거나 지울 수 있게 기본 상태로
+      syncToolFact();
+      draw();
+      return;
+    }
+    if (multiDrag) { multiDrag = null; afterChange(); return; }
+    // 가운데 손잡이를 톡 누르기만 했으면 테이프 전체를 고른 것으로 (점은 만들지 않는다)
+    if (selected && selected.type === 'tapemid') { selected = { type: 'tape', i: selected.i }; dragOff = null; updateFloatProps(); draw(); return; }
     // 전선 끝을 눌렀다 그냥 뗐다 → 그 자리에서 테이프 시작
     if (pendingWire) {
       drawingTape = [{ x: pendingWire.sn.x, y: pendingWire.sn.y }];
@@ -1862,7 +2023,18 @@ export function initCircuit() {
     if (!$('tab-circuit').classList.contains('active')) return;
     if (poweredOn()) return; // 전원이 켜져 있으면 편집 키 잠금
     if (e.key === 'Enter') finishTape();
-    if (e.key === 'Escape') { drawingTape = null; draw(); }
+    if (e.key === 'Escape') { drawingTape = null; multi = null; boxState = null; if (tool === 'box') setTool('none'); syncToolFact(); draw(); }
+    if ((e.key === 'Delete' || e.key === 'Backspace') && multiItems().length && !readOnly &&
+        document.activeElement.tagName !== 'INPUT') {
+      const C = am(), items = multiItems();
+      pushUndo();
+      // 뒤에서부터 지운다 — 앞을 먼저 지우면 뒤 번호가 밀린다
+      [['tape', C.tapes], ['holder', C.holders], ['res', C.resistors || []], ['led', C.leds]].forEach(([tp, arr]) => {
+        items.filter(it => it.type === tp).map(it => it.i).sort((a, b) => b - a).forEach(i => arr.splice(i, 1));
+      });
+      multi = null; selected = null; syncToolFact(); syncTested(C); afterChange();
+      return;
+    }
     if ((e.key === 'Delete' || e.key === 'Backspace') && selected && !readOnly &&
         document.activeElement.tagName !== 'INPUT') {
       const C = am();
