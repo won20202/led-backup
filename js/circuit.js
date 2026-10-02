@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=88';
-import { renderLogList } from './case3d.js?v=88';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=89';
+import { renderLogList } from './case3d.js?v=89';
 
 const $ = id => document.getElementById(id);
 
@@ -1686,13 +1686,13 @@ export function initCircuit() {
       if (activeTouches.size === 2) {
         const [a, b] = [...activeTouches.values()];
         pinchState = { d0: Math.hypot(a.x - b.x, a.y - b.y), z0: Z, lastC: null };
-        dragOff = null; drawingTape = null; panState = null;
+        dragOff = null; drawingTape = null; panState = null; boxState = null; multiDrag = null;
         e.stopImmediatePropagation();
         draw();
         return;
       }
     }
-    if (tool === 'none' && !view3d && !poweredOn()) {
+    if (tool === 'none' && !view3d && !poweredOn() && !e.shiftKey) {
       const p = toCm(e);
       if (!hitTest(p)) {
         const host = hostEl();
@@ -1748,7 +1748,7 @@ export function initCircuit() {
     res: '저항 — 전류를 알맞게 줄여 LED를 지켜 줘요.',
     holder: '건전지 홀더 — 빨간(+)·검정(−) 전선 끝을 끌어 테이프에 붙이세요. 누를 때마다 하나씩 생겨요.',
     coin: '동전 전지 — 전선이 없어요. 양옆 금속 탭의 (+)(−)에 테이프를 바로 붙입니다.',
-    box: '여러 개 고르기 — 화면을 비스듬히 끌어 상자를 그리면 상자 안에 든 것이 모두 골라져요.',
+    box: '여러 개 고르기 — 화면을 비스듬히 끌어 상자를 그리면 상자 안에 든 것이 모두 골라져요. (Shift를 누른 채 끌어도 같아요)',
   };
   function syncToolFact() {
     const n = multiItems().length;
@@ -1788,7 +1788,7 @@ export function initCircuit() {
     // 전원이 켜져 있으면 수정 금지 — 스위치를 꺼야 다시 작업할 수 있다
     if (poweredOn()) return;
 
-    if (tool === 'box') {
+    if (tool === 'box' || (tool === 'none' && e.shiftKey)) {
       boxState = { x0: p.x, y0: p.y, x1: p.x, y1: p.y };
       try { cv.setPointerCapture(e.pointerId); } catch (err) { /* 못 잡아도 계속 */ }
       draw();
@@ -2001,7 +2001,7 @@ export function initCircuit() {
       C.tapes.forEach((t, i) => { if (t.pts.length && t.pts.every(inB)) found.push({ type: 'tape', i }); });
       boxState = null;
       multi = found.length ? found : null;
-      setTool('none');          // 한 번 고르면 바로 옮기거나 지울 수 있게 기본 상태로
+      if (tool === 'box') setTool('none');   // 한 번 고르면 바로 옮기거나 지울 수 있게 기본 상태로
       syncToolFact();
       draw();
       return;
