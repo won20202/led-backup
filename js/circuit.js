@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=89';
-import { renderLogList } from './case3d.js?v=89';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=90';
+import { renderLogList } from './case3d.js?v=90';
 
 const $ = id => document.getElementById(id);
 
@@ -1748,8 +1748,20 @@ export function initCircuit() {
     res: '저항 — 전류를 알맞게 줄여 LED를 지켜 줘요.',
     holder: '건전지 홀더 — 빨간(+)·검정(−) 전선 끝을 끌어 테이프에 붙이세요. 누를 때마다 하나씩 생겨요.',
     coin: '동전 전지 — 전선이 없어요. 양옆 금속 탭의 (+)(−)에 테이프를 바로 붙입니다.',
-    box: '여러 개 고르기 — 화면을 비스듬히 끌어 상자를 그리면 상자 안에 든 것이 모두 골라져요. (Shift를 누른 채 끌어도 같아요)',
+    box: '여러 개 고르기 — 화면을 비스듬히 끌어 상자를 그리면 상자 안에 든 것이 모두 골라져요. 한꺼번에 다 고르려면 [모두 고르기].',
   };
+  function selectAll() {
+    if (readOnly || poweredOn()) return;
+    const C = am();
+    const all = [];
+    C.leds.forEach((l, i) => all.push({ type: 'led', i }));
+    (C.resistors || []).forEach((r, i) => all.push({ type: 'res', i }));
+    C.holders.forEach((h, i) => all.push({ type: 'holder', i }));
+    C.tapes.forEach((t, i) => all.push({ type: 'tape', i }));
+    multi = all.length ? all : null;
+    selected = null; drawingTape = null;
+    if (tool !== 'none') setTool('none'); else { syncToolFact(); draw(); }
+  }
   function syncToolFact() {
     const n = multiItems().length;
     $('tool-fact').textContent = TOOL_FACTS[tool] ||
@@ -1764,6 +1776,7 @@ export function initCircuit() {
       x.classList.toggle('active', x.dataset.tool === t));
     $('tape-hint').style.display = t === 'tape' ? '' : 'none';
     $('btn-tape-done').style.display = t === 'tape' ? '' : 'none';
+    $('btn-select-all').style.display = t === 'box' ? '' : 'none';
     syncToolFact();
     updateFloatProps();
     resolveAndDraw();
@@ -2052,8 +2065,11 @@ export function initCircuit() {
     }
     if (e.key.toLowerCase() === 'r') rotateSelected();
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); doUndo(); }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a' &&
+        document.activeElement.tagName !== 'INPUT') { e.preventDefault(); selectAll(); }
   });
   $('btn-tape-done').addEventListener('click', finishTape);
+  $('btn-select-all').addEventListener('click', selectAll);
 
   $('in-predict-led').addEventListener('input', () => {
     am().predictCount = $('in-predict-led').value;
