@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=90';
-import { renderLogList } from './case3d.js?v=90';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=91';
+import { renderLogList } from './case3d.js?v=91';
 
 const $ = id => document.getElementById(id);
 
@@ -651,7 +651,7 @@ function solveInner(C, lab, forceOn) {
 function makeProj(d, rx, ry, rw, rh, yaw, pitch) {
   const a = yaw === undefined ? -0.62 : yaw, b = pitch === undefined ? 0.40 : pitch;
   const ca = Math.cos(a), sa = Math.sin(a), cb = Math.cos(b), sb = Math.sin(b);
-  const depth = d.td + 0.5;
+  const depth = Math.max(0.5, d.sw);   // 깊이 = 띠(옆면·위아랫면) 폭 — 전개도 좌표와 같은 기준
   const S3 = Math.min(rw / (d.bw + depth + 3), rh / (d.bh + depth + 1.5));
   const cx = rx + rw / 2, cy = ry + rh / 2;
   const pj = P => {
@@ -669,11 +669,13 @@ function makeProj(d, rx, ry, rw, rh, yaw, pitch) {
 export function drawAssembled(tctx, rx, ry, rw, rh, opts = {}) {
   const d = dims();
   const C = work.circuit; // 항상 플래카드 회로를 그린다
+  const prevGeom = geomLab;
+  geomLab = false;        // 전개도 좌표로 읽는다 — 실험실에 있다가 와도 접힌 자리에 그려지게
   normalize(C);
   const R = solve(work.circuit, false, !!opts.lit); // 조립 장면에서는 스위치가 꺼져 있어도 켜진 모습
   const litSet = opts.lit ? R.lit : {};
   const pj = makeProj(d, rx, ry, rw, rh, opts.yaw, opts.pitch);
-  const depth = d.td + 0.5;
+  const depth = Math.max(0.5, d.sw);   // 깊이 = 띠(옆면·위아랫면) 폭 — 전개도 좌표와 같은 기준
   const walls = opts.walls || 'solid';
   const lit = !!opts.lit && Object.keys(litSet).length > 0;
 
@@ -707,10 +709,12 @@ export function drawAssembled(tctx, rx, ry, rw, rh, opts = {}) {
     const wallC = opts.opaque
       ? 'rgb(232,238,244)'
       : `rgba(228,238,247,${wallAlpha})`;
+    // 위·아랫면은 뒷면 폭 끝까지 — 우드락 두께가 메우는 자리라 틈으로 보이면 안 된다.
+    // (조각 치수가 맞는지는 [케이스] 탭에서 다룬다)
     if (show({ x: 0, y: 1, z: 0 }))
-      quad([P3(0.5, d.bh, 0), P3(0.5 + d.tw, d.bh, 0), P3(0.5 + d.tw, d.bh, depth), P3(0.5, d.bh, depth)], wallFill(wallC), line, walls === 'dashed');
+      quad([P3(0, d.bh, 0), P3(d.bw, d.bh, 0), P3(d.bw, d.bh, depth), P3(0, d.bh, depth)], wallFill(wallC), line, walls === 'dashed');
     if (show({ x: 0, y: -1, z: 0 }))
-      quad([P3(0.5, 0, 0), P3(0.5 + d.tw, 0, 0), P3(0.5 + d.tw, 0, depth), P3(0.5, 0, depth)], wallFill(wallC), line, walls === 'dashed');
+      quad([P3(0, 0, 0), P3(d.bw, 0, 0), P3(d.bw, 0, depth), P3(0, 0, depth)], wallFill(wallC), line, walls === 'dashed');
     if (show({ x: -1, y: 0, z: 0 }))
       quad([P3(0, 0, 0), P3(0, d.bh, 0), P3(0, d.bh, depth), P3(0, 0, depth)], wallFill(wallC), line, walls === 'dashed');
     if (show({ x: 1, y: 0, z: 0 }))
@@ -833,6 +837,7 @@ export function drawAssembled(tctx, rx, ry, rw, rh, opts = {}) {
     tctx.fillStyle = lit ? '#c9d2dc' : '#7b8794'; tctx.font = '12px sans-serif';
     tctx.fillText(opts.label, rx + 10, ry + 18);
   }
+  geomLab = prevGeom;
 }
 
 // ---------- 평면(전개도) 편집 화면 ----------
