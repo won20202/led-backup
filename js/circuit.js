@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=91';
-import { renderLogList } from './case3d.js?v=91';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=92';
+import { renderLogList } from './case3d.js?v=92';
 
 const $ = id => document.getElementById(id);
 
@@ -1380,9 +1380,11 @@ function updatePanel() {
 // ---------- 미리보기 탭에 넘겨줄 정보 (항상 플래카드 회로) ----------
 export function getLighting() {
   const d = dims(), C = work.circuit;
-  const R = solve(work.circuit, false);
-  const litSet = C.tested ? R.lit : {};
-  const out = { lit: [], tested: C.tested, dims: d };
+  // 미리보기·조립 순서는 '완성된 모습'을 보는 곳 — 회로 탭 스위치가 꺼져 있어도 불이 들어온 모습으로 계산한다.
+  // 켜고 끄는 건 그 화면에 있는 자기 스위치가 맡는다. (회로가 안 되는 회로면 여기서도 안 켜진다)
+  const R = solve(work.circuit, false, true);
+  const litSet = R.lit;
+  const out = { lit: [], tested: true, dims: d };
   const prevGeom = geomLab;
   geomLab = false; // 플래카드 전개도 기준으로 면을 판정
   for (const [iStr, b] of Object.entries(litSet)) {

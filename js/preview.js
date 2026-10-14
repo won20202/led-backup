@@ -1,8 +1,8 @@
 // 완성 미리보기: 케이스 + 회로 + 도안을 합친 최종 모습.
 // 어느 위치에 어떤 색 빛이 나오는지, 전체 완성본이 어떨지를 보여준다.
-import { config, work } from './state.js?v=91';
-import { getLighting, drawAssembled } from './circuit.js?v=91';
-import { getDesignMask } from './design.js?v=91';
+import { config, work } from './state.js?v=92';
+import { getLighting, drawAssembled } from './circuit.js?v=92';
+import { getDesignMask } from './design.js?v=92';
 
 const $ = id => document.getElementById(id);
 
@@ -163,7 +163,6 @@ export function drawPreview() {
 
   const msgs = [];
   if (!mask.anyCut) msgs.push('도안 탭에서 글자를 만들면 여기에서 완성 모습을 볼 수 있습니다.');
-  if (!light.tested) msgs.push('회로 탭에서 점등 테스트를 하면 실제 밝기가 반영됩니다.');
   $('preview-msg').innerHTML = msgs.map(m => `<p class="hint">${m}</p>`).join('');
 }
 
