@@ -128,6 +128,7 @@ export const DEFAULT_CONFIG = {
   // 수업이 밀리거나 당겨질 때를 대비한 여유 시간은 codeWindowMin(분)으로 조절한다.
   codeTimeLimit: true,
   codeWindowMin: 20,
+  idleMin: 30,           // 아무 조작이 없으면 이 시간(분) 뒤 자동으로 나간다 (0이면 안 나감)
   codeOverrides: {},      // 교사가 직접 정한 코드 { '2026-09-21|2-3|4|5': '1234' } — 그날만 적용
   classCode: '',            // fixed 모드에서 쓰는 고정 코드
   // 주간 시간표: 요일(1=월~5=금)별 교시 칸에 수업명. "7", "2-7"(학년-반)뿐 아니라
@@ -843,7 +844,18 @@ export async function cloudListBan(ban) {
   return (rows || []).filter(afterReset).map(r => ({ ...r, ban: Number(ban), id: makeSid(ban, r.num, g) }));
 }
 export async function cloudGet(id) {
-  return rpc('lps_load', { p_sid: String(id) });
+  return rpc('lps_teacher_one', { p_key: getTeacherKey(), p_sid: String(id) });
+}
+// 되살릴 수 있는 시각 목록 / 그 시점으로 되돌리기
+export async function cloudHistory(sid) {
+  return rpc('lps_teacher_history', { p_key: getTeacherKey(), p_sid: String(sid) });
+}
+export async function cloudRestore(sid, at) {
+  return rpc('lps_teacher_restore', { p_key: getTeacherKey(), p_sid: String(sid), p_at: at });
+}
+// 크롬북이 바뀐 학생에게 '이어받기'를 열어 준다 (기본 30분)
+export async function cloudAllow(sid, minutes) {
+  return rpc('lps_teacher_allow', { p_key: getTeacherKey(), p_sid: String(sid), p_minutes: minutes || 30 });
 }
 export async function cloudDelete(id) {
   const c = sb();

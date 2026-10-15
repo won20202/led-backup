@@ -2,14 +2,14 @@
 import { config, login, student, onCloudStatus, sheetLog, todayCode,
          sessionCodeValid, studentDayCode, sidInList, parseSid, makeSid, sidLength,
          rosterActive, rosterStatus, BLOCKED_STATUS, work, touch, allowedGrades,
-         checkAdminPin, setDemoAccount } from './state.js?v=96';
-import { initCase, refreshFromWork } from './case3d.js?v=96';
-import { initCircuit, refreshCircuit } from './circuit.js?v=96';
-import { initDesign, refreshDesign } from './design.js?v=96';
-import { initAssembly, refreshAssembly } from './assembly.js?v=96';
-import { initPreview, drawPreview } from './preview.js?v=96';
-import { initFaq } from './faq.js?v=96';
-import { initAdmin, openAdmin } from './admin.js?v=96';
+         checkAdminPin, setDemoAccount } from './state.js?v=97';
+import { initCase, refreshFromWork } from './case3d.js?v=97';
+import { initCircuit, refreshCircuit } from './circuit.js?v=97';
+import { initDesign, refreshDesign } from './design.js?v=97';
+import { initAssembly, refreshAssembly } from './assembly.js?v=97';
+import { initPreview, drawPreview } from './preview.js?v=97';
+import { initFaq } from './faq.js?v=97';
+import { initAdmin, openAdmin } from './admin.js?v=97';
 
 const $ = id => document.getElementById(id);
 
@@ -37,6 +37,39 @@ function refreshCodeField() {
   box.placeholder = demo ? '관리자 PIN' : '입장 코드 (선생님이 알려줌)';
 }
 
+// 개인정보 처리방침 — 작은 글씨를 누르면 창으로 뜬다. 읽기만 되고 복사는 막는다.
+function setupPrivacy() {
+  const modal = $('privacy-modal'), body = $('privacy-body');
+  $('privacy-link').addEventListener('click', async e => {
+    e.preventDefault();
+    modal.classList.remove('hidden');
+    if (body.dataset.loaded) return;
+    try {
+      const res = await fetch('privacy.html', { cache: 'no-store' });
+      const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
+      const main = doc.getElementById('policy-body');
+      if (!main) throw new Error('본문 없음');
+      body.innerHTML = main.innerHTML;
+      body.dataset.loaded = '1';
+    } catch (err) {
+      body.innerHTML = '<p class="muted">처리방침을 불러오지 못했습니다. 잠시 후 다시 열어 주세요.</p>';
+    }
+  });
+  $('privacy-close').addEventListener('click', () => modal.classList.add('hidden'));
+  modal.addEventListener('click', e => { if (e.target === modal) modal.classList.add('hidden'); });
+  ['copy', 'cut', 'contextmenu', 'selectstart', 'dragstart'].forEach(ev =>
+    modal.addEventListener(ev, e => e.preventDefault()));
+}
+
+function showIdleNotice() {
+  try {
+    if (sessionStorage.getItem('lps_idle_out')) {
+      sessionStorage.removeItem('lps_idle_out');
+      $('login-err').textContent = '한동안 사용하지 않아 자동으로 나갔습니다. 작업은 저장돼 있어요 — 다시 입장하세요.';
+    }
+  } catch (e) { /* 저장소를 못 써도 입장에는 지장 없다 */ }
+}
+
 function refreshLoginUI() {
   $('login-code-row').style.display = config.entryMode !== 'none' ? '' : 'none';
   // 학번 자리수는 학교 체계 설정을 따른다 (예: 반 2자리 20627, 반 1자리 2527)
@@ -47,6 +80,8 @@ function refreshLoginUI() {
 
 function setupLogin() {
   refreshLoginUI();
+  showIdleNotice();
+  setupPrivacy();
   $('adm-close').addEventListener('click', refreshLoginUI); // 관리자에서 바꾸고 닫으면 즉시 반영
 
   try {
@@ -123,7 +158,27 @@ function setupLogin() {
     document.dispatchEvent(new CustomEvent('work-loaded'));
     const tabs = ['case', 'circuit', 'design', 'order', 'preview'];
     switchTab(tabs.includes(config.startTab) ? config.startTab : 'case');
+    startIdleWatch();
   });
+}
+
+// 켜 둔 채 자리를 뜬 창은 저절로 나가진다. 작업 중인 학생은 건드리지 않는다.
+// (손을 대는 동안에는 시간이 계속 되돌아간다 — 수업이 길어져도 쫓겨나지 않는다)
+let lastAct = Date.now(), idleTimer = null;
+function startIdleWatch() {
+  const bump = () => { lastAct = Date.now(); };
+  ['pointerdown', 'keydown', 'wheel', 'touchstart'].forEach(ev =>
+    window.addEventListener(ev, bump, { capture: true, passive: true }));
+  clearInterval(idleTimer);
+  idleTimer = setInterval(() => {
+    const mins = Number(config.idleMin);
+    if (!(mins > 0)) return;                                   // 0이면 자동 나가기 안 함
+    if (!document.getElementById('admin-modal').classList.contains('hidden')) return; // 교사가 보드를 보는 중
+    if (Date.now() - lastAct < mins * 60000) return;
+    clearInterval(idleTimer);
+    try { sessionStorage.setItem('lps_idle_out', '1'); } catch (e) { /* 안 되면 안내만 생략 */ }
+    location.reload();                                          // 작업은 이미 저장돼 있다
+  }, 30000);
 }
 
 const refreshers = {
@@ -157,7 +212,7 @@ onCloudStatus(s => {
 });
 
 // 개발·수업 중 문제 진단용 (학생 화면에는 영향 없음)
-import * as state from './state.js?v=96';
+import * as state from './state.js?v=97';
 window.__lps = state;
 
 setupLogin();

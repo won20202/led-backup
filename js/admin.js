@@ -1,14 +1,14 @@
 // 관리자 모드: 로그인 화면의 [관리자] 버튼 또는 URL ?admin=1 → PIN 입력.
 import { config, saveConfig, exportConfigCode, importConfigCode, getMisses, clearMisses,
-         cloudList, cloudListBan, cloudGet, cloudDelete, cloudResetAll, getTeacherKey, setTeacherKey,
+         cloudList, cloudListBan, cloudGet, cloudDelete, cloudResetAll, cloudAllow, cloudHistory, cloudRestore, getTeacherKey, setTeacherKey,
          cloudPushConfig, setReadOnlyWork, DEFAULT_CONFIG, DEFAULT_RUBRIC,
          sheetLogFor, sheetFlushNow, todayCode, classSessionCode, codeKeyOf, autoSessionCode, studentDayCode,
          checkAdminPin, syncAdminPin,
          makeSid, parseSid, weekKeyOf, timetableForWeek, runsOf, todayRuns,
          rosterActive, getRoster, setRoster, readOnly, presetNames, savePreset, loadPreset, deletePreset,
-         BLOCKED_STATUS } from './state.js?v=96';
-import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=96';
-import { switchTab } from './app.js?v=96';
+         BLOCKED_STATUS } from './state.js?v=97';
+import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=97';
+import { switchTab } from './app.js?v=97';
 
 const $ = id => document.getElementById(id);
 
@@ -68,6 +68,7 @@ const FIELDS = [
   ['classCode', '고정 코드 (입장 방식이 "고정 코드"일 때)', 'text'],
   ['codeTimeLimit', '수업 코드를 그 수업 시간에만 허용 (앞 교시 반 차단)', 'checkbox'],
   ['codeWindowMin', '수업 시간 앞뒤 여유 (분) — 수업이 밀릴 때 대비', 'number'],
+  ['idleMin', '자동 나가기 — 아무 조작이 없을 때 (분, 0이면 안 나감)', 'number'],
   ['adminPin', '관리자 PIN (저장하면 모든 기기에 적용)', 'text'],
   ['supabaseUrl', 'Supabase URL (비우면 이 기기에만 저장)', 'text'],
   ['supabaseKey', 'Supabase anon key', 'text'],
@@ -1434,6 +1435,37 @@ export function initAdmin() {
         ? '모든 학생 기기에 적용됩니다. 학생은 새로고침하면 새로 시작합니다.'
         : '이 기기에만 적용됐습니다 — 서버 연결을 확인하고 [설정 저장]을 눌러 주세요.');
     });
+
+  $('adm-restore').addEventListener('click', async () => {
+    const sid = prompt('작업을 되살릴 학생의 학번을 넣으세요.');
+    if (!sid || !sid.trim()) return;
+    let rows = [];
+    try { rows = await cloudHistory(sid.trim()) || []; }
+    catch (e) { alert('불러오기 실패: ' + e.message + ' — 교사 열쇠를 확인해 주세요.'); return; }
+    if (!rows.length) { alert('이 학생은 보관된 지난 모습이 없습니다. (되살리기는 4단계를 적용한 뒤 저장된 것부터 쌓입니다)'); return; }
+    const list = rows.map((r, i) => `${i + 1}) ${new Date(r.saved_at).toLocaleString('ko-KR')}`).join(`
+`);
+    const pick = prompt(`${sid.trim()} 학생의 지난 모습입니다. 되살릴 번호를 넣으세요.
+
+${list}`);
+    const i = parseInt(pick, 10) - 1;
+    if (isNaN(i) || !rows[i]) return;
+    if (!confirm(`${new Date(rows[i].saved_at).toLocaleString('ko-KR')} 시점으로 되돌립니다. 지금 모습도 함께 보관되니 다시 되돌릴 수 있습니다. 진행할까요?`)) return;
+    try {
+      const ok = await cloudRestore(sid.trim(), rows[i].saved_at);
+      alert(ok ? '되살렸습니다. 학생에게 새로고침 후 다시 입장하라고 알려 주세요.' : '그 시점 자료를 찾지 못했습니다.');
+      renderWorks();
+    } catch (e) { alert('되살리기 실패: ' + e.message); }
+  });
+
+  $('adm-allow').addEventListener('click', async () => {
+    const sid = prompt('크롬북이 바뀐 학생의 학번을 넣으세요. 30분 동안 그 학생만 서버에서 작업을 이어받을 수 있습니다.');
+    if (!sid || !sid.trim()) return;
+    try {
+      const until = await cloudAllow(sid.trim(), 30);
+      alert(`${sid.trim()} 학생이 이어받을 수 있습니다. (${new Date(until).toLocaleTimeString('ko-KR')}까지) 학생에게 새로고침 후 다시 입장하라고 알려 주세요.`);
+    } catch (e) { alert('실패: ' + e.message + ' — 교사 열쇠를 넣었는지 확인해 주세요.'); }
+  });
 
   $('adm-purge').addEventListener('click', async () => {
     // 되돌릴 수 없는 일이라 세 단계로 막는다: 안내 → 몇 건인지 확인 → 글자 입력

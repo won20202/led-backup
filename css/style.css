@@ -423,3 +423,13 @@ button.link:hover { color: #4a5561; background: transparent; }
   font-weight: 700;
 }
 #adm-purge:hover { background: #a33224; }
+
+/* 개인정보 처리방침 보기 — 읽기 전용 (끌어서 복사되지 않게) */
+.privacy-box { max-width: 720px; max-height: 82vh; overflow: auto; text-align: left; }
+#privacy-body { -webkit-user-select: none; -ms-user-select: none; user-select: none; font-size: 14px; line-height: 1.7; }
+#privacy-body h1 { font-size: 18px; margin: 0 0 14px; }
+#privacy-body h2 { font-size: 15px; margin: 20px 0 6px; padding-top: 12px; border-top: 1px solid #e3e8ef; }
+#privacy-body table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: 13px; }
+#privacy-body th, #privacy-body td { border: 1px solid #d5dbe3; padding: 6px 8px; text-align: left; vertical-align: top; }
+#privacy-body th { background: #eef2f7; }
+#privacy-body ul, #privacy-body ol { padding-left: 20px; }
