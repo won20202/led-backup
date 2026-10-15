@@ -414,3 +414,12 @@ button.link:hover { color: #4a5561; background: transparent; }
 .mrow { white-space: nowrap; }
 .mrow b { color: #14304f; }
 .fp-ohm { font-size: 13px; padding: 4px 8px; }
+
+/* 되돌릴 수 없는 버튼 — 눈에 띄게 (서버 자료 파기) */
+#adm-purge {
+  background: #c0392b;
+  border-color: #a33224;
+  color: #fff;
+  font-weight: 700;
+}
+#adm-purge:hover { background: #a33224; }

@@ -6,9 +6,9 @@ import { config, saveConfig, exportConfigCode, importConfigCode, getMisses, clea
          checkAdminPin, syncAdminPin,
          makeSid, parseSid, weekKeyOf, timetableForWeek, runsOf, todayRuns,
          rosterActive, getRoster, setRoster, readOnly, presetNames, savePreset, loadPreset, deletePreset,
-         BLOCKED_STATUS } from './state.js?v=95';
-import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=95';
-import { switchTab } from './app.js?v=95';
+         BLOCKED_STATUS } from './state.js?v=96';
+import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=96';
+import { switchTab } from './app.js?v=96';
 
 const $ = id => document.getElementById(id);
 
@@ -73,6 +73,8 @@ const FIELDS = [
   ['supabaseKey', 'Supabase anon key', 'text'],
   ['sheetUrl', 'Google Sheet 기록 URL (Apps Script 배포 주소, README 참고)', 'text'],
 ];
+
+const PURGE_WORD = '모두 삭제';   // 서버 자료 파기를 확정할 때 손으로 적는 말
 
 function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); }
 
@@ -1434,8 +1436,14 @@ export function initAdmin() {
     });
 
   $('adm-purge').addEventListener('click', async () => {
+    // 되돌릴 수 없는 일이라 세 단계로 막는다: 안내 → 몇 건인지 확인 → 글자 입력
     if (!confirm('서버에 저장된 학생 작업을 모두 삭제합니다. 되돌릴 수 없습니다. 보유 기간이 끝났을 때(학기 말) 쓰는 기능입니다. 계속할까요?')) return;
-    if (!confirm('정말 삭제할까요? 학생들이 지금까지 한 작업이 서버에서 사라집니다.')) return;
+    let cnt = null;
+    try { cnt = (await cloudList() || []).length; } catch (e) { /* 세어 보지 못해도 진행은 막지 않는다 */ }
+    const howMany = cnt === null ? '서버에 저장된 모든 학생 작업' : `학생 ${cnt}명의 작업`;
+    if (!confirm(`${howMany}이 사라집니다. 지금 지우면 되살릴 수 없습니다. 정말 진행할까요?`)) return;
+    const typed = prompt(`마지막 확인입니다. 지우려면 아래 칸에 ${PURGE_WORD} 를 그대로 입력하세요. (취소하려면 빈칸으로 두고 [확인])`);
+    if ((typed || '').trim() !== PURGE_WORD) { alert('입력이 달라 삭제하지 않았습니다.'); return; }
     try {
       const n = await cloudResetAll();
       alert(`서버 자료 ${n}건을 삭제했습니다.`);
