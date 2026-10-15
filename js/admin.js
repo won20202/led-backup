@@ -6,9 +6,9 @@ import { config, saveConfig, exportConfigCode, importConfigCode, getMisses, clea
          checkAdminPin, syncAdminPin,
          makeSid, parseSid, weekKeyOf, timetableForWeek, runsOf, todayRuns,
          rosterActive, getRoster, setRoster, readOnly, presetNames, savePreset, loadPreset, deletePreset,
-         BLOCKED_STATUS } from './state.js?v=99';
-import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=99';
-import { switchTab } from './app.js?v=99';
+         BLOCKED_STATUS } from './state.js?v=100';
+import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=100';
+import { switchTab } from './app.js?v=100';
 
 const $ = id => document.getElementById(id);
 
@@ -951,10 +951,18 @@ function bindDelButtons(scope) {
   scope.querySelectorAll('.w-del').forEach(b => b.addEventListener('click', async () => {
     const kind = b.dataset.id.split(':')[0];
     const id = b.dataset.id.split(':').slice(1).join(':');
-    if (!confirm(`${id} 작업을 삭제(초기화)할까요? 되돌릴 수 없습니다.`)) return;
-    if (kind === 'local') localStorage.removeItem('lps_work_' + id);
-    else {
+    if (kind === 'local') {
+      if (!confirm(`${id} — 이 기기에 저장된 작업만 지웁니다. 서버 자료는 그대로입니다. 계속할까요?`)) return;
+      localStorage.removeItem('lps_work_' + id);
+    } else {
+      // 한 학생의 자료를 지우는 일이라 세 번 확인한다 (삭제 요청을 받은 학생만)
+      const p = parseSid(id), who = p ? `${p.grade}학년 ${p.ban}반 ${p.num}번` : id;
+      if (!confirm(`${who} (${id}) 학생의 자료를 서버에서 지웁니다. 되돌릴 수 없습니다. 계속할까요?`)) return;
+      if (!confirm(`${who} 학생의 작업과 되살리기 보관본이 모두 사라집니다. 삭제를 요청한 학생이 맞습니까?`)) return;
+      const typed = prompt(`마지막 확인입니다. 지울 학생의 학번 ${id} 을(를) 그대로 입력하세요. (취소하려면 빈칸으로 두고 [확인])`);
+      if ((typed || '').trim() !== String(id)) { alert('학번이 달라 지우지 않았습니다.'); return; }
       try { await cloudDelete(id); } catch (e) { alert('삭제 실패: ' + e.message); return; }
+      alert(`${who} 학생의 서버 자료를 지웠습니다. 그 학생이 자기 크롬북에서 다시 들어오면 기기에 남은 작업을 지울 수 있는 창이 뜹니다.`);
     }
     renderWorks();
   }));
