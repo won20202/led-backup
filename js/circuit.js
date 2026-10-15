@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=92';
-import { renderLogList } from './case3d.js?v=92';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=93';
+import { renderLogList } from './case3d.js?v=93';
 
 const $ = id => document.getElementById(id);
 
@@ -451,7 +451,11 @@ function solveInner(C, lab, forceOn) {
     const g = holderGeom(h);
     [0, 1].forEach(pole => {
       const w = h.wires[pole];
-      const pts = [g.t[pole], (w && !w.dock) ? w : g.dock[pole]];
+      const end = (w && !w.dock) ? w : g.dock[pole];
+      // 플래카드: 홀더는 케이스 '바깥'에 붙는다 — 구멍으로 넣은 전선 끝만 안쪽 테이프에 닿는다.
+      // 몸통의 (+)(−) 단자는 우드락 너머라 테이프 위를 지나가도 닿지 않는다.
+      // 실험실: 홀더가 테이프와 같은 바닥에 놓이므로 단자도 직접 닿는다.
+      const pts = lab ? [g.t[pole], end] : [end];
       pts.forEach(pt => {
         const p3 = to3Dp(pt);
         poles.push({ hi, pole, p3 });
