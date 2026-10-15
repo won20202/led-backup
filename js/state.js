@@ -251,12 +251,9 @@ export async function cloudPushConfig() {
   const pub = { ...config };
   CONFIG_SYNC_EXCLUDE.forEach(k => delete pub[k]);
   try {
-    const res = await fetch(c.cfgUrl + '?on_conflict=id', {
-      method: 'POST',
-      headers: { ...c.headers, Prefer: 'resolution=merge-duplicates,return=minimal' },
-      body: JSON.stringify({ id: 'config', payload: pub, updated_at: new Date().toISOString() }),
-    });
-    return res.ok;
+    // 설정을 바꾸는 건 교사 열쇠가 있어야 한다 (읽기는 누구나)
+    await rpc('lps_config_set', { p_key: getTeacherKey(), p_payload: pub });
+    return true;
   } catch (e) { return false; }
 }
 export async function cloudPullConfig() {
