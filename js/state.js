@@ -121,7 +121,6 @@ export const DEFAULT_CONFIG = {
   startTab: 'design',  // 로그인하면 먼저 열리는 탭 — 수행마다 다르므로 설정으로 둔다
   presets: [],        // 설정 꾸러미 (수업별 설정 묶음)
   demoSids: '00000',  // 교사 시연용 학번 — 관리자 PIN만 있으면 아무 때나 입장
-  roster: {},         // 명단(학적): { "20321": "재학" } — CSV 일괄 등록. 비어 있으면 검사 안 함
   groups: {},         // 섞인 반(그룹 수업) 명단: { "메이커반": ["10821","20321"] }
   // 입장 방식: none(코드 없음) | fixed(고정 코드) | daily(매일 바뀜) | session(수업 코드: 반·교시 지정)
   entryMode: 'none',
@@ -163,8 +162,24 @@ const CONFIG_KEY = `lps_config3@${APP_NS}`;
 const OLD_CONFIG_KEY = 'lps_config3';          // 칸을 나누기 전 설정 — 처음 한 번만 이어받는다
 const OTHER_SUPABASE = 'gakrtbuicpruxjaqalec'; // 다른 버전(led)이 쓰는 무료 프로젝트 — 이 앱은 항상 유료 쪽으로
 const MISS_KEY = 'lps_faq_miss';
+// 명단(학번 목록)은 개인정보라 설정과 따로, 등록한 기기에만 보관한다.
+// 서버·배포용 설정 파일·학생 기기로는 나가지 않는다.
+const ROSTER_KEY = `lps_roster@${APP_NS}`;
+let legacyRoster = null;   // 옛 버전에서 설정 안에 들어 있던 명단 (한 번만 옮긴다)
 
 export let config = loadConfig();
+
+// ---- 명단(학적) : { "20321": "재학" } — 이 기기에만 저장. 비어 있으면 검사 안 함 ----
+let rosterMap = (() => {
+  try { return JSON.parse(localStorage.getItem(ROSTER_KEY) || '{}') || {}; }
+  catch (e) { return {}; }
+})();
+export function getRoster() { return rosterMap; }
+export function setRoster(map) {
+  rosterMap = map || {};
+  try { localStorage.setItem(ROSTER_KEY, JSON.stringify(rosterMap)); } catch (e) { /* 저장 실패해도 계속 */ }
+}
+if (legacyRoster && !Object.keys(rosterMap).length) { setRoster(legacyRoster); saveConfig(); }
 // 동전 전지를 처음 넣을 때 쓴 임시값이 저장·동기화된 기기가 있다 — 실측 기준값으로 한 번만 맞춘다.
 // 설정을 서버·파일에서 새로 받을 때마다 확인한다 (동전 전지 값만 건드린다).
 function fixCoinDefaults() {
@@ -183,6 +198,8 @@ function loadConfig() {
     const raw = localStorage.getItem(CONFIG_KEY) || localStorage.getItem(OLD_CONFIG_KEY);
     if (raw) {
       const c = { ...DEFAULT_CONFIG, ...JSON.parse(raw) };
+      if (c.roster && Object.keys(c.roster).length) legacyRoster = c.roster;
+      delete c.roster;   // 명단은 설정에 담지 않는다
       // 옛 설정 이관: dailyCode/classCode → entryMode
       if (!c.entryMode) c.entryMode = c.dailyCode ? 'daily' : (c.classCode ? 'fixed' : 'none');
       // 주소가 비었거나 다른 버전의 무료 서버를 가리키면 이 앱의 유료 서버로 돌린다 (작업 유실 방지)
@@ -212,6 +229,7 @@ export async function fileConfigPull() {
     delete pub.adminPin;      // 공개 저장소에 PIN이 실렸어도 받지 않는다
     delete pub.adminPinHash;  // PIN 지문도 파일로는 받지 않는다 (서버에서만)
     delete pub.codeSalt;  // 코드 씨앗은 모든 기기가 같은 기본값을 써야 코드가 일치한다
+    delete pub.roster;    // 명단은 공개 파일로 받지 않는다
     if ((pub._cfgAt || 0) <= (config._cfgAt || 0)) return false; // 내 설정이 더 최신
     Object.assign(config, pub);
     fixCoinDefaults();
@@ -223,17 +241,19 @@ export async function fileConfigPull() {
 // ---- 수업 설정 자동 배포 (Supabase 연결 시) ----
 // 관리자가 [설정 저장]하면 설정이 서버에 올라가고, 학생 앱은 시작할 때 자동으로 받아온다.
 // PIN과 서버 접속 정보는 배포에서 제외 (접속 정보는 기기별, PIN은 교사만).
-const CONFIG_SYNC_EXCLUDE = ['supabaseUrl', 'supabaseKey', 'adminPin', 'codeSalt'];
+// 관리자 PIN은 지문(해시)도 올리지 않는다 — 수업 설정은 학생도 받아 가므로,
+// 네 자리 PIN의 지문이 함께 돌아다니면 되맞혀 볼 수 있다. PIN은 쓰는 기기마다 넣는다.
+const CONFIG_SYNC_EXCLUDE = ['supabaseUrl', 'supabaseKey', 'adminPin', 'adminPinHash', 'codeSalt', 'roster'];
 export async function cloudPushConfig() {
   const c = sb();
   if (!c) return false;
   const pub = { ...config };
   CONFIG_SYNC_EXCLUDE.forEach(k => delete pub[k]);
   try {
-    const res = await fetch(c.url, {
+    const res = await fetch(c.cfgUrl + '?on_conflict=id', {
       method: 'POST',
-      headers: { ...c.headers, Prefer: 'resolution=merge-duplicates' },
-      body: JSON.stringify({ id: 'config', ban: 0, num: 0, payload: pub, updated_at: new Date().toISOString() }),
+      headers: { ...c.headers, Prefer: 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify({ id: 'config', payload: pub, updated_at: new Date().toISOString() }),
     });
     return res.ok;
   } catch (e) { return false; }
@@ -242,7 +262,7 @@ export async function cloudPullConfig() {
   const c = sb();
   if (!c) return false;
   try {
-    const res = await fetch(`${c.url}?id=eq.config&select=payload`, { headers: c.headers });
+    const res = await fetch(`${c.cfgUrl}?id=eq.config&select=payload`, { headers: c.headers });
     if (!res.ok) return false;
     const rows = await res.json();
     if (!rows.length || !rows[0].payload) return false;
@@ -264,13 +284,29 @@ export async function hashPin(pin) {
   return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
 export async function checkAdminPin(input) {
-  if (config.adminPinHash) return (await hashPin(input)) === config.adminPinHash;
-  return String(input) === String(config.adminPin);   // 아직 지문이 없는 옛 설정
+  const h = await hashPin(input);
+  if (config.adminPinHash && h === config.adminPinHash) return true;   // 이 기기에서 이미 정한 PIN
+  if (!config.adminPinHash && String(input) === String(config.adminPin)) return true; // 옛 설정
+  // 다른 기기(노트북 등) — 서버에 물어본다. 맞으면 교사 열쇠까지 받아 온다.
+  try {
+    const key = await rpc('lps_admin_open', { p_hash: h });
+    if (key) {
+      setTeacherKey(key);
+      config.adminPinHash = h;      // 다음부터는 이 기기에서 바로 확인된다
+      saveConfig();
+      return true;
+    }
+  } catch (e) { /* 서버가 없거나 시도 제한 — 아래에서 실패 처리 */ }
+  return false;
 }
-// 설정을 저장할 때 호출 — 바뀐 PIN의 지문을 만들어 둔다
+// 설정을 저장할 때 호출 — 지문을 만들어 이 기기에 두고, 서버에도 올려 다른 기기에서 쓰게 한다
 export async function syncAdminPin() {
   if (!config.adminPin) return;
   config.adminPinHash = await hashPin(config.adminPin);
+  if (getTeacherKey()) {
+    try { await rpc('lps_admin_set', { p_key: getTeacherKey(), p_hash: config.adminPinHash }); }
+    catch (e) { /* 서버 연결이 없으면 이 기기에만 적용된다 */ }
+  }
 }
 
 // ---- 입장 코드: PIN+날짜(+반·교시)에서 모든 기기가 똑같이 계산 — 서버·재배포 없이 유효 ----
@@ -451,13 +487,9 @@ export function sessionCodeValid(code, p, sid) {
   return { ok: false };
 }
 
-// ---- 명단(학적) : { "20321": "재학" } — 비어 있으면 명단 검사 안 함 ----
 export const BLOCKED_STATUS = ['전출', '유예', '휴학', '면제', '제적'];
-export function rosterStatus(sid) {
-  const r = config.roster || {};
-  return r[sid] || null;
-}
-export function rosterActive() { return Object.keys(config.roster || {}).length > 0; }
+export function rosterStatus(sid) { return rosterMap[String(sid).trim()] || null; }
+export function rosterActive() { return Object.keys(rosterMap).length > 0; }
 
 // ---- 설정 꾸러미 ----
 // 수업마다 달라지는 '수업 내용' 설정만 담는다.
@@ -492,13 +524,17 @@ export function deletePreset(name) {
   saveConfig();
 }
 
+// 설정 코드는 교사가 손으로 복사해 옮기는 것 — 명단도 함께 담는다 (서버·공개 파일과는 다르다)
 export function exportConfigCode() {
-  return btoa(unescape(encodeURIComponent(JSON.stringify(config))));
+  return btoa(unescape(encodeURIComponent(JSON.stringify({ ...config, roster: rosterMap }))));
 }
 export function importConfigCode(code) {
   const obj = JSON.parse(decodeURIComponent(escape(atob(code.trim()))));
+  const r = obj.roster;
+  delete obj.roster;
   config = { ...DEFAULT_CONFIG, ...obj };
   saveConfig();
+  if (r && Object.keys(r).length) setRoster(r);
 }
 
 // ---- 학생 작업 상태 ----
@@ -708,14 +744,52 @@ export function clearMisses() { localStorage.removeItem(MISS_KEY); }
 // ---- Supabase 동기화 (설정된 경우에만, 실패해도 조용히 localStorage로 계속) ----
 function sb() {
   if (!config.supabaseUrl || !config.supabaseKey) return null;
+  const base = config.supabaseUrl.replace(/\/$/, '') + '/rest/v1';
   return {
-    url: config.supabaseUrl.replace(/\/$/, '') + '/rest/v1/lps_works',
+    base,
+    url: base + '/lps_works',     // 직접 접근은 막혀 있다 (아래 함수 통로만 열림)
+    cfgUrl: base + '/lps_config', // 수업 설정 — 개인정보가 아니라 따로 둔다
     headers: {
       apikey: config.supabaseKey,
       Authorization: 'Bearer ' + config.supabaseKey,
       'Content-Type': 'application/json',
     },
   };
+}
+
+// 서버 함수 호출 — 학생 작업은 이 통로로만 드나든다 (표를 직접 열 수 없다)
+async function rpc(fn, args) {
+  const c = sb();
+  if (!c) return null;
+  const res = await fetch(`${c.base}/rpc/${fn}`, {
+    method: 'POST', headers: c.headers, body: JSON.stringify(args || {}),
+  });
+  if (!res.ok) throw new Error(`${fn} 실패 ${res.status} ${await res.text().catch(() => '')}`.trim());
+  const t = await res.text();
+  return t ? JSON.parse(t) : null;
+}
+
+// 교사 열쇠 — 서버의 구분 기호를 번호로 되돌릴 때 쓴다. 이 기기에만 저장한다.
+const TEACHER_KEY = `lps_tkey@${APP_NS}`;
+export function getTeacherKey() {
+  try { return localStorage.getItem(TEACHER_KEY) || ''; } catch (e) { return ''; }
+}
+export function setTeacherKey(v) {
+  try { localStorage.setItem(TEACHER_KEY, String(v || '').trim()); } catch (e) { /* 저장 실패해도 계속 */ }
+}
+function teacherArgs(extra) {
+  return {
+    p_key: getTeacherKey(),
+    p_grade: allowedGrades()[0] || 2,
+    p_max: Number(config.numCount) || 40,
+    p_bd: Number(config.banDigits) || 2,
+    p_nd: Number(config.numDigits) || 2,
+    ...extra,
+  };
+}
+// [새로 시작] 이후 것만 — 예전에는 서버 질의로 걸렀고 지금은 받아 와서 거른다
+function afterReset(r) {
+  return !config.resetAt || new Date(r.updated_at).getTime() >= config.resetAt;
 }
 export let cloudStatus = 'off'; // off | ok | error
 const statusListeners = [];
@@ -732,15 +806,9 @@ export function cloudPush() {
   pushTimer = setTimeout(async () => {
     lastPush = Date.now();
     try {
-      const res = await fetch(c.url + '?on_conflict=id', {
-        method: 'POST',
-        headers: { ...c.headers, Prefer: 'resolution=merge-duplicates,return=minimal' },
-        body: JSON.stringify({
-          id: studentId(student), ban: student.ban, num: student.num,
-          payload: work, updated_at: new Date().toISOString(),
-        }),
-      });
-      setCloud(res.ok ? 'ok' : 'error');
+      // 학번은 서버로 전달만 되고, 저장될 때는 서버가 구분 기호로 바꾼다
+      await rpc('lps_save', { p_sid: studentId(student), p_ban: student.ban, p_payload: work });
+      setCloud('ok');
     } catch (e) { setCloud('error'); }
   }, delay);
 }
@@ -749,48 +817,44 @@ async function cloudPull() {
   const c = sb();
   if (!c || !student) return;
   try {
-    const res = await fetch(`${c.url}?id=eq.${studentId(student)}&select=payload,updated_at`, { headers: c.headers });
-    if (!res.ok) { setCloud('error'); return; }
+    const payload = await rpc('lps_load', { p_sid: studentId(student) });
     setCloud('ok');
-    const rows = await res.json();
-    if (rows.length && rows[0].payload && (rows[0].payload.updatedAt || 0) > (work.updatedAt || 0)) {
-      Object.assign(work, rows[0].payload);
+    if (payload && (payload.updatedAt || 0) > (work.updatedAt || 0)) {
+      Object.assign(work, payload);
       document.dispatchEvent(new CustomEvent('work-loaded'));
     }
   } catch (e) { setCloud('error'); }
 }
 
-// [새로 시작] 시점 이후의 작업만 불러오는 조건
-function sinceReset() {
-  return config.resetAt ? `&updated_at=gte.${new Date(config.resetAt).toISOString()}` : '';
-}
+// 서버에는 번호가 남아 있지 않다 — 교사 열쇠로 그 자리에서 되살려 보여 준다
 export async function cloudList() {
   const c = sb();
   if (!c) return null;
-  const res = await fetch(`${c.url}?select=id,ban,num,updated_at&ban=gte.1&order=ban,num${sinceReset()}`, { headers: c.headers });
-  if (!res.ok) throw new Error('불러오기 실패 ' + res.status);
-  return res.json();
+  const g = allowedGrades()[0] || 2;
+  const rows = await rpc('lps_teacher_all', teacherArgs({ p_bans: Number(config.banCount) || 9 }));
+  return (rows || []).filter(afterReset).map(r => ({ ...r, id: makeSid(r.ban, r.num, g) }));
 }
 // 한 반의 작업을 내용(payload)까지 — 실시간 보드용
 export async function cloudListBan(ban) {
   const c = sb();
   if (!c) return [];
-  const res = await fetch(`${c.url}?ban=eq.${ban}&select=id,ban,num,updated_at,payload&order=num${sinceReset()}`, { headers: c.headers });
-  if (!res.ok) throw new Error('불러오기 실패 ' + res.status);
-  return res.json();
+  const g = allowedGrades()[0] || 2;
+  const rows = await rpc('lps_teacher_list', teacherArgs({ p_ban: Number(ban) }));
+  return (rows || []).filter(afterReset).map(r => ({ ...r, ban: Number(ban), id: makeSid(ban, r.num, g) }));
 }
 export async function cloudGet(id) {
-  const c = sb();
-  const res = await fetch(`${c.url}?id=eq.${encodeURIComponent(id)}&select=payload`, { headers: c.headers });
-  if (!res.ok) throw new Error('불러오기 실패 ' + res.status);
-  const rows = await res.json();
-  return rows[0] ? rows[0].payload : null;
+  return rpc('lps_load', { p_sid: String(id) });
 }
 export async function cloudDelete(id) {
   const c = sb();
   if (!c) return;
-  const res = await fetch(`${c.url}?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE', headers: c.headers });
-  if (!res.ok) throw new Error('삭제 실패 ' + res.status);
+  await rpc('lps_teacher_delete', { p_key: getTeacherKey(), p_sid: String(id) });
+}
+// 서버에 쌓인 학생 작업을 전부 지운다 (보유 기간이 지난 뒤 파기)
+export async function cloudResetAll() {
+  const c = sb();
+  if (!c) return 0;
+  return (await rpc('lps_teacher_reset', { p_key: getTeacherKey() })) || 0;
 }
 
 // 페이지를 떠날 때 마지막 저장

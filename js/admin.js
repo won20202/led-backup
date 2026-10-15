@@ -1,13 +1,14 @@
 // 관리자 모드: 로그인 화면의 [관리자] 버튼 또는 URL ?admin=1 → PIN 입력.
 import { config, saveConfig, exportConfigCode, importConfigCode, getMisses, clearMisses,
-         cloudList, cloudListBan, cloudGet, cloudDelete, cloudPushConfig, setReadOnlyWork, DEFAULT_CONFIG, DEFAULT_RUBRIC,
+         cloudList, cloudListBan, cloudGet, cloudDelete, cloudResetAll, getTeacherKey, setTeacherKey,
+         cloudPushConfig, setReadOnlyWork, DEFAULT_CONFIG, DEFAULT_RUBRIC,
          sheetLogFor, sheetFlushNow, todayCode, classSessionCode, codeKeyOf, autoSessionCode, studentDayCode,
          checkAdminPin, syncAdminPin,
          makeSid, parseSid, weekKeyOf, timetableForWeek, runsOf, todayRuns,
-         rosterActive, readOnly, presetNames, savePreset, loadPreset, deletePreset,
-         BLOCKED_STATUS } from './state.js?v=94';
-import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=94';
-import { switchTab } from './app.js?v=94';
+         rosterActive, getRoster, setRoster, readOnly, presetNames, savePreset, loadPreset, deletePreset,
+         BLOCKED_STATUS } from './state.js?v=95';
+import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=95';
+import { switchTab } from './app.js?v=95';
 
 const $ = id => document.getElementById(id);
 
@@ -95,6 +96,9 @@ function renderSettings() {
       return `<label class="adm-row"><span>${label}</span><input type="checkbox" data-k="${k}" ${config[k] ? 'checked' : ''}></label>`;
     return `<label class="adm-row"><span>${label}</span><input type="${type}" data-k="${k}" value="${esc(config[k] ?? '')}" step="any"></label>`;
   }).join('') +
+  `<label class="adm-row"><span>교사 열쇠 — 서버에 가명으로 저장된 작업을 번호로 되살릴 때 씁니다.
+     이 기기에만 저장되고 학생에게는 가지 않습니다. (Supabase에서 가명처리 SQL을 실행하면 나오는 값)</span>
+     <input type="text" id="adm-tkey" value="${esc(getTeacherKey())}"></label>` +
   `<label class="adm-row"><span>처음 열리는 탭</span>
      <select data-k="startTab">
        <option value="case" ${config.startTab === 'case' ? 'selected' : ''}>케이스</option>
@@ -117,6 +121,10 @@ function collectSettings() {
     else if (el.type === 'number') config[k] = parseFloat(el.value) || DEFAULT_CONFIG[k];
     else config[k] = el.value;
   });
+  if ($('adm-tkey')) setTeacherKey($('adm-tkey').value);   // 교사 열쇠는 설정이 아니라 이 기기에만
+  // PIN 하나로 다른 기기에서도 열리므로 짧으면 위험하다
+  if (config.adminPin && String(config.adminPin).length < 6)
+    alert('관리자 PIN이 짧습니다. 다른 기기에서도 이 PIN으로 열리니 여섯 자리 이상(숫자+글자)으로 바꿔 주세요.');
   // Apps Script 코드는 [코드 수정] 잠금을 푼 동안에만 저장한다 (평소엔 실수로도 안 바뀜)
   if ($('adm-gas') && !$('adm-gas').readOnly && $('adm-gas').value.trim()) {
     config.customGasScript = $('adm-gas').value;
@@ -372,19 +380,18 @@ function importRoster(text) {
   if (!entries.length) { alert('학번을 읽을 수 없습니다. 양식(학번,학적)을 확인해 주세요.'); return; }
   const touched = new Set(entries.map(e => e.key));
   const next = {};
-  Object.entries(config.roster || {}).forEach(([sid, st]) => {
+  Object.entries(getRoster()).forEach(([sid, st]) => {
     const p = parseSid(sid);
     if (!p || !touched.has(`${p.grade}-${p.ban}`)) next[sid] = st;
   });
   entries.forEach(e => next[e.sid] = e.status);
-  config.roster = next;
-  saveConfig();
+  setRoster(next);
   renderRosterSummary();
-  alert(`${entries.length}명을 등록했습니다 (${[...touched].join(', ')} 반 교체). 설정 코드로 다른 기기에도 배포하세요.`);
+  alert(`${entries.length}명을 등록했습니다 (${[...touched].join(', ')} 반 교체). 명단은 이 기기에만 저장됩니다 — 다른 기기에서도 쓰려면 [설정 코드 내보내기]로 옮기세요.`);
 }
 function renderRosterSummary() {
   const el = $('adm-roster-summary');
-  const r = config.roster || {};
+  const r = getRoster();
   const sids = Object.keys(r);
   if (!sids.length) { el.innerHTML = '<p class="muted small">등록된 명단 없음 — 기본 규칙으로 동작 중.</p>'; return; }
   const byStatus = {};
@@ -828,7 +835,7 @@ async function loadBanBoard(ban) {
     let roster, statusOf = {};
     if (rosterActive()) {
       roster = [];
-      Object.entries(config.roster).forEach(([sid, st]) => {
+      Object.entries(getRoster()).forEach(([sid, st]) => {
         const q = parseSid(sid);
         if (q && q.grade === config.grade && q.ban === +ban) { roster.push(q.num); statusOf[q.num] = st; }
       });
@@ -1308,7 +1315,7 @@ export function initAdmin() {
     });
     $('adm-roster-clear').addEventListener('click', () => {
       if (!confirm('등록된 명단을 모두 지울까요? (기본 규칙으로 돌아갑니다)')) return;
-      config.roster = {}; saveConfig(); renderRosterSummary();
+      setRoster({}); renderRosterSummary();
     });
     $('adm-group-add').addEventListener('click', () => {
       const name = $('adm-group-name').value.trim();
@@ -1382,6 +1389,7 @@ export function initAdmin() {
     delete pub.adminPin;
     delete pub.adminPinHash;   // 공개 파일에는 PIN 지문도 담지 않는다
     delete pub.codeSalt;
+    delete pub.roster;         // 명단은 공개 파일에 담지 않는다 (개인정보)
     downloadText('class-config.json', JSON.stringify(pub, null, 2));
   });
   $('adm-import').addEventListener('click', () => {
@@ -1424,6 +1432,16 @@ export function initAdmin() {
         ? '모든 학생 기기에 적용됩니다. 학생은 새로고침하면 새로 시작합니다.'
         : '이 기기에만 적용됐습니다 — 서버 연결을 확인하고 [설정 저장]을 눌러 주세요.');
     });
+
+  $('adm-purge').addEventListener('click', async () => {
+    if (!confirm('서버에 저장된 학생 작업을 모두 삭제합니다. 되돌릴 수 없습니다. 보유 기간이 끝났을 때(학기 말) 쓰는 기능입니다. 계속할까요?')) return;
+    if (!confirm('정말 삭제할까요? 학생들이 지금까지 한 작업이 서버에서 사라집니다.')) return;
+    try {
+      const n = await cloudResetAll();
+      alert(`서버 자료 ${n}건을 삭제했습니다.`);
+      renderWorks();
+    } catch (e) { alert('삭제 실패: ' + e.message + ' — 교사 열쇠를 넣었는지 확인해 주세요.'); }
+  });
 
   $('adm-wipe-local').addEventListener('click', () => {
     const keys = [];
