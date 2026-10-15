@@ -846,6 +846,19 @@ export async function cloudListBan(ban) {
 export async function cloudGet(id) {
   return rpc('lps_teacher_one', { p_key: getTeacherKey(), p_sid: String(id) });
 }
+// 선생님이 이 학생 기기도 지우라고 했는지 / 다 지웠다고 알리기
+export async function wipeDue(sid) {
+  try { return !!(await rpc('lps_wipe_due', { p_sid: String(sid) })); } catch (e) { return false; }
+}
+// 이 기기에 저장된 그 학생 작업을 지운다 (떠날 때 다시 저장되지 않게 학생 정보도 비운다)
+export async function wipeLocal() {
+  if (!student) return;
+  const sid = studentId(student);
+  [studentKey(student), `lps_work_${sid}`].forEach(k => { try { localStorage.removeItem(k); } catch (e) { /* 무시 */ } });
+  try { await rpc('lps_wipe_done', { p_sid: sid }); } catch (e) { /* 서버에 못 알려도 지우기는 끝났다 */ }
+  student = null;
+}
+
 // 되살릴 수 있는 시각 목록 / 그 시점으로 되돌리기
 export async function cloudHistory(sid) {
   return rpc('lps_teacher_history', { p_key: getTeacherKey(), p_sid: String(sid) });

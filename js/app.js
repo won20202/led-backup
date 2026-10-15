@@ -2,14 +2,14 @@
 import { config, login, student, onCloudStatus, sheetLog, todayCode,
          sessionCodeValid, studentDayCode, sidInList, parseSid, makeSid, sidLength,
          rosterActive, rosterStatus, BLOCKED_STATUS, work, touch, allowedGrades,
-         checkAdminPin, setDemoAccount } from './state.js?v=97';
-import { initCase, refreshFromWork } from './case3d.js?v=97';
-import { initCircuit, refreshCircuit } from './circuit.js?v=97';
-import { initDesign, refreshDesign } from './design.js?v=97';
-import { initAssembly, refreshAssembly } from './assembly.js?v=97';
-import { initPreview, drawPreview } from './preview.js?v=97';
-import { initFaq } from './faq.js?v=97';
-import { initAdmin, openAdmin } from './admin.js?v=97';
+         checkAdminPin, setDemoAccount } from './state.js?v=98';
+import { initCase, refreshFromWork } from './case3d.js?v=98';
+import { initCircuit, refreshCircuit } from './circuit.js?v=98';
+import { initDesign, refreshDesign } from './design.js?v=98';
+import { initAssembly, refreshAssembly } from './assembly.js?v=98';
+import { initPreview, drawPreview } from './preview.js?v=98';
+import { initFaq } from './faq.js?v=98';
+import { initAdmin, openAdmin } from './admin.js?v=98';
 
 const $ = id => document.getElementById(id);
 
@@ -159,7 +159,22 @@ function setupLogin() {
     const tabs = ['case', 'circuit', 'design', 'order', 'preview'];
     switchTab(tabs.includes(config.startTab) ? config.startTab : 'case');
     startIdleWatch();
+    askWipeIfDue(sid);
   });
+}
+
+// 선생님이 지운 학생에게만 뜬다 — 다른 학생에게는 아무것도 보이지 않는다
+async function askWipeIfDue(sid) {
+  if (!await state.wipeDue(sid)) return;
+  const modal = $('wipe-modal');
+  modal.classList.remove('hidden');
+  $('wipe-later').onclick = () => modal.classList.add('hidden');
+  $('wipe-go').onclick = async () => {
+    if (!confirm('이 기기에 저장된 작업을 지웁니다. 되돌릴 수 없습니다. 계속할까요?')) return;
+    await state.wipeLocal();
+    alert('지웠습니다.');
+    location.reload();
+  };
 }
 
 // 켜 둔 채 자리를 뜬 창은 저절로 나가진다. 작업 중인 학생은 건드리지 않는다.
@@ -212,7 +227,7 @@ onCloudStatus(s => {
 });
 
 // 개발·수업 중 문제 진단용 (학생 화면에는 영향 없음)
-import * as state from './state.js?v=97';
+import * as state from './state.js?v=98';
 window.__lps = state;
 
 setupLogin();
