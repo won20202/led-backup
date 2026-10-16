@@ -2,14 +2,14 @@
 import { config, login, student, onCloudStatus, sheetLog, todayCode,
          sessionCodeValid, studentDayCode, sidInList, parseSid, makeSid, sidLength,
          rosterActive, rosterStatus, BLOCKED_STATUS, work, touch, allowedGrades,
-         checkAdminPin, setDemoAccount } from './state.js?v=100';
-import { initCase, refreshFromWork } from './case3d.js?v=100';
-import { initCircuit, refreshCircuit } from './circuit.js?v=100';
-import { initDesign, refreshDesign } from './design.js?v=100';
-import { initAssembly, refreshAssembly } from './assembly.js?v=100';
-import { initPreview, drawPreview } from './preview.js?v=100';
-import { initFaq } from './faq.js?v=100';
-import { initAdmin, openAdmin } from './admin.js?v=100';
+         checkAdminPin, setDemoAccount } from './state.js?v=101';
+import { initCase, refreshFromWork } from './case3d.js?v=101';
+import { initCircuit, refreshCircuit } from './circuit.js?v=101';
+import { initDesign, refreshDesign } from './design.js?v=101';
+import { initAssembly, refreshAssembly } from './assembly.js?v=101';
+import { initPreview, drawPreview } from './preview.js?v=101';
+import { initFaq } from './faq.js?v=101';
+import { initAdmin, openAdmin } from './admin.js?v=101';
 
 const $ = id => document.getElementById(id);
 
@@ -43,17 +43,7 @@ function setupPrivacy() {
   $('privacy-link').addEventListener('click', async e => {
     e.preventDefault();
     modal.classList.remove('hidden');
-    if (body.dataset.loaded) return;
-    try {
-      const res = await fetch('privacy.html', { cache: 'no-store' });
-      const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
-      const main = doc.getElementById('policy-body');
-      if (!main) throw new Error('본문 없음');
-      body.innerHTML = main.innerHTML;
-      body.dataset.loaded = '1';
-    } catch (err) {
-      body.innerHTML = '<p class="muted">처리방침을 불러오지 못했습니다. 잠시 후 다시 열어 주세요.</p>';
-    }
+    body.innerHTML = await state.privacyBody();
   });
   $('privacy-close').addEventListener('click', () => modal.classList.add('hidden'));
   modal.addEventListener('click', e => { if (e.target === modal) modal.classList.add('hidden'); });
@@ -123,18 +113,15 @@ function setupLogin() {
     const ban = p.ban, num = p.num;
     // 교사 시연용 학번: 수업 화면을 보여줄 때 쓴다. 코드·시간표·명단을 따지지 않는다.
     const isDemo = sidInList(config.demoSids, sid);
+    // 입장 코드 판정은 서버가 한다 — 코드를 만드는 씨앗이 서버에만 있다.
+    // (Supabase를 안 쓰는 설치본에서는 예전처럼 기기에서 판단한다)
     let codeOk = true, errMsg = '', viaSession = false;
-    if (config.entryMode === 'fixed') {
-      codeOk = entered === config.classCode;
-      errMsg = '반 코드가 다릅니다. 선생님께 확인하세요.';
-    } else if (config.entryMode === 'daily') {
-      codeOk = entered === todayCode();
-      errMsg = '오늘의 입장 코드가 다릅니다. 선생님께 확인하세요.';
-    } else if (config.entryMode === 'session') {
-      const v = sessionCodeValid(entered, p, sid);
-      viaSession = v.ok;
-      codeOk = v.ok || entered === studentDayCode(sid);
-      errMsg = '지금 시간, 이 수업의 입장 코드가 아닙니다. 학번과 코드를 다시 확인해 보세요.';
+    if (config.entryMode !== 'none') {
+      codeOk = await state.loginCodeOk(sid, entered, p);
+      viaSession = codeOk;
+      errMsg = config.entryMode === 'fixed' ? '반 코드가 다릅니다. 선생님께 확인하세요.'
+        : config.entryMode === 'daily' ? '오늘의 입장 코드가 다릅니다. 선생님께 확인하세요.'
+        : '지금 시간, 이 수업의 입장 코드가 아닙니다. 학번과 코드를 다시 확인해 보세요.';
     }
     setDemoAccount(isDemo);
     if (isDemo) {
@@ -150,6 +137,7 @@ function setupLogin() {
       return;
     }
     localStorage.setItem('lps_last_sid', sid);
+    state.setEntryCode(isDemo ? '' : entered);   // 저장할 때 서버에 함께 보낸다 (시연 계정은 교사 열쇠로)
     await login(ban, num, p.grade); // 서버 작업을 받아온 뒤 화면을 연다
     sheetLog('접속', '');
     $('student-badge').textContent = `${p.grade}학년 ${ban}반 ${num}번`;
@@ -227,7 +215,7 @@ onCloudStatus(s => {
 });
 
 // 개발·수업 중 문제 진단용 (학생 화면에는 영향 없음)
-import * as state from './state.js?v=100';
+import * as state from './state.js?v=101';
 window.__lps = state;
 
 setupLogin();

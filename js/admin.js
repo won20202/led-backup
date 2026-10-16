@@ -1,14 +1,15 @@
 // 관리자 모드: 로그인 화면의 [관리자] 버튼 또는 URL ?admin=1 → PIN 입력.
 import { config, saveConfig, exportConfigCode, importConfigCode, getMisses, clearMisses,
          cloudList, cloudListBan, cloudGet, cloudDelete, cloudResetAll, cloudAllow, cloudHistory, cloudRestore, getTeacherKey, setTeacherKey,
+         defaultPrivacyBody, fetchCodeSalt,
          cloudPushConfig, setReadOnlyWork, DEFAULT_CONFIG, DEFAULT_RUBRIC,
          sheetLogFor, sheetFlushNow, todayCode, classSessionCode, codeKeyOf, autoSessionCode, studentDayCode,
          checkAdminPin, syncAdminPin,
          makeSid, parseSid, weekKeyOf, timetableForWeek, runsOf, todayRuns,
          rosterActive, getRoster, setRoster, readOnly, presetNames, savePreset, loadPreset, deletePreset,
-         BLOCKED_STATUS } from './state.js?v=100';
-import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=100';
-import { switchTab } from './app.js?v=100';
+         BLOCKED_STATUS } from './state.js?v=101';
+import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=101';
+import { switchTab } from './app.js?v=101';
 
 const $ = id => document.getElementById(id);
 
@@ -125,6 +126,7 @@ function collectSettings() {
     else config[k] = el.value;
   });
   if ($('adm-tkey')) setTeacherKey($('adm-tkey').value);   // 교사 열쇠는 설정이 아니라 이 기기에만
+  if ($('adm-privacy')) config.privacyHtml = $('adm-privacy').value.trim();
   // PIN 하나로 다른 기기에서도 열리므로 짧으면 위험하다
   if (config.adminPin && String(config.adminPin).length < 6)
     alert('관리자 PIN이 짧습니다. 다른 기기에서도 이 PIN으로 열리니 여섯 자리 이상(숫자+글자)으로 바꿔 주세요.');
@@ -1250,6 +1252,8 @@ export function openAdmin() {
     $('adm-pin-gate').classList.add('hidden');
     $('adm-content').classList.remove('hidden');
     renderWorks(); renderRosterSummary(); renderPresets();
+    if ($('adm-privacy') && !$('adm-privacy').value.trim())
+      defaultPrivacyBody().then(v => { $('adm-privacy').value = String(config.privacyHtml || '').trim() || v; });
     clearInterval(worksTimer);
     worksTimer = setInterval(() => {
       if (!$('admin-modal').classList.contains('hidden')) renderWorks();
@@ -1273,6 +1277,12 @@ export function initAdmin() {
     renderRosterSummary(); renderGroups(); renderPresets();
     unlocked = true;
     saveStatus('바꾸면 자동으로 저장됩니다. 학생 기기에 반영하려면 [설정 저장]을 누르세요.');
+
+    // 개인정보 처리방침 — 고쳐 둔 게 있으면 그것을, 없으면 기본 문서를 보여 준다
+    if ($('adm-privacy')) {
+      $('adm-privacy').value = String(config.privacyHtml || '').trim() || await defaultPrivacyBody();
+    }
+    fetchCodeSalt();   // 입장 코드를 보여 주려면 씨앗이 필요하다 (교사 열쇠가 있을 때만)
 
     // Apps Script 코드 상자 — 열 때마다 잠근다. 고칠 때만 [코드 수정]으로 잠금을 푼다.
     if ($('adm-gas')) {
@@ -1443,6 +1453,20 @@ export function initAdmin() {
         ? '모든 학생 기기에 적용됩니다. 학생은 새로고침하면 새로 시작합니다.'
         : '이 기기에만 적용됐습니다 — 서버 연결을 확인하고 [설정 저장]을 눌러 주세요.');
     });
+
+  $('adm-privacy-default').addEventListener('click', async () => {
+    if ($('adm-privacy').value.trim() &&
+        !confirm('지금 적힌 내용을 지우고 기본 문서를 불러옵니다. 계속할까요?')) return;
+    $('adm-privacy').value = await defaultPrivacyBody();
+  });
+  $('adm-privacy-preview').addEventListener('click', () => {
+    const w = window.open('', '_blank', 'width=760,height=800');
+    if (!w) { alert('팝업이 막혀 있습니다. 주소창 옆의 팝업 허용을 켜 주세요.'); return; }
+    w.document.write('<meta charset="utf-8"><title>미리 보기</title>' +
+      '<div style="max-width:720px;margin:24px auto;font-family:system-ui;line-height:1.7;padding:0 16px">' +
+      ($('adm-privacy').value.trim() || '(비어 있음 — 기본 문서가 쓰입니다)') + '</div>');
+    w.document.close();
+  });
 
   $('adm-restore').addEventListener('click', async () => {
     const sid = prompt('작업을 되살릴 학생의 학번을 넣으세요.');

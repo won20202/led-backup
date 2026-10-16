@@ -129,6 +129,7 @@ export const DEFAULT_CONFIG = {
   codeTimeLimit: true,
   codeWindowMin: 20,
   idleMin: 30,           // 아무 조작이 없으면 이 시간(분) 뒤 자동으로 나간다 (0이면 안 나감)
+  privacyHtml: '',       // 개인정보 처리방침 (비어 있으면 privacy.html 을 쓴다)
   codeOverrides: {},      // 교사가 직접 정한 코드 { '2026-09-21|2-3|4|5': '1234' } — 그날만 적용
   classCode: '',            // fixed 모드에서 쓰는 고정 코드
   // 주간 시간표: 요일(1=월~5=금)별 교시 칸에 수업명. "7", "2-7"(학년-반)뿐 아니라
@@ -290,6 +291,7 @@ export async function checkAdminPin(input) {
     const key = await rpc('lps_admin_open', { p_hash: h });
     if (key) {
       setTeacherKey(key);
+      await fetchCodeSalt();        // 코드를 보여 주려면 씨앗도 필요하다
       config.adminPinHash = h;      // 다음부터는 이 기기에서 바로 확인된다
       saveConfig();
       return true;
@@ -313,7 +315,7 @@ function dateStr() {
   return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
 }
 function codeOf(...parts) {
-  const s = (config.codeSalt || DEFAULT_CONFIG.codeSalt) + '|' + parts.join('|');
+  const s = (getCodeSalt() || config.codeSalt || DEFAULT_CONFIG.codeSalt) + '|' + parts.join('|');
   let h = 0;
   for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
   return String(1000 + h % 9000);
@@ -428,6 +430,35 @@ export function classSessionCode(token, p1, p2) {
 }
 // 미실시자 개인 코드: 학번 그대로, 그날 하루
 export function studentDayCode(sid) { return codeOf('stu', dateStr(), String(sid).trim()); }
+
+// 입장 코드가 맞는지 — 서버가 판단한다(씨앗이 서버에만 있으므로).
+// Supabase를 쓰지 않는 설치본에서는 예전처럼 기기에서 판단한다.
+export async function loginCodeOk(sid, code, p) {
+  const c = sb();
+  if (c) {
+    let res;
+    try {
+      res = await fetch(`${c.base}/rpc/lps_login_ok`, {
+        method: 'POST', headers: c.headers,
+        body: JSON.stringify({ p_sid: String(sid), p_code: String(code) }),
+      });
+    } catch (e) {
+      return true;   // 서버에 닿지 못함(망 장애 등) — 수업은 계속되어야 한다. 작업은 기기에 저장된다
+    }
+    if (!res.ok) return false;       // 서버가 아니라고 했거나 시도 제한에 걸렸다
+    try { return (await res.text()) === 'true'; } catch (e) { return false; }
+  }
+  if (config.entryMode === 'none') return true;
+  if (config.entryMode === 'fixed') return code === config.classCode;
+  if (config.entryMode === 'daily') return code === todayCode();
+  return sessionCodeValid(code, p, sid).ok || code === studentDayCode(sid);
+}
+
+// 저장할 때도 함께 보내는, 그 학생이 입장할 때 쓴 코드
+let entryCode = '';
+export function setEntryCode(c) { entryCode = String(c || ''); }
+// 시연 계정은 입장 코드가 없다 — 교사 열쇠로 저장한다 (교사 기기에만 있는 값)
+function saveCode() { return demoAccount ? getTeacherKey() : entryCode; }
 const toMin = t => { const [h, m] = String(t).split(':').map(Number); return h * 60 + m; };
 function inWindow(p1, p2) {
   const per = config.periods || [];
@@ -767,6 +798,41 @@ async function rpc(fn, args) {
   return t ? JSON.parse(t) : null;
 }
 
+// 개인정보 처리방침 본문 — 관리자가 고쳤으면 그것을, 아니면 기본 문서(privacy.html)를 쓴다
+export async function privacyBody() {
+  const own = String(config.privacyHtml || '').trim();
+  if (own) return own;
+  return defaultPrivacyBody();
+}
+export async function defaultPrivacyBody() {
+  try {
+    const res = await fetch('privacy.html', { cache: 'no-store' });
+    const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
+    const main = doc.getElementById('policy-body');
+    if (main) return main.innerHTML;
+  } catch (e) { /* 못 불러오면 아래 안내 */ }
+  return '<p class="muted">처리방침을 불러오지 못했습니다. 잠시 후 다시 열어 주세요.</p>';
+}
+
+// 입장 코드 씨앗 — 서버의 잠긴 보관함에 있고, 교사 기기만 받아 둔다.
+// 학생 앱에는 없다(그래서 코드를 만들어 낼 수 없다). 서버 없이 쓰는 경우만 기본값을 쓴다.
+const SALT_KEY = `lps_salt@${APP_NS}`;
+export function getCodeSalt() {
+  try { return localStorage.getItem(SALT_KEY) || ''; } catch (e) { return ''; }
+}
+export function setCodeSalt(v) {
+  try { localStorage.setItem(SALT_KEY, String(v || '')); } catch (e) { /* 저장 실패해도 계속 */ }
+}
+// 교사 화면이 코드를 보여 주려면 씨앗이 필요하다 — 교사 열쇠로만 받아온다
+export async function fetchCodeSalt() {
+  if (!getTeacherKey()) return false;
+  try {
+    const v = await rpc('lps_teacher_salt', { p_key: getTeacherKey() });
+    if (v) { setCodeSalt(v); return true; }
+  } catch (e) { /* 서버가 없거나 열쇠가 없으면 그대로 */ }
+  return false;
+}
+
 // 교사 열쇠 — 서버의 구분 기호를 번호로 되돌릴 때 쓴다. 이 기기에만 저장한다.
 const TEACHER_KEY = `lps_tkey@${APP_NS}`;
 export function getTeacherKey() {
@@ -805,7 +871,9 @@ export function cloudPush() {
     lastPush = Date.now();
     try {
       // 학번은 서버로 전달만 되고, 저장될 때는 서버가 구분 기호로 바꾼다
-      await rpc('lps_save', { p_sid: studentId(student), p_ban: student.ban, p_payload: work });
+      await rpc('lps_save', {
+        p_sid: studentId(student), p_ban: student.ban, p_payload: work, p_code: saveCode(),
+      });
       setCloud('ok');
     } catch (e) { setCloud('error'); }
   }, delay);
@@ -815,7 +883,9 @@ async function cloudPull() {
   const c = sb();
   if (!c || !student) return;
   try {
-    const payload = await rpc('lps_load', { p_sid: studentId(student) });
+    const payload = demoAccount
+      ? await rpc('lps_teacher_one', { p_key: getTeacherKey(), p_sid: studentId(student) })
+      : await rpc('lps_load', { p_sid: studentId(student) });
     setCloud('ok');
     if (payload && (payload.updatedAt || 0) > (work.updatedAt || 0)) {
       Object.assign(work, payload);
