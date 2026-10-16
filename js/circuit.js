@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=101';
-import { renderLogList } from './case3d.js?v=101';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=102';
+import { renderLogList } from './case3d.js?v=102';
 
 const $ = id => document.getElementById(id);
 
@@ -288,6 +288,20 @@ function toCm(e) {
   };
 }
 const snap = v => Math.round(v * 2) / 2;
+
+// 극성 기호 — 크게, 흰 테두리를 둘러 테이프·면 위에서도 또렷하게
+function poleMark(x, y, ch, color) {
+  const size = Math.max(13, Z * 0.62);
+  ctx.save();
+  ctx.font = `bold ${size}px sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.lineWidth = Math.max(3, size * 0.3); ctx.lineJoin = 'round';
+  ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+  ctx.strokeText(ch, x, y);
+  ctx.fillStyle = color;
+  ctx.fillText(ch, x, y);
+  ctx.restore();
+}
 
 function legs(o) {
   const dd = [[0, -1], [1, 0], [0, 1], [-1, 0]][o.dir || 0];
@@ -1056,8 +1070,12 @@ function draw() {
     ctx.lineWidth = 2; ctx.strokeStyle = litMode ? '#b9bfc8' : '#8d939c';
     ctx.beginPath(); ctx.moveTo(l.x * Z, l.y * Z); ctx.lineTo(g.a.x * Z, g.a.y * Z); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(l.x * Z, l.y * Z); ctx.lineTo(g.k.x * Z, g.k.y * Z); ctx.stroke();
-    ctx.fillStyle = '#d05a4e'; ctx.font = 'bold 11px sans-serif';
-    ctx.fillText('+', g.a.x * Z + 4, g.a.y * Z + 4);
+    // 다리 끝에서 조금 더 바깥쪽에 — 테이프에 가리지 않게
+    const off = 0.42;
+    const ax = g.a.x + (g.a.x - l.x) * off, ay = g.a.y + (g.a.y - l.y) * off;
+    const kx = g.k.x + (g.k.x - l.x) * off, ky = g.k.y + (g.k.y - l.y) * off;
+    poleMark(ax * Z, ay * Z, '+', '#d04a3e');
+    poleMark(kx * Z, ky * Z, '−', '#2f3640');
     if (burnt) {
       // 타버린 LED — 검게 그을리고 금이 간 모습
       ctx.beginPath(); ctx.arc(l.x * Z, l.y * Z, 0.38 * Z, 0, 7);
@@ -1226,16 +1244,18 @@ function drawHolder(h, hi) {
     for (let ci = 0; ci < cells; ci++) {
       const cx = (ci % cols - (cols - 1) / 2) * (cw + 0.15);
       const cy = cy0 + Math.floor(ci / cols) * rowH;
-      ctx.fillStyle = '#2e8f8f';
+      // 실물 AA 건전지 — 은색 몸통에 검은 머리 (머리 쪽이 (+)극)
+      ctx.fillStyle = '#c3c7cc';
       ctx.beginPath(); ctx.roundRect((cx - cw / 2) * Z, cy * Z, cw * Z, ch * Z, 5); ctx.fill();
+      ctx.strokeStyle = '#8b9099'; ctx.lineWidth = 1; ctx.stroke();
       // 실물 홀더는 전지를 번갈아 반대로 넣어야 (+)와 (−)가 이어진다 — 머리 방향도 번갈아
       const headTop = ci % 2 === 0;
-      ctx.fillStyle = '#57c6c0';   // (+) 쪽 머리
+      ctx.fillStyle = '#2b2b2b';   // (+) 쪽 머리
       ctx.beginPath();
       ctx.roundRect((cx - cw / 2) * Z, (headTop ? cy : cy + ch - headH) * Z, cw * Z, headH * Z, 5);
       ctx.fill();
       // 머리 끝의 돌기 (+ 극 표시)
-      ctx.fillStyle = '#8fdcd6';
+      ctx.fillStyle = '#e3e6ea';   // 머리 끝 돌기 — 밝게 해서 (+)가 눈에 띄게
       ctx.beginPath();
       ctx.roundRect((cx - cw * 0.18) * Z, (headTop ? cy - 0.12 : cy + ch) * Z, cw * 0.36 * Z, 0.12 * Z, 2);
       ctx.fill();
@@ -1250,12 +1270,9 @@ function drawHolder(h, hi) {
   ctx.textAlign = 'center';
   ctx.fillStyle = '#d0d6de'; ctx.font = `${Math.max(9, Z * 0.5)}px sans-serif`;
   ctx.fillText(`${packShort(h)}×${cells} ${holderVolt(h).toFixed(1)}V`, h.x * Z, (h.y + rotV(0, -hh / 2 + 2.6, h.dir).y * 0) * Z + 4); // 중앙쯤
-  // 단자 라벨
-  ctx.font = 'bold 11px sans-serif';
-  ctx.fillStyle = '#2f3640';
-  ctx.fillText('−', g.t[1].x * Z, (g.t[1].y - 0.45) * Z);
-  ctx.fillStyle = '#d64545';
-  ctx.fillText('+', g.t[0].x * Z, (g.t[0].y - 0.45) * Z);
+  // 단자 라벨 — 크게, 흰 테두리
+  poleMark(g.t[1].x * Z, (g.t[1].y - 0.5) * Z, '−', '#2f3640');
+  poleMark(g.t[0].x * Z, (g.t[0].y - 0.5) * Z, '+', '#d64545');
   ctx.fillStyle = '#fff'; ctx.font = `bold ${Math.max(9, Z * 0.45)}px sans-serif`;
   ctx.fillText(h.on ? 'ON' : 'OFF', g.sw.x * Z, g.sw.y * Z + Z * 0.16);
   ctx.textAlign = 'left';
@@ -1284,8 +1301,8 @@ function drawCoinBody(h, hi) {
   // 탭에 찍힌 (+)(−) — 돌려도 글자는 바로 보이게
   const g2 = holderGeom(h);
   ctx.textAlign = 'center'; ctx.font = `bold ${Math.max(11, Z * 0.62)}px sans-serif`;
-  ctx.fillStyle = '#d64545'; ctx.fillText('+', g2.t[0].x * Z, (g2.t[0].y + 0.22) * Z);
-  ctx.fillStyle = '#2f3640'; ctx.fillText('−', g2.t[1].x * Z, (g2.t[1].y + 0.22) * Z);
+  poleMark(g2.t[0].x * Z, g2.t[0].y * Z, '+', '#d64545');
+  poleMark(g2.t[1].x * Z, g2.t[1].y * Z, '−', '#2f3640');
   ctx.fillStyle = '#6b7480'; ctx.font = `${Math.max(9, Z * 0.42)}px sans-serif`;
   ctx.fillText('CR2032 3.0V', h.x * Z, (h.y + COIN_R + 0.9) * Z);
   ctx.textAlign = 'left';
@@ -1370,7 +1387,9 @@ function updatePanel() {
       html += config.advanced
         ? `<p class="hint">지금은 LED에 전류가 그대로 흐르고 있어요. 전류를 알맞게 줄이려면 회로에 무엇이 더 있어야 할까요?</p>`
         : `<p class="muted small">이번 실습에서는 저항을 쓰지 않습니다. 참고로 저항을 넣으면 전류가 줄어 LED를 더 오래 쓸 수 있습니다.</p>`;
-  } else html += mode === 'placard'
+  } else html += readOnly
+    ? '<p class="muted">[스위치 켜기]를 누르면 이 학생의 회로에 불이 들어오는지 볼 수 있어요. 학생 작업은 바뀌지 않습니다.</p>'
+    : mode === 'placard'
     ? '<p class="muted">스위치가 꺼져 있어요. 몇 개가 켜질지 예측을 적고 스위치를 켜 보세요.</p>'
     : (C.holders.some(h => !isCoin(h))
       ? '<p class="muted">스위치가 꺼져 있어요. [스위치 켜기]를 눌러 보세요.</p>'
@@ -1553,9 +1572,29 @@ function rotateSelected() {
 }
 
 // 스위치: hi를 주면 그 홀더만, 없으면 전체 켜기/끄기 (버튼)
+let roPowered = false;   // 교사가 열람 중에 켜 두었는지
+function powerAllOn() {
+  const C = am();
+  C.holders.forEach(h => h.on = true);
+  syncTested(C);
+  updateSwitchButton();
+  resolveAndDraw();
+}
 function toggleSwitch(hi) {
   const C = am();
-  if (readOnly) return;
+  if (readOnly) {
+    // 열람 중 점등 확인 — 화면에서만 켜고 끈다. 저장되지 않고 학생 화면에도 영향이 없다.
+    if (!C.holders.length) {
+      $('circuit-info').innerHTML = '<p class="hint">이 학생은 아직 건전지 홀더를 놓지 않았습니다.</p>';
+      return;
+    }
+    roPowered = !C.holders.some(h => h.on);
+    C.holders.forEach(h => h.on = roPowered);
+    syncTested(C);
+    updateSwitchButton();
+    resolveAndDraw();
+    return;
+  }
   if (!C.holders.length) {
     $('circuit-info').innerHTML = '<p class="hint">먼저 건전지 홀더를 놓아 주세요. 스위치는 홀더에 달려 있어요.</p>';
     return;
@@ -2101,7 +2140,8 @@ export function initCircuit() {
   });
 
   // 들어올 때마다 '처음 여는 것'으로 되돌린다 (아래 refreshCircuit보다 먼저 등록해야 한다)
-  document.addEventListener('work-loaded', () => { circuitOpened = false; });
+  // 교사 열람 중에는 갱신될 때마다 되돌리지 않는다 — 보던 화면이 유지되어야 한다
+  document.addEventListener('work-loaded', () => { if (!readOnly) circuitOpened = false; });
   document.addEventListener('work-loaded', refreshCircuit);
   refreshCircuit();
 }
@@ -2265,6 +2305,10 @@ export function refreshCircuit() {
   $('guide-adv').style.display = config.advanced ? '' : 'none';
   // 회로 탭은 언제나 [회로 실험실]부터 — 원리를 먼저 익히고 플래카드로 간다.
   // 다만 같은 수업 중에 탭을 오갈 때는 보던 화면을 그대로 둔다.
-  setCircuitMode(circuitOpened ? mode : 'lab');
+  // 교사 열람 중에는 학생이 보던 화면으로 열고, 그 뒤로는 교사가 고른 화면을 지킨다
+  // (실시간 갱신 때마다 실험실로 돌아가면 완성된 회로를 볼 수 없다).
+  const first = readOnly ? (work.circuitMode === 'placard' ? 'placard' : 'lab') : 'lab';
+  setCircuitMode(circuitOpened ? mode : first);
   circuitOpened = true;
+  if (readOnly && roPowered) powerAllOn();   // 교사가 켜 둔 상태를 갱신 뒤에도 유지
 }

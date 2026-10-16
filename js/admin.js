@@ -1,15 +1,15 @@
 // 관리자 모드: 로그인 화면의 [관리자] 버튼 또는 URL ?admin=1 → PIN 입력.
 import { config, saveConfig, exportConfigCode, importConfigCode, getMisses, clearMisses,
          cloudList, cloudListBan, cloudGet, cloudDelete, cloudResetAll, cloudAllow, cloudHistory, cloudRestore, getTeacherKey, setTeacherKey,
-         defaultPrivacyBody, fetchCodeSalt,
+         defaultPrivacyBody, fetchCodeSalt, cloudStuCode, cloudStuCodeOff,
          cloudPushConfig, setReadOnlyWork, DEFAULT_CONFIG, DEFAULT_RUBRIC,
          sheetLogFor, sheetFlushNow, todayCode, classSessionCode, codeKeyOf, autoSessionCode, studentDayCode,
          checkAdminPin, syncAdminPin,
          makeSid, parseSid, weekKeyOf, timetableForWeek, runsOf, todayRuns,
          rosterActive, getRoster, setRoster, readOnly, presetNames, savePreset, loadPreset, deletePreset,
-         BLOCKED_STATUS } from './state.js?v=101';
-import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=101';
-import { switchTab } from './app.js?v=101';
+         BLOCKED_STATUS } from './state.js?v=102';
+import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=102';
+import { switchTab } from './app.js?v=102';
 
 const $ = id => document.getElementById(id);
 
@@ -98,6 +98,10 @@ function renderSettings() {
   FIELDS.map(([k, label, type]) => {
     if (type === 'checkbox')
       return `<label class="adm-row"><span>${label}</span><input type="checkbox" data-k="${k}" ${config[k] ? 'checked' : ''}></label>`;
+    if (k === 'adminPin')
+      return `<label class="adm-row"><span>${label}</span>
+        <span class="pin-wrap"><input type="password" data-k="adminPin" autocomplete="off" value="${esc(config[k] ?? '')}">
+        <button type="button" id="adm-pin-eye" class="small-btn" title="잠깐 보기">보기</button></span></label>`;
     return `<label class="adm-row"><span>${label}</span><input type="${type}" data-k="${k}" value="${esc(config[k] ?? '')}" step="any"></label>`;
   }).join('') +
   `<label class="adm-row"><span>교사 열쇠 — 서버에 가명으로 저장된 작업을 번호로 되살릴 때 씁니다.
@@ -295,7 +299,24 @@ function renderEntry() {
     <p class="muted small">칸에 수업명을 적으세요: 반 번호(7), 학년-반(2-7, 1-8), 또는 그룹 이름(메이커반·동아리A). 비우면 수업 없음.</p>
     <h4>교시 시간</h4>
     <div id="ec-periods">${per.map(periodRow).join('')}</div>
-    <button id="ec-p-add" class="small-btn">+ 교시 추가</button>
+    <div class="tool-row">
+      <button id="ec-p-add" class="small-btn">+ 교시 추가</button>
+      <span class="muted small">한 교시 길이를 한꺼번에:</span>
+      <input id="ec-p-len" type="number" min="10" max="120" value="45" style="width:70px"> 분
+      <button id="ec-p-apply" class="small-btn">전체 적용</button>
+    </div>
+    <p class="muted small">단축수업처럼 길이만 달라질 때 씁니다. 시작 시각은 그대로 두고 끝나는 시각만 맞춥니다.</p>
+
+    <h4>미실시자 개인 코드</h4>
+    <p class="muted small">결석·보강 등으로 따로 들어오는 학생에게 줍니다.
+      발급한 때부터 정한 시간 동안만 쓸 수 있고, 그 학생 학번으로만 들어와집니다.</p>
+    <div class="tool-row">
+      <input id="ec-stu-sid" placeholder="학번 (예: 20627)" style="width:150px">
+      <input id="ec-stu-min" type="number" min="5" max="480" value="40" style="width:70px"> 분
+      <button id="ec-stu-make" class="small-btn">코드 발급</button>
+      <button id="ec-stu-off" class="small-btn">발급 취소</button>
+    </div>
+    <div id="ec-stu-out"></div>
     <p class="muted small">바꿨으면 [수업 설정] 탭의 [설정 저장]을 누르고, 설정 코드로 다른 기기에도 배포하세요.</p>`;
 
   const makeManual = () => {
@@ -347,6 +368,47 @@ function renderEntry() {
       return `<div class="adm-work-row">${esc(s)} (${p.grade}학년 ${p.ban}반 ${p.num}번) → <b>${studentDayCode(s)}</b> <span class="muted small">오늘만 유효</span></div>`;
     }).join('') || '<p class="muted">학번을 입력하세요.</p>';
   });
+  // 교시 길이를 한꺼번에 — 시작 시각은 그대로, 끝나는 시각만 맞춘다 (단축수업용)
+  $('ec-p-apply').addEventListener('click', () => {
+    const len = Math.max(10, Math.min(120, +$('ec-p-len').value || 45));
+    collectPeriods(); collectTimetable();
+    config.periods = (config.periods || []).map(p => {
+      const [h, m] = String(p.start || '09:00').split(':').map(Number);
+      const t = h * 60 + m + len;
+      return { start: p.start, end: `${String(Math.floor(t / 60) % 24).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}` };
+    });
+    renderEntry();
+    saveStatus(`교시 길이를 ${len}분으로 맞췄습니다 — [수업 설정] 탭의 [설정 저장]을 눌러 주세요.`, 'ok');
+  });
+
+  // 미실시자 개인 코드 발급 / 취소
+  $('ec-stu-make').addEventListener('click', async () => {
+    const sid = $('ec-stu-sid').value.trim();
+    if (!sid) { $('ec-stu-sid').focus(); return; }
+    const min = Math.max(5, Math.min(480, +$('ec-stu-min').value || 40));
+    try {
+      const r = await cloudStuCode(sid, min);
+      const row = Array.isArray(r) ? r[0] : r;
+      if (!row) throw new Error('응답이 비어 있습니다');
+      const until = new Date(row.until).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+      $('ec-stu-out').innerHTML =
+        `<p class="measure">${esc(sid)} 학생 코드: <b style="font-size:22px">${esc(row.code)}</b>` +
+        ` — <b>${esc(until)}</b>까지</p>`;
+    } catch (e) {
+      $('ec-stu-out').innerHTML = `<p class="warn">발급 실패: ${esc(e.message)} (교사 열쇠를 확인해 주세요)</p>`;
+    }
+  });
+  $('ec-stu-off').addEventListener('click', async () => {
+    const sid = $('ec-stu-sid').value.trim();
+    if (!sid) { $('ec-stu-sid').focus(); return; }
+    try {
+      await cloudStuCodeOff(sid);
+      $('ec-stu-out').innerHTML = `<p class="muted">${esc(sid)} 학생의 개인 코드를 거뒀습니다.</p>`;
+    } catch (e) {
+      $('ec-stu-out').innerHTML = `<p class="warn">취소 실패: ${esc(e.message)}</p>`;
+    }
+  });
+
   $('ec-p-add').addEventListener('click', () => {
     collectPeriods(); collectTimetable();
     config.periods.push({ start: '16:00', end: '16:45' });
@@ -582,13 +644,16 @@ function localWorks() {
   const out = [];
   for (let i = 0; i < localStorage.length; i++) {
     const k = localStorage.key(i);
-    const m = k && k.match(/^lps_work_(?:(\d+)-)?(\d+)-(\d+)$/);
-    if (m) {
-      try {
-        const w = JSON.parse(localStorage.getItem(k));
-        out.push({ grade: m[1] ? +m[1] : null, ban: +m[2], num: +m[3], id: k.slice('lps_work_'.length), updated: w.updatedAt, w });
-      } catch (e) { /* ignore */ }
-    }
+    if (!k || !k.startsWith('lps_work_')) continue;
+    const id = k.slice('lps_work_'.length);
+    // 지금 학번(20627)과 옛 형식(2-6-27 / 6-27) 둘 다 읽는다
+    const m = id.match(/^(?:(\d+)-)?(\d+)-(\d+)$/);
+    const p2 = m ? { grade: m[1] ? +m[1] : null, ban: +m[2], num: +m[3] } : parseSid(id);
+    if (!p2) continue;
+    try {
+      const w = JSON.parse(localStorage.getItem(k));
+      out.push({ grade: p2.grade ?? null, ban: p2.ban, num: p2.num, id, updated: w.updatedAt, w });
+    } catch (e) { /* 손상된 값은 건너뛴다 */ }
   }
   return out.sort((a, b) => a.ban - b.ban || a.num - b.num);
 }
@@ -1453,6 +1518,14 @@ export function initAdmin() {
         ? '모든 학생 기기에 적용됩니다. 학생은 새로고침하면 새로 시작합니다.'
         : '이 기기에만 적용됐습니다 — 서버 연결을 확인하고 [설정 저장]을 눌러 주세요.');
     });
+
+  $('adm-settings').addEventListener('click', e => {
+    if (e.target.id !== 'adm-pin-eye') return;
+    const inp = $('adm-settings').querySelector('[data-k="adminPin"]');
+    const show = inp.type === 'password';
+    inp.type = show ? 'text' : 'password';
+    e.target.textContent = show ? '가리기' : '보기';
+  });
 
   $('adm-privacy-default').addEventListener('click', async () => {
     if ($('adm-privacy').value.trim() &&

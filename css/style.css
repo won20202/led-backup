@@ -433,3 +433,7 @@ button.link:hover { color: #4a5561; background: transparent; }
 #privacy-body th, #privacy-body td { border: 1px solid #d5dbe3; padding: 6px 8px; text-align: left; vertical-align: top; }
 #privacy-body th { background: #eef2f7; }
 #privacy-body ul, #privacy-body ol { padding-left: 20px; }
+
+/* 관리자 PIN — 가려 두고 [보기]로 잠깐 확인 */
+.pin-wrap { display: inline-flex; gap: 6px; align-items: center; }
+.pin-wrap input { flex: 1; }

@@ -2,14 +2,14 @@
 import { config, login, student, onCloudStatus, sheetLog, todayCode,
          sessionCodeValid, studentDayCode, sidInList, parseSid, makeSid, sidLength,
          rosterActive, rosterStatus, BLOCKED_STATUS, work, touch, allowedGrades,
-         checkAdminPin, setDemoAccount } from './state.js?v=101';
-import { initCase, refreshFromWork } from './case3d.js?v=101';
-import { initCircuit, refreshCircuit } from './circuit.js?v=101';
-import { initDesign, refreshDesign } from './design.js?v=101';
-import { initAssembly, refreshAssembly } from './assembly.js?v=101';
-import { initPreview, drawPreview } from './preview.js?v=101';
-import { initFaq } from './faq.js?v=101';
-import { initAdmin, openAdmin } from './admin.js?v=101';
+         checkAdminPin, setDemoAccount } from './state.js?v=102';
+import { initCase, refreshFromWork } from './case3d.js?v=102';
+import { initCircuit, refreshCircuit } from './circuit.js?v=102';
+import { initDesign, refreshDesign } from './design.js?v=102';
+import { initAssembly, refreshAssembly } from './assembly.js?v=102';
+import { initPreview, drawPreview } from './preview.js?v=102';
+import { initFaq } from './faq.js?v=102';
+import { initAdmin, openAdmin } from './admin.js?v=102';
 
 const $ = id => document.getElementById(id);
 
@@ -215,7 +215,7 @@ onCloudStatus(s => {
 });
 
 // 개발·수업 중 문제 진단용 (학생 화면에는 영향 없음)
-import * as state from './state.js?v=101';
+import * as state from './state.js?v=102';
 window.__lps = state;
 
 setupLogin();

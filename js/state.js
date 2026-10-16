@@ -926,6 +926,14 @@ export async function wipeLocal() {
   student = null;
 }
 
+// 미실시자 개인 코드 — 발급(정한 시간 동안만) / 거두기
+export async function cloudStuCode(sid, minutes) {
+  return rpc('lps_teacher_stucode', { p_key: getTeacherKey(), p_sid: String(sid), p_minutes: minutes || 40 });
+}
+export async function cloudStuCodeOff(sid) {
+  return rpc('lps_teacher_stucode_off', { p_key: getTeacherKey(), p_sid: String(sid) });
+}
+
 // 되살릴 수 있는 시각 목록 / 그 시점으로 되돌리기
 export async function cloudHistory(sid) {
   return rpc('lps_teacher_history', { p_key: getTeacherKey(), p_sid: String(sid) });
