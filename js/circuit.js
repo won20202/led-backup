@@ -2,8 +2,8 @@
 // [입체로 보기]로 조립된 모습을 확인한다. 연결 여부는 "접었을 때의 실제 거리"로 판단하므로
 // 테이프가 접히는 모서리를 넘어가도, 면과 면이 만나는 곳에서도 자연스럽게 이어진다.
 // 스위치를 켜야 불이 들어온다. 배치를 바꾸면 스위치는 다시 꺼진다.
-import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=104';
-import { renderLogList } from './case3d.js?v=104';
+import { config, work, addLog, touch, readOnly, sheetLog } from './state.js?v=105';
+import { renderLogList } from './case3d.js?v=105';
 
 const $ = id => document.getElementById(id);
 
@@ -1244,18 +1244,18 @@ function drawHolder(h, hi) {
     for (let ci = 0; ci < cells; ci++) {
       const cx = (ci % cols - (cols - 1) / 2) * (cw + 0.15);
       const cy = cy0 + Math.floor(ci / cols) * rowH;
-      // 실물 AA 건전지 — 은색 몸통에 검은 머리 (머리 쪽이 (+)극)
-      ctx.fillStyle = '#c3c7cc';
+      // 실물 AA 건전지 — 흰 몸통에 주황 머리 (머리 쪽이 (+)극)
+      ctx.fillStyle = '#eceff3';
       ctx.beginPath(); ctx.roundRect((cx - cw / 2) * Z, cy * Z, cw * Z, ch * Z, 5); ctx.fill();
-      ctx.strokeStyle = '#8b9099'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.strokeStyle = '#a9b0b8'; ctx.lineWidth = 1; ctx.stroke();
       // 실물 홀더는 전지를 번갈아 반대로 넣어야 (+)와 (−)가 이어진다 — 머리 방향도 번갈아
       const headTop = ci % 2 === 0;
-      ctx.fillStyle = '#2b2b2b';   // (+) 쪽 머리
+      ctx.fillStyle = '#e0742a';   // (+) 쪽 머리
       ctx.beginPath();
       ctx.roundRect((cx - cw / 2) * Z, (headTop ? cy : cy + ch - headH) * Z, cw * Z, headH * Z, 5);
       ctx.fill();
       // 머리 끝의 돌기 (+ 극 표시)
-      ctx.fillStyle = '#e3e6ea';   // 머리 끝 돌기 — 밝게 해서 (+)가 눈에 띄게
+      ctx.fillStyle = '#f5c08a';   // 머리 끝 돌기 — 밝게 해서 (+)가 눈에 띄게
       ctx.beginPath();
       ctx.roundRect((cx - cw * 0.18) * Z, (headTop ? cy - 0.12 : cy + ch) * Z, cw * 0.36 * Z, 0.12 * Z, 2);
       ctx.fill();
