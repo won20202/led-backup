@@ -7,9 +7,9 @@ import { config, saveConfig, exportConfigCode, importConfigCode, getMisses, clea
          checkAdminPin, syncAdminPin,
          makeSid, parseSid, weekKeyOf, timetableForWeek, runsOf, todayRuns,
          rosterActive, getRoster, setRoster, readOnly, presetNames, savePreset, loadPreset, deletePreset,
-         BLOCKED_STATUS } from './state.js?v=102';
-import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=102';
-import { switchTab } from './app.js?v=102';
+         BLOCKED_STATUS } from './state.js?v=103';
+import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=103';
+import { switchTab } from './app.js?v=103';
 
 const $ = id => document.getElementById(id);
 
@@ -390,7 +390,7 @@ function renderEntry() {
       const r = await cloudStuCode(sid, min);
       const row = Array.isArray(r) ? r[0] : r;
       if (!row) throw new Error('응답이 비어 있습니다');
-      const until = new Date(row.until).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+      const until = new Date(row.expires || row.until).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
       $('ec-stu-out').innerHTML =
         `<p class="measure">${esc(sid)} 학생 코드: <b style="font-size:22px">${esc(row.code)}</b>` +
         ` — <b>${esc(until)}</b>까지</p>`;
