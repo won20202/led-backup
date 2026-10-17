@@ -1,15 +1,15 @@
 // 관리자 모드: 로그인 화면의 [관리자] 버튼 또는 URL ?admin=1 → PIN 입력.
 import { config, saveConfig, exportConfigCode, importConfigCode, getMisses, clearMisses,
          cloudList, cloudListBan, cloudGet, cloudDelete, cloudResetAll, cloudAllow, cloudHistory, cloudRestore, getTeacherKey, setTeacherKey,
-         defaultPrivacyBody, fetchCodeSalt, cloudStuCode, cloudStuCodeOff,
+         defaultPrivacyBody, fetchCodeSalt, cloudStuCode, cloudStuCodeOff, forgetTeacherDevice,
          cloudPushConfig, setReadOnlyWork, DEFAULT_CONFIG, DEFAULT_RUBRIC,
          sheetLogFor, sheetFlushNow, todayCode, classSessionCode, codeKeyOf, autoSessionCode, studentDayCode,
          checkAdminPin, syncAdminPin,
          makeSid, parseSid, weekKeyOf, timetableForWeek, runsOf, todayRuns,
          rosterActive, getRoster, setRoster, readOnly, presetNames, savePreset, loadPreset, deletePreset,
-         BLOCKED_STATUS } from './state.js?v=103';
-import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=103';
-import { switchTab } from './app.js?v=103';
+         BLOCKED_STATUS } from './state.js?v=104';
+import { TIPS as ORDER_TIPS, SAFETY as ORDER_SAFETY } from './assembly.js?v=104';
+import { switchTab } from './app.js?v=104';
 
 const $ = id => document.getElementById(id);
 
@@ -106,7 +106,9 @@ function renderSettings() {
   }).join('') +
   `<label class="adm-row"><span>교사 열쇠 — 서버에 가명으로 저장된 작업을 번호로 되살릴 때 씁니다.
      이 기기에만 저장되고 학생에게는 가지 않습니다. (Supabase에서 가명처리 SQL을 실행하면 나오는 값)</span>
-     <input type="text" id="adm-tkey" value="${esc(getTeacherKey())}"></label>` +
+     <input type="text" id="adm-tkey" value="${esc(getTeacherKey())}"></label>
+   <div class="tool-row"><button type="button" id="adm-forget" class="small-btn">이 기기에서 교사 권한 내려놓기</button>
+     <span class="muted small">공용 PC·남의 노트북에서 관리자를 열었다면 쓰고 나서 눌러 주세요.</span></div>` +
   `<label class="adm-row"><span>처음 열리는 탭</span>
      <select data-k="startTab">
        <option value="case" ${config.startTab === 'case' ? 'selected' : ''}>케이스</option>
@@ -1520,6 +1522,14 @@ export function initAdmin() {
     });
 
   $('adm-settings').addEventListener('click', e => {
+    if (e.target.id === 'adm-forget') {
+      if (!confirm('이 기기에 저장된 교사용 자료(교사 열쇠·입장 코드 씨앗·관리자 PIN·명단)를 모두 지웁니다. 학생 작업과 서버 자료는 그대로입니다. 계속할까요?')) return;
+      if (!confirm('지운 뒤에는 이 기기에서 관리자 화면을 열 때 PIN을 다시 넣어야 합니다. 진행할까요?')) return;
+      forgetTeacherDevice();
+      alert('이 기기에서 교사 권한을 내려놓았습니다. 화면을 새로 엽니다.');
+      location.reload();
+      return;
+    }
     if (e.target.id !== 'adm-pin-eye') return;
     const inp = $('adm-settings').querySelector('[data-k="adminPin"]');
     const show = inp.type === 'password';

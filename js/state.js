@@ -285,7 +285,7 @@ export async function hashPin(pin) {
 export async function checkAdminPin(input) {
   const h = await hashPin(input);
   if (config.adminPinHash && h === config.adminPinHash) return true;   // 이 기기에서 이미 정한 PIN
-  if (!config.adminPinHash && String(input) === String(config.adminPin)) return true; // 옛 설정
+  if (!config.adminPinHash && config.adminPin && String(input) === String(config.adminPin)) return true; // 옛 설정
   // 다른 기기(노트북 등) — 서버에 물어본다. 맞으면 교사 열쇠까지 받아 온다.
   try {
     const key = await rpc('lps_admin_open', { p_hash: h });
@@ -831,6 +831,16 @@ export async function fetchCodeSalt() {
     if (v) { setCodeSalt(v); return true; }
   } catch (e) { /* 서버가 없거나 열쇠가 없으면 그대로 */ }
   return false;
+}
+
+// 공용 PC 등에서 관리자를 열었을 때 — 이 기기에 남은 교사용 자료를 모두 지운다
+export function forgetTeacherDevice() {
+  [TEACHER_KEY, SALT_KEY, ROSTER_KEY].forEach(k => {
+    try { localStorage.removeItem(k); } catch (e) { /* 못 지워도 계속 */ }
+  });
+  config.adminPin = '';
+  config.adminPinHash = '';
+  saveConfig();
 }
 
 // 교사 열쇠 — 서버의 구분 기호를 번호로 되돌릴 때 쓴다. 이 기기에만 저장한다.
